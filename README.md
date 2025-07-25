@@ -97,3 +97,6 @@ DisasterApp/
 - Implement interfaces in the Infrastructure layer
 - Keep controllers thin - delegate to Application services
 - Write tests for business logic in the Domain and Application layers
+
+
+//
