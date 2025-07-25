@@ -1,0 +1,295 @@
+using DisasterApp.Application.DTOs;
+using DisasterApp.Application.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using DisasterApp.Infrastructure.Data;
+
+namespace DisasterApp.WebApi.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
+{
+    private readonly DisasterDbContext _context;
+    private readonly IAuthService _authService;
+    private readonly ILogger<AuthController> _logger;
+
+    public AuthController(DisasterDbContext context, IAuthService authService, ILogger<AuthController> logger)
+    {
+        _context = context;
+        _authService = authService;
+        _logger = logger;
+    }
+
+    /// User login endpoint
+
+    [HttpPost("login")]
+    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.LoginAsync(request);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Login failed for email: {Email}. Reason: {Reason}", request.Email, ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for email: {Email}", request.Email);
+            return StatusCode(500, new { message = "An error occurred during login" });
+        }
+    }
+
+
+    /// User signup endpoint
+
+    [HttpPost("signup")]
+    public async Task<ActionResult<AuthResponseDto>> Signup([FromBody] SignupRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.SignupAsync(request);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Signup failed for email: {Email}. Reason: {Reason}", request.Email, ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during signup for email: {Email}", request.Email);
+            return StatusCode(500, new { message = "An error occurred during signup" });
+        }
+    }
+
+
+    /// Google OAuth login endpoint
+
+    [HttpPost("google-login")]
+    public async Task<ActionResult<AuthResponseDto>> GoogleLogin([FromBody] GoogleLoginRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.GoogleLoginAsync(request);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Google login failed. Reason: {Reason}", ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Google login configuration error. Reason: {Reason}", ex.Message);
+            return StatusCode(500, new { message = "Google authentication is not properly configured" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during Google login");
+            return StatusCode(500, new { message = "An error occurred during Google login" });
+        }
+    }
+
+    /// Refresh access token using refresh token
+    [HttpPost("refresh")]
+    public async Task<ActionResult<AuthResponseDto>> RefreshToken([FromBody] RefreshTokenRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.RefreshTokenAsync(request);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Token refresh failed. Reason: {Reason}", ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during token refresh");
+            return StatusCode(500, new { message = "An error occurred during token refresh" });
+        }
+    }
+
+    /// User logout endpoint
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<ActionResult> Logout([FromBody] RefreshTokenRequestDto request)
+    {
+        try
+        {
+            var success = await _authService.LogoutAsync(request.RefreshToken);
+            if (success)
+            {
+                return Ok(new { message = "Logged out successfully" });
+            }
+            return BadRequest(new { message = "Invalid refresh token" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during logout");
+            return StatusCode(500, new { message = "An error occurred during logout" });
+        }
+    }
+
+
+    /// Validate access token
+
+    [HttpGet("validate")]
+    [Authorize]
+    public async Task<ActionResult> ValidateToken()
+    {
+        try
+        {
+            var token = Request.Headers.Authorization.ToString().Replace("Bearer ", "");
+            var isValid = await _authService.ValidateTokenAsync(token);
+
+            if (isValid)
+            {
+                return Ok(new { message = "Token is valid", user = User.Identity?.Name });
+            }
+            return Unauthorized(new { message = "Token is invalid" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during token validation");
+            return StatusCode(500, new { message = "An error occurred during token validation" });
+        }
+    }
+
+
+    /// Get current user information
+
+    [HttpGet("me")]
+    [Authorize]
+    public ActionResult GetCurrentUser()
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var userRoles = User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+
+            return Ok(new
+            {
+                userId,
+                name = userName,
+                email = userEmail,
+                roles = userRoles
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting current user");
+            return StatusCode(500, new { message = "An error occurred while getting user information" });
+        }
+    }
+
+
+    /// <summary>
+    /// Initiate password reset process
+    /// </summary>
+    [HttpPost("forgot-password")]
+    public async Task<ActionResult<ForgotPasswordResponseDto>> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.ForgotPasswordAsync(request);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forgot password for email: {Email}", request.Email);
+            return StatusCode(500, new ForgotPasswordResponseDto
+            {
+                Success = false,
+                Message = "An error occurred while processing your request"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Reset password using reset token
+    /// </summary>
+    [HttpPost("reset-password")]
+    public async Task<ActionResult<ForgotPasswordResponseDto>> ResetPassword([FromBody] ResetPasswordRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.ResetPasswordAsync(request);
+            if (!response.Success)
+            {
+                return BadRequest(response);
+            }
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during password reset");
+            return StatusCode(500, new ForgotPasswordResponseDto
+            {
+                Success = false,
+                Message = "An error occurred while resetting your password"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Verify reset token validity
+    /// </summary>
+    [HttpPost("verify-reset-token")]
+    public async Task<ActionResult<VerifyResetTokenResponseDto>> VerifyResetToken([FromBody] VerifyResetTokenRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.VerifyResetTokenAsync(request);
+            if (!response.IsValid)
+            {
+                return BadRequest(response);
+            }
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during token verification");
+            return StatusCode(500, new VerifyResetTokenResponseDto
+            {
+                IsValid = false,
+                Message = "An error occurred while verifying the token"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Validate password strength
+    /// </summary>
+    [HttpPost("validate-password")]
+    public ActionResult ValidatePassword([FromBody] ValidatePasswordRequestDto request)
+    {
+        try
+        {
+            // This would require injecting IPasswordValidationService into the controller
+            // For now, we'll use basic validation that matches the DTO validation
+            var isValid = !string.IsNullOrWhiteSpace(request.Password) &&
+                         request.Password.Length >= 8 &&
+                         System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]");
+
+            return Ok(new
+            {
+                isValid,
+                message = isValid ? "Password meets requirements" : "Password does not meet strength requirements"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during password validation");
+            return StatusCode(500, new { message = "An error occurred while validating the password" });
+        }
+    }
+}

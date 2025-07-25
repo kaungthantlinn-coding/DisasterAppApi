@@ -1,0 +1,12 @@
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\bin\Debug\net9.0\DisasterApp.Domain.deps.json
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\bin\Debug\net9.0\DisasterApp.Domain.dll
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\bin\Debug\net9.0\DisasterApp.Domain.pdb
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.AssemblyInfoInputs.cache
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.AssemblyInfo.cs
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.csproj.CoreCompileInputs.cache
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.sourcelink.json
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.dll
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\refint\DisasterApp.Domain.dll
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\DisasterApp.Domain.pdb
+D:\DisasterFinal\DisasterBackend\src\DisasterApp.Domain\obj\Debug\net9.0\ref\DisasterApp.Domain.dll
