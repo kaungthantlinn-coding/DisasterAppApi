@@ -2,9 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DisasterApp.Application.Validation;
 
-/// <summary>
+
 /// Validation attribute to ensure role names are valid
-/// </summary>
+
 public class ValidRoleNamesAttribute : ValidationAttribute
 {
     private static readonly string[] ValidRoles = { "user", "admin", "cj" };

@@ -30,9 +30,6 @@
     <ProjectReference Include="..\DisasterApp.Infrastructure\DisasterApp.Infrastructure.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Remove="wwwroot\uploads\chat\d22261be-e772-432d-b2f7-1b7115887d48.png" />
-    <None Include="wwwroot\uploads\chat\d22261be-e772-432d-b2f7-1b7115887d48.png" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+
 
 </Project>

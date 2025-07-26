@@ -15,9 +15,6 @@ public static class DataSeeder
 
         try
         {
-            // Ensure database is created
-            await context.Database.EnsureCreatedAsync();
-
             // Seed roles
             await SeedRolesAsync(context, logger);
 
