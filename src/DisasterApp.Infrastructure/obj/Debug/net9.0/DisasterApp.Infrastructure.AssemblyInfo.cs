@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DisasterApp.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b3c1206b873ae4b894d6a2b46997efdc4b34147c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ae3afe2ea8ba66103e5227e96c6ded12e5f77b05")]
 [assembly: System.Reflection.AssemblyProductAttribute("DisasterApp.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DisasterApp.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
