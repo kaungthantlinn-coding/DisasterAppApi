@@ -152,7 +152,7 @@ public class UserManagementService : IUserManagementService
                 Email = createUserDto.Email,
                 PhotoUrl = createUserDto.PhotoUrl,
                 PhoneNumber = createUserDto.PhoneNumber,
-                AuthProvider = "local",
+                AuthProvider = "Email",
                 AuthId = hashedPassword,
                 IsBlacklisted = createUserDto.IsBlacklisted,
                 CreatedAt = DateTime.UtcNow
@@ -387,7 +387,7 @@ public class UserManagementService : IUserManagementService
             if (user == null) return false;
 
             // Only allow password change for local auth users
-            if (user.AuthProvider != "local")
+            if (user.AuthProvider != "Email")
             {
                 throw new InvalidOperationException("Cannot change password for non-local authentication users");
             }

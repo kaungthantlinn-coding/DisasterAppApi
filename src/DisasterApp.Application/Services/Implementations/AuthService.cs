@@ -48,7 +48,7 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid email or password");
 
         // For OAuth users, they don't have a password stored
-        if (user.AuthProvider != "local")
+        if (user.AuthProvider != "Email")
             throw new UnauthorizedAccessException("Please use social login for this account");
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.AuthId))
@@ -91,7 +91,7 @@ public class AuthService : IAuthService
             UserId = Guid.NewGuid(),
             Name = request.FullName,
             Email = request.Email,
-            AuthProvider = "local",
+            AuthProvider = "Email",
             AuthId = hashedPassword,
             CreatedAt = DateTime.UtcNow,
             IsBlacklisted = false
@@ -146,10 +146,10 @@ public class AuthService : IAuthService
             if (existingUser != null)
             {
                 // User exists, log them in
-                if (existingUser.AuthProvider != "google")
+                if (existingUser.AuthProvider != "Google")
                 {
                     // Update existing local user to Google auth
-                    existingUser.AuthProvider = "google";
+                    existingUser.AuthProvider = "Google";
                     existingUser.AuthId = payload.Subject;
                     existingUser.PhotoUrl = payload.Picture;
                     await _userRepository.UpdateAsync(existingUser);
@@ -184,7 +184,7 @@ public class AuthService : IAuthService
                     UserId = Guid.NewGuid(),
                     Name = payload.Name,
                     Email = payload.Email,
-                    AuthProvider = "google",
+                    AuthProvider = "Google",
                     AuthId = payload.Subject,
                     PhotoUrl = payload.Picture,
                     CreatedAt = DateTime.UtcNow,
@@ -353,7 +353,7 @@ public class AuthService : IAuthService
             var user = await _userRepository.GetByEmailAsync(request.Email);
 
             // Always return success to prevent email enumeration attacks
-            if (user == null || user.AuthProvider != "local")
+            if (user == null || user.AuthProvider != "Email")
             {
                 return new ForgotPasswordResponseDto
                 {
@@ -415,7 +415,7 @@ public class AuthService : IAuthService
             }
 
             var user = resetToken.User;
-            if (user.AuthProvider != "local")
+            if (user.AuthProvider != "Email")
             {
                 return new ForgotPasswordResponseDto
                 {
