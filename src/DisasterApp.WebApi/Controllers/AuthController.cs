@@ -224,6 +224,22 @@ public class AuthController : ControllerBase
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value.Errors.Count > 0)
+                    .SelectMany(x => x.Value.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                _logger.LogWarning("Password reset validation failed: {Errors}", string.Join("; ", errors));
+                return BadRequest(new ForgotPasswordResponseDto
+                {
+                    Success = false,
+                    Message = string.Join("; ", errors)
+                });
+            }
+
             var response = await _authService.ResetPasswordAsync(request);
             if (!response.Success)
             {

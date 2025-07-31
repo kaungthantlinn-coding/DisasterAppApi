@@ -532,16 +532,58 @@ public class AuthService : IAuthService
     {
         try
         {
-            var isValid = await _passwordResetTokenRepository.IsValidAsync(request.Token);
+            _logger.LogInformation("Verifying reset token: {Token}", request.Token);
 
+            // Get the token from database for detailed validation
+            var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(request.Token);
+
+            if (resetToken == null)
+            {
+                _logger.LogWarning("Token verification failed: Token not found in database: {Token}", request.Token);
+                return new VerifyResetTokenResponseDto
+                {
+                    IsValid = false,
+                    Message = "Invalid or expired token."
+                };
+            }
+
+            _logger.LogInformation("Token found. UserId: {UserId}, ExpiredAt: {ExpiredAt}, IsUsed: {IsUsed}, CreatedAt: {CreatedAt}",
+                resetToken.UserId, resetToken.ExpiredAt, resetToken.IsUsed, resetToken.CreatedAt);
+
+            var currentTime = DateTime.UtcNow;
+            _logger.LogInformation("Current UTC time: {CurrentTime}", currentTime);
+
+            if (resetToken.ExpiredAt <= currentTime)
+            {
+                _logger.LogWarning("Token verification failed: Token expired. Token: {Token}, ExpiredAt: {ExpiredAt}, CurrentTime: {CurrentTime}",
+                    request.Token, resetToken.ExpiredAt, currentTime);
+                return new VerifyResetTokenResponseDto
+                {
+                    IsValid = false,
+                    Message = "Invalid or expired token."
+                };
+            }
+
+            if (resetToken.IsUsed)
+            {
+                _logger.LogWarning("Token verification failed: Token already used: {Token}", request.Token);
+                return new VerifyResetTokenResponseDto
+                {
+                    IsValid = false,
+                    Message = "Invalid or expired token."
+                };
+            }
+
+            _logger.LogInformation("Token verification successful: {Token}", request.Token);
             return new VerifyResetTokenResponseDto
             {
-                IsValid = isValid,
-                Message = isValid ? "Token is valid." : "Invalid or expired token."
+                IsValid = true,
+                Message = "Token is valid."
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error occurred while verifying reset token: {Token}", request.Token);
             return new VerifyResetTokenResponseDto
             {
                 IsValid = false,
