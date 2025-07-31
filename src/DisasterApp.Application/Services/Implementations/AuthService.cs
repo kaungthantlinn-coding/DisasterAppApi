@@ -3,6 +3,7 @@ using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -22,6 +23,7 @@ public class AuthService : IAuthService
     private readonly IRoleService _roleService;
     private readonly IPasswordValidationService _passwordValidationService;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUserRepository userRepository,
@@ -30,7 +32,8 @@ public class AuthService : IAuthService
         IEmailService emailService,
         IRoleService roleService,
         IPasswordValidationService passwordValidationService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -39,6 +42,7 @@ public class AuthService : IAuthService
         _roleService = roleService;
         _passwordValidationService = passwordValidationService;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
@@ -350,11 +354,39 @@ public class AuthService : IAuthService
     {
         try
         {
+            _logger.LogInformation("Processing forgot password request for email: {Email}", request.Email);
+
             var user = await _userRepository.GetByEmailAsync(request.Email);
 
             // Always return success to prevent email enumeration attacks
-            if (user == null || user.AuthProvider != "Email")
+            if (user == null)
             {
+                _logger.LogInformation("Forgot password request for non-existent user: {Email}", request.Email);
+                return new ForgotPasswordResponseDto
+                {
+                    Success = true,
+                    Message = "If an account with that email exists, a password reset link has been sent."
+                };
+            }
+
+            // Handle different auth providers
+            if (user.AuthProvider != "Email")
+            {
+                _logger.LogInformation("Forgot password request for user with {AuthProvider} authentication: {Email}", user.AuthProvider, request.Email);
+
+                // Send informational email about their auth provider
+                var authProviderEmailSent = await _emailService.SendAuthProviderNotificationEmailAsync(user.Email, user.AuthProvider);
+
+                if (!authProviderEmailSent)
+                {
+                    _logger.LogWarning("Failed to send auth provider notification email to: {Email}", user.Email);
+                }
+                else
+                {
+                    _logger.LogInformation("Auth provider notification email sent successfully to: {Email}", user.Email);
+                }
+
+                // Still return success to prevent enumeration attacks
                 return new ForgotPasswordResponseDto
                 {
                     Success = true,
@@ -363,23 +395,38 @@ public class AuthService : IAuthService
             }
 
             // Delete any existing password reset tokens for this user
+            _logger.LogInformation("Deleting existing password reset tokens for user: {UserId}", user.UserId);
             await _passwordResetTokenRepository.DeleteAllUserTokensAsync(user.UserId);
 
             // Generate new reset token
+            _logger.LogInformation("Generating new password reset token for user: {UserId}", user.UserId);
             var resetToken = await GeneratePasswordResetTokenAsync(user.UserId);
 
             // Send reset email
             var resetUrl = _configuration["Frontend:BaseUrl"] + "/reset-password";
+            _logger.LogInformation("Attempting to send password reset email to: {Email}", user.Email);
             var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, resetToken.Token, resetUrl);
 
+            if (!emailSent)
+            {
+                _logger.LogError("Failed to send password reset email to: {Email}", user.Email);
+                return new ForgotPasswordResponseDto
+                {
+                    Success = false,
+                    Message = "Failed to send password reset email. Please try again later."
+                };
+            }
+
+            _logger.LogInformation("Password reset email sent successfully to: {Email}", user.Email);
             return new ForgotPasswordResponseDto
             {
                 Success = true,
                 Message = "If an account with that email exists, a password reset link has been sent."
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error occurred while processing forgot password request for email: {Email}", request.Email);
             return new ForgotPasswordResponseDto
             {
                 Success = false,
@@ -392,10 +439,14 @@ public class AuthService : IAuthService
     {
         try
         {
+            _logger.LogInformation("Processing password reset request for token: {Token}", request.Token);
+
             // Validate password strength
             var passwordValidation = _passwordValidationService.ValidatePassword(request.NewPassword);
             if (!passwordValidation.IsValid)
             {
+                _logger.LogWarning("Password validation failed for reset token: {Token}. Errors: {Errors}",
+                    request.Token, string.Join("; ", passwordValidation.Errors));
                 return new ForgotPasswordResponseDto
                 {
                     Success = false,
@@ -405,8 +456,30 @@ public class AuthService : IAuthService
 
             var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(request.Token);
 
-            if (resetToken == null || resetToken.ExpiredAt <= DateTime.UtcNow || resetToken.IsUsed)
+            if (resetToken == null)
             {
+                _logger.LogWarning("Password reset attempted with non-existent token: {Token}", request.Token);
+                return new ForgotPasswordResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid or expired reset token."
+                };
+            }
+
+            if (resetToken.ExpiredAt <= DateTime.UtcNow)
+            {
+                _logger.LogWarning("Password reset attempted with expired token: {Token}. Expired at: {ExpiredAt}",
+                    request.Token, resetToken.ExpiredAt);
+                return new ForgotPasswordResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid or expired reset token."
+                };
+            }
+
+            if (resetToken.IsUsed)
+            {
+                _logger.LogWarning("Password reset attempted with already used token: {Token}", request.Token);
                 return new ForgotPasswordResponseDto
                 {
                     Success = false,
@@ -417,6 +490,8 @@ public class AuthService : IAuthService
             var user = resetToken.User;
             if (user.AuthProvider != "Email")
             {
+                _logger.LogWarning("Password reset attempted for non-email user: {UserId}, AuthProvider: {AuthProvider}",
+                    user.UserId, user.AuthProvider);
                 return new ForgotPasswordResponseDto
                 {
                     Success = false,
@@ -425,22 +500,26 @@ public class AuthService : IAuthService
             }
 
             // Update user password
+            _logger.LogInformation("Updating password for user: {UserId}", user.UserId);
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.AuthId = hashedPassword;
 
             await _userRepository.UpdateAsync(user);
 
             // Mark token as used
+            _logger.LogInformation("Marking reset token as used: {Token}", request.Token);
             await _passwordResetTokenRepository.MarkAsUsedAsync(request.Token);
 
+            _logger.LogInformation("Password reset completed successfully for user: {UserId}", user.UserId);
             return new ForgotPasswordResponseDto
             {
                 Success = true,
                 Message = "Password has been reset successfully."
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error occurred while resetting password for token: {Token}", request.Token);
             return new ForgotPasswordResponseDto
             {
                 Success = false,

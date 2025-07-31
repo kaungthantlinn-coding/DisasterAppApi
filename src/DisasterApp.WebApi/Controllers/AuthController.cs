@@ -12,12 +12,14 @@ public class AuthController : ControllerBase
 {
     private readonly DisasterDbContext _context;
     private readonly IAuthService _authService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(DisasterDbContext context, IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(DisasterDbContext context, IAuthService authService, IEmailService emailService, ILogger<AuthController> logger)
     {
         _context = context;
         _authService = authService;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -290,6 +292,38 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during password validation");
             return StatusCode(500, new { message = "An error occurred while validating the password" });
+        }
+    }
+
+    /// <summary>
+    /// Test email functionality
+    /// </summary>
+    [HttpPost("test-email")]
+    public async Task<IActionResult> TestEmail([FromBody] ForgotPasswordRequestDto request)
+    {
+        try
+        {
+            _logger.LogInformation("=== EMAIL TEST ENDPOINT CALLED ===");
+            _logger.LogInformation("Testing email functionality for: {Email}", request.Email);
+
+            var result = await _emailService.SendEmailAsync(
+                request.Email,
+                "Test Email from Disaster Management System",
+                "<h1>Test Email</h1><p>This is a test email to verify email functionality is working.</p><p>If you receive this, email sending is working correctly!</p>"
+            );
+
+            _logger.LogInformation("Email test result: {Result}", result);
+
+            return Ok(new {
+                message = "Test email sent",
+                success = result,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending test email");
+            return StatusCode(500, new { message = "An error occurred while sending test email" });
         }
     }
 }
