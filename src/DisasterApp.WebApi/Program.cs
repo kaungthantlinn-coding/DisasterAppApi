@@ -31,6 +31,9 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+            builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+            builder.Services.AddScoped<IBackupCodeRepository, BackupCodeRepository>();
+            builder.Services.AddScoped<IOtpAttemptRepository, OtpAttemptRepository>();
 
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -39,6 +42,16 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
+
+            // Add Two-Factor Authentication services
+            builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
+            builder.Services.AddScoped<IOtpService, OtpService>();
+            builder.Services.AddScoped<IBackupCodeService, BackupCodeService>();
+            builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
+            builder.Services.AddScoped<ITokenService, TokenService>();
+            
+            // Add Email OTP services
+            builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
 
             // Add authorization
             builder.Services.AddAuthorization(options =>

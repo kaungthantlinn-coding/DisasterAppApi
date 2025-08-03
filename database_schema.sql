@@ -398,5 +398,67 @@ CREATE INDEX [IX_AuditLog_EntityType] ON [AuditLog] ([entity_type]);
 CREATE INDEX [IX_AuditLog_Timestamp] ON [AuditLog] ([timestamp]);
 
 -- =====================================================
+-- 12. OTP SYSTEM TABLES (Two-Factor Authentication)
+-- =====================================================
+
+-- OtpCode Table (One-Time Password codes for 2FA)
+CREATE TABLE [OtpCode] (
+    [id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [user_id] UNIQUEIDENTIFIER NOT NULL,
+    [code] NVARCHAR(6) NOT NULL,
+    [type] NVARCHAR(20) NOT NULL,
+    [expires_at] DATETIME2 NOT NULL,
+    [used_at] DATETIME2 NULL,
+    [created_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
+    [attempt_count] INT NOT NULL DEFAULT 0,
+    CONSTRAINT [PK_OtpCode_Id] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_OtpCode_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]) ON DELETE CASCADE
+);
+
+-- Create indexes on OtpCode table
+CREATE INDEX [IX_OtpCode_UserId] ON [OtpCode] ([user_id]);
+CREATE INDEX [IX_OtpCode_Code] ON [OtpCode] ([code]);
+CREATE INDEX [IX_OtpCode_Type] ON [OtpCode] ([type]);
+CREATE INDEX [IX_OtpCode_ExpiresAt] ON [OtpCode] ([expires_at]);
+CREATE INDEX [IX_OtpCode_UsedAt] ON [OtpCode] ([used_at]);
+
+-- OtpAttempt Table (Rate limiting and security monitoring)
+CREATE TABLE [OtpAttempt] (
+    [id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [user_id] UNIQUEIDENTIFIER NULL,
+    [ip_address] NVARCHAR(45) NOT NULL,
+    [attempt_type] NVARCHAR(20) NOT NULL,
+    [attempted_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
+    [success] BIT NOT NULL DEFAULT 0,
+    [email] NVARCHAR(255) NULL,
+    CONSTRAINT [PK_OtpAttempt_Id] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_OtpAttempt_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]) ON DELETE SET NULL
+);
+
+-- Create indexes on OtpAttempt table
+CREATE INDEX [IX_OtpAttempt_UserId] ON [OtpAttempt] ([user_id]);
+CREATE INDEX [IX_OtpAttempt_IpAddress] ON [OtpAttempt] ([ip_address]);
+CREATE INDEX [IX_OtpAttempt_AttemptType] ON [OtpAttempt] ([attempt_type]);
+CREATE INDEX [IX_OtpAttempt_AttemptedAt] ON [OtpAttempt] ([attempted_at]);
+CREATE INDEX [IX_OtpAttempt_Success] ON [OtpAttempt] ([success]);
+CREATE INDEX [IX_OtpAttempt_Email] ON [OtpAttempt] ([email]);
+
+-- BackupCode Table (Recovery codes for 2FA)
+CREATE TABLE [BackupCode] (
+    [id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [user_id] UNIQUEIDENTIFIER NOT NULL,
+    [code_hash] NVARCHAR(255) NOT NULL,
+    [used_at] DATETIME2 NULL,
+    [created_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT [PK_BackupCode_Id] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_BackupCode_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]) ON DELETE CASCADE
+);
+
+-- Create indexes on BackupCode table
+CREATE INDEX [IX_BackupCode_UserId] ON [BackupCode] ([user_id]);
+CREATE INDEX [IX_BackupCode_CodeHash] ON [BackupCode] ([code_hash]);
+CREATE INDEX [IX_BackupCode_UsedAt] ON [BackupCode] ([used_at]);
+
+-- =====================================================
 -- END OF SCHEMA CREATION
 -- =====================================================

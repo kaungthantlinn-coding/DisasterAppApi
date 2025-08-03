@@ -22,6 +22,11 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly IRoleService _roleService;
     private readonly IPasswordValidationService _passwordValidationService;
+    private readonly ITwoFactorService _twoFactorService;
+    private readonly IOtpService _otpService;
+    private readonly IBackupCodeService _backupCodeService;
+    private readonly IRateLimitingService _rateLimitingService;
+    private readonly ITokenService _tokenService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
 
@@ -32,6 +37,11 @@ public class AuthService : IAuthService
         IEmailService emailService,
         IRoleService roleService,
         IPasswordValidationService passwordValidationService,
+        ITwoFactorService twoFactorService,
+        IOtpService otpService,
+        IBackupCodeService backupCodeService,
+        IRateLimitingService rateLimitingService,
+        ITokenService tokenService,
         IConfiguration configuration,
         ILogger<AuthService> logger)
     {
@@ -41,6 +51,11 @@ public class AuthService : IAuthService
         _emailService = emailService;
         _roleService = roleService;
         _passwordValidationService = passwordValidationService;
+        _twoFactorService = twoFactorService;
+        _otpService = otpService;
+        _backupCodeService = backupCodeService;
+        _rateLimitingService = rateLimitingService;
+        _tokenService = tokenService;
         _configuration = configuration;
         _logger = logger;
     }
@@ -613,4 +628,382 @@ public class AuthService : IAuthService
         return await _passwordResetTokenRepository.CreateAsync(passwordResetToken);
 
     }
+
+    // Two-Factor Authentication methods
+
+    public async Task<EnhancedAuthResponseDto> LoginWithTwoFactorAsync(LoginRequestDto request)
+    {
+        try
+        {
+            var user = await _userRepository.GetByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return new EnhancedAuthResponseDto
+                {
+                    RequiresOTP = false,
+                    Message = "Invalid email or password"
+                };
+            }
+
+            // For OAuth users, they don't have a password stored
+            if (user.AuthProvider != "Email")
+            {
+                return new EnhancedAuthResponseDto
+                {
+                    RequiresOTP = false,
+                    Message = "Please use OAuth login for this account"
+                };
+            }
+
+            // Verify password
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.AuthId))
+            {
+                return new EnhancedAuthResponseDto
+                {
+                    RequiresOTP = false,
+                    Message = "Invalid email or password"
+                };
+            }
+
+            // Check if user is blacklisted
+            if (user.IsBlacklisted == true)
+            {
+                return new EnhancedAuthResponseDto
+                {
+                    RequiresOTP = false,
+                    Message = "Account has been suspended"
+                };
+            }
+
+            // Check if 2FA is enabled
+            if (user.TwoFactorEnabled)
+            {
+                // Generate login token for 2FA verification
+                var loginToken = _tokenService.GenerateLoginToken(user.UserId);
+
+                return new EnhancedAuthResponseDto
+                {
+                    RequiresOTP = true,
+                    LoginToken = loginToken,
+                    Message = "Please verify your identity with the code sent to your email"
+                };
+            }
+
+            // Complete login without 2FA
+            var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
+            var roles = userRoles.Select(r => r.Name).ToList();
+            var accessToken = GenerateAccessToken(user, roles);
+            var refreshToken = await GenerateRefreshTokenAsync(user.UserId);
+
+            var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+
+            return new EnhancedAuthResponseDto
+            {
+                RequiresOTP = false,
+                AuthResponse = new AuthResponseDto
+                {
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken.Token,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
+                    User = new UserDto
+                    {
+                        UserId = user.UserId,
+                        Name = user.Name,
+                        Email = user.Email,
+                        PhotoUrl = user.PhotoUrl,
+                        Roles = roles
+                    }
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during enhanced login for email: {Email}", request.Email);
+            return new EnhancedAuthResponseDto
+            {
+                RequiresOTP = false,
+                Message = "An error occurred during login"
+            };
+        }
+    }
+
+    public async Task<SendOtpResponseDto> SendOtpAsync(SendOtpRequestDto request, string ipAddress)
+    {
+        try
+        {
+            Guid userId;
+            string email;
+
+            // Determine user ID and email
+            if (!string.IsNullOrEmpty(request.LoginToken))
+            {
+                var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
+                if (userIdFromToken == null)
+                {
+                    return new SendOtpResponseDto
+                    {
+                        Success = false,
+                        Message = "Invalid or expired login token"
+                    };
+                }
+
+                userId = userIdFromToken.Value;
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    return new SendOtpResponseDto
+                    {
+                        Success = false,
+                        Message = "User not found"
+                    };
+                }
+                email = user.Email;
+            }
+            else if (!string.IsNullOrEmpty(request.Email))
+            {
+                var userByEmail = await _userRepository.GetByEmailAsync(request.Email);
+                if (userByEmail == null)
+                {
+                    return new SendOtpResponseDto
+                    {
+                        Success = false,
+                        Message = "User not found"
+                    };
+                }
+                userId = userByEmail.UserId;
+                email = userByEmail.Email;
+            }
+            else
+            {
+                return new SendOtpResponseDto
+                {
+                    Success = false,
+                    Message = "Either login token or email is required"
+                };
+            }
+
+            // Check rate limiting
+            if (!await _rateLimitingService.CanSendOtpAsync(userId, ipAddress))
+            {
+                var cooldown = await _rateLimitingService.GetOtpSendCooldownAsync(userId);
+                var message = cooldown.HasValue
+                    ? $"Too many OTP requests. Please wait {cooldown.Value.Minutes} minutes before requesting again."
+                    : "Too many OTP requests. Please try again later.";
+
+                return new SendOtpResponseDto
+                {
+                    Success = false,
+                    Message = message
+                };
+            }
+
+            // Send OTP
+            var response = await _otpService.SendOtpAsync(userId, request.Type);
+
+            // Record attempt
+            await _rateLimitingService.RecordAttemptAsync(userId, email, ipAddress, OtpAttemptTypes.SendOtp, response.Success);
+
+            if (response.Success && !string.IsNullOrEmpty(request.LoginToken))
+            {
+                response.LoginToken = request.LoginToken;
+            }
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending OTP");
+            return new SendOtpResponseDto
+            {
+                Success = false,
+                Message = "An error occurred while sending OTP"
+            };
+        }
+    }
+
+    public async Task<AuthResponseDto> VerifyOtpAsync(VerifyOtpRequestDto request, string ipAddress)
+    {
+        try
+        {
+            Guid userId;
+
+            // Determine user ID
+            if (!string.IsNullOrEmpty(request.LoginToken))
+            {
+                var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
+                if (userIdFromToken == null)
+                {
+                    throw new UnauthorizedAccessException("Invalid or expired login token");
+                }
+                userId = userIdFromToken.Value;
+            }
+            else if (!string.IsNullOrEmpty(request.Email))
+            {
+                var userByEmail = await _userRepository.GetByEmailAsync(request.Email);
+                if (userByEmail == null)
+                {
+                    throw new UnauthorizedAccessException("User not found");
+                }
+                userId = userByEmail.UserId;
+            }
+            else
+            {
+                throw new UnauthorizedAccessException("Either login token or email is required");
+            }
+
+            // Check rate limiting
+            if (!await _rateLimitingService.CanVerifyOtpAsync(userId, ipAddress))
+            {
+                await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, false);
+                throw new UnauthorizedAccessException("Too many verification attempts. Please try again later.");
+            }
+
+            // Verify OTP
+            var isValidOtp = await _otpService.VerifyOtpAsync(userId, request.Code, request.Type);
+
+            // Record attempt
+            await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, isValidOtp);
+
+            if (!isValidOtp)
+            {
+                throw new UnauthorizedAccessException("Invalid or expired verification code");
+            }
+
+            // Update 2FA last used
+            await _twoFactorService.UpdateLastUsedAsync(userId);
+
+            // Mark OTP as used now that authentication is successful
+            await _otpService.MarkOtpAsUsedAsync(userId, request.Code, request.Type);
+
+            // Complete login
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                throw new UnauthorizedAccessException("User not found");
+            }
+
+            var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
+            var roles = userRoles.Select(r => r.Name).ToList();
+            var accessToken = GenerateAccessToken(user, roles);
+            var refreshToken = await GenerateRefreshTokenAsync(user.UserId);
+
+            var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+
+            return new AuthResponseDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken.Token,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
+                User = new UserDto
+                {
+                    UserId = user.UserId,
+                    Name = user.Name,
+                    Email = user.Email,
+                    PhotoUrl = user.PhotoUrl,
+                    Roles = roles
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying OTP");
+            throw;
+        }
+    }
+
+    public async Task<AuthResponseDto> VerifyBackupCodeAsync(VerifyBackupCodeRequestDto request, string ipAddress)
+    {
+        try
+        {
+            Guid userId;
+
+            // Determine user ID
+            if (!string.IsNullOrEmpty(request.LoginToken))
+            {
+                var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
+                if (userIdFromToken == null)
+                {
+                    throw new UnauthorizedAccessException("Invalid or expired login token");
+                }
+                userId = userIdFromToken.Value;
+            }
+            else if (!string.IsNullOrEmpty(request.Email))
+            {
+                var userByEmail = await _userRepository.GetByEmailAsync(request.Email);
+                if (userByEmail == null)
+                {
+                    throw new UnauthorizedAccessException("User not found");
+                }
+                userId = userByEmail.UserId;
+            }
+            else
+            {
+                throw new UnauthorizedAccessException("Either login token or email is required");
+            }
+
+            // Check rate limiting
+            if (!await _rateLimitingService.CanVerifyOtpAsync(userId, ipAddress))
+            {
+                await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, false);
+                throw new UnauthorizedAccessException("Too many verification attempts. Please try again later.");
+            }
+
+            // Verify backup code
+            var isValidBackupCode = await _backupCodeService.VerifyAndUseBackupCodeAsync(userId, request.BackupCode);
+
+            // Record attempt
+            await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, isValidBackupCode);
+
+            if (!isValidBackupCode)
+            {
+                throw new UnauthorizedAccessException("Invalid backup code");
+            }
+
+            // Update 2FA last used
+            await _twoFactorService.UpdateLastUsedAsync(userId);
+
+            // Get remaining backup codes count
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null && user.BackupCodesRemaining > 0)
+            {
+                // Send notification about backup code usage
+                await _emailService.SendBackupCodeUsedEmailAsync(user.Email, user.BackupCodesRemaining);
+            }
+
+            // Complete login
+            if (user == null)
+            {
+                throw new UnauthorizedAccessException("User not found");
+            }
+
+            var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
+            var roles = userRoles.Select(r => r.Name).ToList();
+            var accessToken = GenerateAccessToken(user, roles);
+            var refreshToken = await GenerateRefreshTokenAsync(user.UserId);
+
+            var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+
+            return new AuthResponseDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken.Token,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
+                User = new UserDto
+                {
+                    UserId = user.UserId,
+                    Name = user.Name,
+                    Email = user.Email,
+                    PhotoUrl = user.PhotoUrl,
+                    Roles = roles
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying backup code");
+            throw;
+        }
+    }
+
+
 }

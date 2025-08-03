@@ -4,8 +4,6 @@ using DisasterApp.Application.Validation;
 namespace DisasterApp.Application.DTOs;
 
 
-/// DTO for creating a new user
-
 public class CreateUserDto
 {
     [Required]
@@ -33,7 +31,7 @@ public class CreateUserDto
 }
 
 
-/// DTO for updating an existing user
+
 
 public class UpdateUserDto
 {
@@ -58,7 +56,7 @@ public class UpdateUserDto
 }
 
 
-/// DTO for user details response
+
 
 public class UserDetailsDto
 {
@@ -75,7 +73,7 @@ public class UserDetailsDto
 }
 
 
-/// DTO for user list item
+
 
 public class UserListItemDto
 {
@@ -92,7 +90,7 @@ public class UserListItemDto
 }
 
 
-/// DTO for role information
+
 
 public class RoleDto
 {
@@ -100,7 +98,7 @@ public class RoleDto
     public string Name { get; set; } = null!;
 }
 
-/// DTO for user statistics
+
 
 public class UserStatisticsDto
 {
@@ -123,9 +121,6 @@ public class PagedUserListDto
     public bool HasNextPage => PageNumber < TotalPages;
 }
 
-/// <summary>
-/// DTO for user filtering and pagination parameters
-/// </summary>
 public class UserFilterDto
 {
     public int PageNumber { get; set; } = 1;
@@ -142,7 +137,7 @@ public class UserFilterDto
 }
 
 
-/// DTO for bulk user operations
+
 
 public class BulkUserOperationDto
 {
@@ -156,7 +151,7 @@ public class BulkUserOperationDto
 }
 
 
-/// DTO for user password change
+
 
 public class ChangeUserPasswordDto
 {
@@ -170,7 +165,7 @@ public class ChangeUserPasswordDto
 }
 
 
-/// DTO for updating user roles only
+
 
 public class UpdateUserRolesDto
 {
@@ -181,7 +176,7 @@ public class UpdateUserRolesDto
 }
 
 
-/// DTO for role update validation
+
 
 public class RoleUpdateValidationDto
 {
@@ -193,7 +188,7 @@ public class RoleUpdateValidationDto
 }
 
 
-/// DTO for user management dashboard statistics
+
 
 public class UserManagementStatsDto
 {
@@ -205,7 +200,7 @@ public class UserManagementStatsDto
     public int NewUsersToday { get; set; }
 }
 
-/// DTO for user deletion validation result
+
 
 public class UserDeletionValidationDto
 {
