@@ -71,11 +71,15 @@ public class RoleService : IRoleService
                     Action = "ROLE_ASSIGNED",
                     EntityType = "UserRole",
                     EntityId = userId.ToString(),
+                    Details = $"Assigned role '{roleName}' to user {userId}",
+                    Resource = "user-roles",
                     OldValues = null,
                     NewValues = System.Text.Json.JsonSerializer.Serialize(new { RoleName = roleName }),
                     UserId = performedByUserId,
                     UserName = performedByUserName,
                     Timestamp = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
                     IpAddress = ipAddress,
                     UserAgent = userAgent
                 };

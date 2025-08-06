@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DisasterApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -80,12 +80,18 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.Action)
                 .HasMaxLength(100)
                 .HasColumnName("action");
+            entity.Property(e => e.Severity)
+                .HasMaxLength(20)
+                .HasColumnName("severity");
             entity.Property(e => e.EntityType)
                 .HasMaxLength(100)
                 .HasColumnName("entity_type");
             entity.Property(e => e.EntityId)
                 .HasMaxLength(100)
                 .HasColumnName("entity_id");
+            entity.Property(e => e.Details)
+                .HasColumnType("nvarchar(max)")
+                .HasColumnName("details");
             entity.Property(e => e.OldValues)
                 .HasColumnType("nvarchar(max)")
                 .HasColumnName("old_values");
@@ -106,6 +112,18 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.UserAgent)
                 .HasMaxLength(500)
                 .HasColumnName("user_agent");
+            entity.Property(e => e.Resource)
+                .HasMaxLength(100)
+                .HasColumnName("resource");
+            entity.Property(e => e.Metadata)
+                .HasColumnType("nvarchar(max)")
+                .HasColumnName("metadata");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("updated_at");
 
             entity.HasOne(d => d.User).WithMany()
                 .HasForeignKey(d => d.UserId)

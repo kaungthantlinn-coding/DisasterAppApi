@@ -172,7 +172,16 @@ public class UpdateUserRolesDto
     [Required]
     [MinLength(1, ErrorMessage = "At least one role must be specified")]
     [ValidRoleNames]
-    public List<string> Roles { get; set; } = new();
+    public List<string> RoleNames { get; set; } = new();
+    
+    public string? Reason { get; set; }
+    
+    // Keep the old property for backward compatibility
+    public List<string> Roles 
+    { 
+        get => RoleNames; 
+        set => RoleNames = value; 
+    }
 }
 
 

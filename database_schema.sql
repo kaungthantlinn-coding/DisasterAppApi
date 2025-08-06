@@ -290,8 +290,10 @@ CREATE TABLE [Donation] (
 CREATE TABLE [AuditLog] (
     [audit_log_id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     [action] NVARCHAR(100) NOT NULL,
+    [severity] NVARCHAR(20) NOT NULL CHECK ([severity] IN ('info', 'warning', 'error', 'critical')),
     [entity_type] NVARCHAR(100) NOT NULL,
     [entity_id] NVARCHAR(100) NULL,
+    [details] NVARCHAR(MAX) NOT NULL,
     [old_values] NVARCHAR(MAX) NULL,
     [new_values] NVARCHAR(MAX) NULL,
     [user_id] UNIQUEIDENTIFIER NULL,
@@ -299,9 +301,20 @@ CREATE TABLE [AuditLog] (
     [timestamp] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     [ip_address] NVARCHAR(45) NULL,
     [user_agent] NVARCHAR(512) NULL,
+    [resource] NVARCHAR(100) NOT NULL,
+    [metadata] NVARCHAR(MAX) NULL,
+    [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    [updated_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT [PK_AuditLog_Id] PRIMARY KEY ([audit_log_id]),
     CONSTRAINT [FK_AuditLog_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id])
 );
+
+-- Create indexes for performance optimization on AuditLog table
+CREATE INDEX [IX_AuditLog_Timestamp] ON [AuditLog] ([timestamp] DESC);
+CREATE INDEX [IX_AuditLog_UserId] ON [AuditLog] ([user_id]);
+CREATE INDEX [IX_AuditLog_Action] ON [AuditLog] ([action]);
+CREATE INDEX [IX_AuditLog_Severity] ON [AuditLog] ([severity]);
+CREATE INDEX [IX_AuditLog_Resource] ON [AuditLog] ([resource]);
 
 -- =====================================================
 -- 10. INITIAL DATA SEEDING

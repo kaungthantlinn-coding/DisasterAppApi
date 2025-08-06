@@ -21,6 +21,15 @@ public static class DataSeeder
             // Seed roles
             await SeedRolesAsync(context, logger);
 
+            // Seed disaster types
+            await SeedDisasterTypesAsync(context, logger);
+
+            // Seed impact types
+            await SeedImpactTypesAsync(context, logger);
+
+            // Seed support types
+            await SeedSupportTypesAsync(context, logger);
+
             await context.SaveChangesAsync();
         }
         catch (Exception ex)
@@ -63,6 +72,97 @@ public static class DataSeeder
         await context.Roles.AddRangeAsync(roles);
         logger.LogInformation("Successfully seeded {Count} roles", roles.Count);
     }
+
+
+
+    private static async Task SeedDisasterTypesAsync(DisasterDbContext context, ILogger logger)
+    {
+        // Check if disaster types already exist
+        if (await context.DisasterTypes.AnyAsync())
+        {
+            logger.LogInformation("Disaster types already exist, skipping disaster type seeding");
+            return;
+        }
+
+        logger.LogInformation("Seeding disaster types...");
+
+        var disasterTypes = new List<DisasterType>
+        {
+            new DisasterType { Name = "Earthquake", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Flood", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Hurricane", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Wildfire", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Tornado", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Tsunami", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Volcanic Eruption", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Landslide", Category = Domain.Enums.DisasterCategory.Natural },
+            new DisasterType { Name = "Industrial Accident", Category = Domain.Enums.DisasterCategory.NonNatural },
+            new DisasterType { Name = "Transportation Accident", Category = Domain.Enums.DisasterCategory.NonNatural },
+            new DisasterType { Name = "Building Collapse", Category = Domain.Enums.DisasterCategory.NonNatural },
+            new DisasterType { Name = "Chemical Spill", Category = Domain.Enums.DisasterCategory.NonNatural }
+        };
+
+        await context.DisasterTypes.AddRangeAsync(disasterTypes);
+        logger.LogInformation("Successfully seeded {Count} disaster types", disasterTypes.Count);
+    }
+
+    private static async Task SeedImpactTypesAsync(DisasterDbContext context, ILogger logger)
+    {
+        // Check if impact types already exist
+        if (await context.ImpactTypes.AnyAsync())
+        {
+            logger.LogInformation("Impact types already exist, skipping impact type seeding");
+            return;
+        }
+
+        logger.LogInformation("Seeding impact types...");
+
+        var impactTypes = new List<ImpactType>
+        {
+            new ImpactType { Name = "Infrastructure Damage" },
+            new ImpactType { Name = "Casualties" },
+            new ImpactType { Name = "Environmental Impact" },
+            new ImpactType { Name = "Economic Loss" },
+            new ImpactType { Name = "Displacement" },
+            new ImpactType { Name = "Utility Disruption" },
+            new ImpactType { Name = "Communication Disruption" },
+            new ImpactType { Name = "Transportation Disruption" }
+        };
+
+        await context.ImpactTypes.AddRangeAsync(impactTypes);
+        logger.LogInformation("Successfully seeded {Count} impact types", impactTypes.Count);
+    }
+
+    private static async Task SeedSupportTypesAsync(DisasterDbContext context, ILogger logger)
+    {
+        // Check if support types already exist
+        if (await context.SupportTypes.AnyAsync())
+        {
+            logger.LogInformation("Support types already exist, skipping support type seeding");
+            return;
+        }
+
+        logger.LogInformation("Seeding support types...");
+
+        var supportTypes = new List<SupportType>
+        {
+            new SupportType { Name = "Emergency Medical" },
+            new SupportType { Name = "Search and Rescue" },
+            new SupportType { Name = "Food and Water" },
+            new SupportType { Name = "Shelter" },
+            new SupportType { Name = "Transportation" },
+            new SupportType { Name = "Communication" },
+            new SupportType { Name = "Security" },
+            new SupportType { Name = "Psychological Support" },
+            new SupportType { Name = "Financial Aid" },
+            new SupportType { Name = "Equipment and Supplies" }
+        };
+
+        await context.SupportTypes.AddRangeAsync(supportTypes);
+        logger.LogInformation("Successfully seeded {Count} support types", supportTypes.Count);
+    }
+
+
 
     private static async Task EnsureTwoFactorTablesExistAsync(DisasterDbContext context, ILogger logger)
     {

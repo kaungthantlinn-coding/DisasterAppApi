@@ -35,6 +35,16 @@ public class AuthController : ControllerBase
         try
         {
             var response = await _authService.LoginAsync(request);
+            
+            // Debug logging to check what's being returned
+            _logger.LogInformation("Login response for {Email}: AccessToken={HasToken}, User.UserId={UserId}, User.Name={Name}, User.Email={Email}, User.Roles={Roles}", 
+                request.Email, 
+                !string.IsNullOrEmpty(response.AccessToken),
+                response.User?.UserId,
+                response.User?.Name,
+                response.User?.Email,
+                response.User?.Roles != null ? string.Join(",", response.User.Roles) : "null");
+            
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -72,30 +82,36 @@ public class AuthController : ControllerBase
         }
     }
 
-
     /// Google OAuth login endpoint
-
     [HttpPost("google-login")]
     public async Task<ActionResult<AuthResponseDto>> GoogleLogin([FromBody] GoogleLoginRequestDto request)
     {
+        _logger.LogInformation("🚀 AuthController - GoogleLogin endpoint called. IdToken length: {TokenLength}, DeviceInfo: {DeviceInfo}", 
+            request?.IdToken?.Length ?? 0, request?.DeviceInfo ?? "N/A");
+        
         try
         {
             var response = await _authService.GoogleLoginAsync(request);
+            
+            _logger.LogInformation("✅ AuthController - GoogleLogin successful. Returning user: {UserId}, Name: {Name}, Email: {Email}, Roles: {Roles}", 
+                response?.User?.UserId, response?.User?.Name, response?.User?.Email, 
+                response?.User?.Roles != null ? string.Join(", ", response.User.Roles) : "N/A");
+            
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning("Google login failed. Reason: {Reason}", ex.Message);
+            _logger.LogWarning("❌ AuthController - Google login failed. Reason: {Reason}", ex.Message);
             return Unauthorized(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning("Google login configuration error. Reason: {Reason}", ex.Message);
+            _logger.LogWarning("⚙️ AuthController - Google login configuration error. Reason: {Reason}", ex.Message);
             return StatusCode(500, new { message = "Google authentication is not properly configured" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during Google login");
+            _logger.LogError(ex, "💥 AuthController - Error during Google login: {ErrorMessage}", ex.Message);
             return StatusCode(500, new { message = "An error occurred during Google login" });
         }
     }

@@ -340,8 +340,9 @@ public class UserManagementController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user roles for user {UserId}", userId);
-            return StatusCode(500, new { message = "Internal server error" });
+            _logger.LogError(ex, "Error updating user roles for user {UserId}. Exception: {ExceptionType}, Message: {Message}, StackTrace: {StackTrace}", 
+                userId, ex.GetType().Name, ex.Message, ex.StackTrace);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
         }
     }
 

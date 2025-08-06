@@ -66,6 +66,10 @@ public class AuthService : IAuthService
         if (user == null)
             throw new UnauthorizedAccessException("Invalid email or password");
 
+        // Debug logging to check user data from database
+        _logger.LogInformation("Retrieved user from DB: UserId={UserId}, Name={Name}, Email={Email}, PhotoUrl={PhotoUrl}, AuthProvider={AuthProvider}", 
+            user.UserId, user.Name, user.Email, user.PhotoUrl, user.AuthProvider);
+
         // For OAuth users, they don't have a password stored
         if (user.AuthProvider != "Email")
             throw new UnauthorizedAccessException("Please use social login for this account");
@@ -74,24 +78,40 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid email or password");
 
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
+        _logger.LogInformation("Retrieved roles for user {UserId}: {Roles}", user.UserId, string.Join(",", roles));
+        
+        // Ensure user has at least the default role (fix for users created before role assignment was implemented)
+        if (roles.Count == 0)
+        {
+            _logger.LogInformation("User {UserId} has no roles assigned, assigning default role", user.UserId);
+            await _roleService.AssignDefaultRoleToUserAsync(user.UserId);
+            roles = await _userRepository.GetUserRolesAsync(user.UserId);
+            _logger.LogInformation("After assigning default role, user {UserId} now has roles: {Roles}", user.UserId, string.Join(",", roles));
+        }
+        
         var accessToken = GenerateAccessToken(user, roles);
         var refreshToken = await GenerateRefreshTokenAsync(user.UserId);
 
         var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+
+        var userDto = new UserDto
+        {
+            UserId = user.UserId,
+            Name = user.Name,
+            Email = user.Email,
+            PhotoUrl = user.PhotoUrl,
+            Roles = roles
+        };
+        
+        _logger.LogInformation("Created UserDto: UserId={UserId}, Name={Name}, Email={Email}, PhotoUrl={PhotoUrl}, Roles={Roles}", 
+            userDto.UserId, userDto.Name, userDto.Email, userDto.PhotoUrl, string.Join(",", userDto.Roles));
 
         return new AuthResponseDto
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken.Token,
             ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
-            User = new UserDto
-            {
-                UserId = user.UserId,
-                Name = user.Name,
-                Email = user.Email,
-                PhotoUrl = user.PhotoUrl,
-                Roles = roles
-            }
+            User = userDto
         };
     }
 
@@ -150,6 +170,9 @@ public class AuthService : IAuthService
         {
             var clientId = _configuration["GoogleAuth:ClientId"] ?? throw new InvalidOperationException("Google Client ID not configured");
 
+            _logger.LogInformation("🔍 GoogleLogin - Starting authentication with ClientId: {ClientId}", clientId?.Substring(0, 10) + "...");
+            _logger.LogInformation("🔍 GoogleLogin - Received IdToken length: {TokenLength}", request.IdToken?.Length ?? 0);
+
             // Verify the Google ID token
             var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
             {
@@ -157,16 +180,26 @@ public class AuthService : IAuthService
             });
 
             if (payload == null)
+            {
+                _logger.LogWarning("❌ GoogleLogin - Google token validation returned null payload");
                 throw new UnauthorizedAccessException("Invalid Google token");
+            }
+
+            _logger.LogInformation("✅ GoogleLogin - Token validated successfully. Email: {Email}, Name: {Name}, Subject: {Subject}", 
+                payload.Email, payload.Name, payload.Subject);
 
             // Check if user exists
             var existingUser = await _userRepository.GetByEmailAsync(payload.Email);
 
             if (existingUser != null)
             {
+                _logger.LogInformation("👤 GoogleLogin - Existing user found: {UserId}, Name: {Name}, Email: {Email}", 
+                    existingUser.UserId, existingUser.Name, existingUser.Email);
+                
                 // User exists, log them in
                 if (existingUser.AuthProvider != "Google")
                 {
+                    _logger.LogInformation("🔄 GoogleLogin - Updating user auth provider from {OldProvider} to Google", existingUser.AuthProvider);
                     // Update existing local user to Google auth
                     existingUser.AuthProvider = "Google";
                     existingUser.AuthId = payload.Subject;
@@ -175,12 +208,26 @@ public class AuthService : IAuthService
                 }
 
                 var roles = await _userRepository.GetUserRolesAsync(existingUser.UserId);
+                _logger.LogInformation("🔐 GoogleLogin - User roles: {Roles}", string.Join(", ", roles));
+                
+                // Ensure user has at least the default role (fix for users created before role assignment was implemented)
+                if (roles.Count == 0)
+                {
+                    _logger.LogInformation("🔐 GoogleLogin - User {UserId} has no roles assigned, assigning default role", existingUser.UserId);
+                    await _roleService.AssignDefaultRoleToUserAsync(existingUser.UserId);
+                    roles = await _userRepository.GetUserRolesAsync(existingUser.UserId);
+                    _logger.LogInformation("🔐 GoogleLogin - After assigning default role, user {UserId} now has roles: {Roles}", existingUser.UserId, string.Join(", ", roles));
+                }
+                
                 var accessToken = GenerateAccessToken(existingUser, roles);
                 var refreshToken = await GenerateRefreshTokenAsync(existingUser.UserId);
+                
+                _logger.LogInformation("🎫 GoogleLogin - Generated tokens for existing user. AccessToken length: {AccessTokenLength}", 
+                    accessToken?.Length ?? 0);
 
                 var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
 
-                return new AuthResponseDto
+                var existingUserResponse = new AuthResponseDto
                 {
                     AccessToken = accessToken,
                     RefreshToken = refreshToken.Token,
@@ -194,9 +241,17 @@ public class AuthService : IAuthService
                         Roles = roles
                     }
                 };
+                
+                _logger.LogInformation("✅ GoogleLogin - Returning response for existing user: {UserId}, Name: {Name}, Email: {Email}, Roles: {Roles}", 
+                    existingUserResponse.User.UserId, existingUserResponse.User.Name, existingUserResponse.User.Email, 
+                    string.Join(", ", existingUserResponse.User.Roles));
+                
+                return existingUserResponse;
             }
             else
             {
+                _logger.LogInformation("👤 GoogleLogin - Creating new user from Google payload: {Email}, {Name}", payload.Email, payload.Name);
+                
                 // Create new user
                 var newUser = new User
                 {
@@ -210,19 +265,27 @@ public class AuthService : IAuthService
                     IsBlacklisted = false
                 };
 
+                _logger.LogInformation("💾 GoogleLogin - Saving new user: {UserId}, Name: {Name}, Email: {Email}", 
+                    newUser.UserId, newUser.Name, newUser.Email);
+                
                 var createdUser = await _userRepository.CreateAsync(newUser);
 
                 // Assign default admin role to new user
                 await _roleService.AssignDefaultRoleToUserAsync(createdUser.UserId);
+                
+                _logger.LogInformation("🔐 GoogleLogin - Assigned default role to new user: {UserId}", createdUser.UserId);
 
                 var userRoles = await _roleService.GetUserRolesAsync(createdUser.UserId);
                 var roles = userRoles.Select(r => r.Name).ToList();
                 var accessToken = GenerateAccessToken(createdUser, roles);
                 var refreshToken = await GenerateRefreshTokenAsync(createdUser.UserId);
+                
+                _logger.LogInformation("🎫 GoogleLogin - Generated tokens for new user. AccessToken length: {AccessTokenLength}", 
+                    accessToken?.Length ?? 0);
 
                 var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
 
-                return new AuthResponseDto
+                var newUserResponse = new AuthResponseDto
                 {
                     AccessToken = accessToken,
                     RefreshToken = refreshToken.Token,
@@ -236,10 +299,28 @@ public class AuthService : IAuthService
                         Roles = roles
                     }
                 };
+                
+                _logger.LogInformation("✅ GoogleLogin - Returning response for new user: {UserId}, Name: {Name}, Email: {Email}, Roles: {Roles}", 
+                    newUserResponse.User.UserId, newUserResponse.User.Name, newUserResponse.User.Email, 
+                    string.Join(", ", newUserResponse.User.Roles));
+                
+                return newUserResponse;
             }
         }
         catch (Exception ex) when (!(ex is UnauthorizedAccessException || ex is InvalidOperationException))
         {
+            _logger.LogError(ex, "❌ GoogleLogin - Error during Google login: {ErrorMessage}. StackTrace: {StackTrace}", 
+                ex.Message, ex.StackTrace);
+            
+            // Log additional details if it's a Google validation exception
+            if (ex is InvalidJwtException || ex.Message.Contains("Google"))
+            {
+                _logger.LogError("🔍 GoogleLogin - Google token validation failed. This might be due to:");
+                _logger.LogError("   - Invalid or expired Google ID token");
+                _logger.LogError("   - Incorrect Google Client ID configuration");
+                _logger.LogError("   - Network issues with Google's validation service");
+            }
+            
             throw new UnauthorizedAccessException("Failed to authenticate with Google", ex);
         }
     }
@@ -252,6 +333,16 @@ public class AuthService : IAuthService
 
         var user = refreshToken.User;
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
+        
+        // Ensure user has at least the default role (fix for users created before role assignment was implemented)
+        if (roles.Count == 0)
+        {
+            _logger.LogInformation("RefreshToken - User {UserId} has no roles assigned, assigning default role", user.UserId);
+            await _roleService.AssignDefaultRoleToUserAsync(user.UserId);
+            roles = await _userRepository.GetUserRolesAsync(user.UserId);
+            _logger.LogInformation("RefreshToken - After assigning default role, user {UserId} now has roles: {Roles}", user.UserId, string.Join(", ", roles));
+        }
+        
         var newAccessToken = GenerateAccessToken(user, roles);
         var newRefreshToken = await GenerateRefreshTokenAsync(user.UserId);
 
@@ -692,6 +783,17 @@ public class AuthService : IAuthService
             // Complete login without 2FA
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
+            
+            // Ensure user has at least the default role (fix for users created before role assignment was implemented)
+            if (roles.Count == 0)
+            {
+                _logger.LogInformation("VerifyOtp - User {UserId} has no roles assigned, assigning default role", user.UserId);
+                await _roleService.AssignDefaultRoleToUserAsync(user.UserId);
+                userRoles = await _roleService.GetUserRolesAsync(user.UserId);
+                roles = userRoles.Select(r => r.Name).ToList();
+                _logger.LogInformation("VerifyOtp - After assigning default role, user {UserId} now has roles: {Roles}", user.UserId, string.Join(", ", roles));
+            }
+            
             var accessToken = GenerateAccessToken(user, roles);
             var refreshToken = await GenerateRefreshTokenAsync(user.UserId);
 

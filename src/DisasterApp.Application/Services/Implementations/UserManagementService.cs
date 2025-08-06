@@ -619,7 +619,7 @@ public class UserManagementService : IUserManagementService
             // Log the overall role update
             if (rolesToAdd.Any() || rolesToRemove.Any())
             {
-                await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null);
+                await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null, updateRolesDto.Reason);
             }
 
             _logger.LogInformation("Updated roles for user {UserId}. Added: {AddedRoles}, Removed: {RemovedRoles}",
