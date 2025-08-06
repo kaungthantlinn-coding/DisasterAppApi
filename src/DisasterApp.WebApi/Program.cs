@@ -14,6 +14,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using DisasterApp.Infrastructure.Repositories;
+using DisasterApp.Application.Services;
 
 namespace DisasterApp
 {
@@ -31,7 +33,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
-
+            builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
@@ -39,7 +41,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
-
+            builder.Services.AddScoped<IDisasterReportService, DisasterReportService>();
             // Add authorization
             builder.Services.AddAuthorization(options =>
             {
@@ -99,6 +101,12 @@ namespace DisasterApp
                 });
             });
 
+
+            builder.Services.AddHttpClient("Nominatim", client =>
+            {
+                client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DisasterApp/1.0 (your-email@example.com)");
+            });
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
