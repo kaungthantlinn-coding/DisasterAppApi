@@ -4,10 +4,6 @@ using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace DisasterApp.Infrastructure.Repositories.Implementations;
-
-/// <summary>
-/// Repository implementation for OTP code operations
-/// </summary>
 public class OtpCodeRepository : IOtpCodeRepository
 {
     private readonly DisasterDbContext _context;

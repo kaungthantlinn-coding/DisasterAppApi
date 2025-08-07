@@ -6,9 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace DisasterApp.Application.Services.Implementations;
 
-/// <summary>
-/// Service implementation for rate limiting operations
-/// </summary>
 public class RateLimitingService : IRateLimitingService
 {
     private readonly IOtpAttemptRepository _otpAttemptRepository;

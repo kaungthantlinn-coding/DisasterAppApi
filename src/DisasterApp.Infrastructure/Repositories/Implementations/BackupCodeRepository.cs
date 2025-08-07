@@ -5,9 +5,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DisasterApp.Infrastructure.Repositories.Implementations;
 
-/// <summary>
-/// Repository implementation for backup code operations
-/// </summary>
 public class BackupCodeRepository : IBackupCodeRepository
 {
     private readonly DisasterDbContext _context;

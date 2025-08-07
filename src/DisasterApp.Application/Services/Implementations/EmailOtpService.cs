@@ -10,11 +10,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 
-namespace DisasterApp.Application.Services.Implementations;
-
-/// <summary>
-/// Service implementation for Email OTP authentication
-/// </summary>
+namespace DisasterApp.Application.Services.Implementations; 
 public class EmailOtpService : IEmailOtpService
 {
     private readonly IUserRepository _userRepository;

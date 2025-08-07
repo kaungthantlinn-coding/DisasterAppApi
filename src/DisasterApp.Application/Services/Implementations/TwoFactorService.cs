@@ -5,10 +5,6 @@ using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace DisasterApp.Application.Services.Implementations;
-
-/// <summary>
-/// Service implementation for two-factor authentication operations
-/// </summary>
 public class TwoFactorService : ITwoFactorService
 {
     private readonly IUserRepository _userRepository;

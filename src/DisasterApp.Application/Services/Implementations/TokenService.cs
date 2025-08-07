@@ -8,9 +8,6 @@ using System.Text;
 
 namespace DisasterApp.Application.Services.Implementations;
 
-/// <summary>
-/// Service implementation for token operations
-/// </summary>
 public class TokenService : ITokenService
 {
     private readonly IConfiguration _configuration;

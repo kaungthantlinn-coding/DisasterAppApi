@@ -154,8 +154,7 @@ public class OtpService : IOtpService
             // Increment attempt count
             otpCode.AttemptCount++;
             
-            // Save the attempt count but don't mark as used yet
-            // The OTP will be marked as used only after successful authentication
+           //
             await _otpCodeRepository.UpdateAsync(otpCode);
 
             _logger.LogInformation("OTP verified successfully for user {UserId}", userId);
