@@ -34,6 +34,19 @@ public class AuditLogFiltersDto
     public DateTime? DateTo { get; set; }
     public string? UserId { get; set; }
     public string? Resource { get; set; }
+    
+    // Additional properties for API compatibility
+    public DateTime? StartDate 
+    { 
+        get => DateFrom; 
+        set => DateFrom = value; 
+    }
+    
+    public DateTime? EndDate 
+    { 
+        get => DateTo; 
+        set => DateTo = value; 
+    }
 }
 
 public class PaginatedAuditLogsDto
