@@ -1,11 +1,15 @@
+using CloudinaryDotNet;
+using DisasterApp.Application.Services;
 using DisasterApp.Application.Services.Implementations;
 using DisasterApp.Application.Services.Interfaces;
+using DisasterApp.Application.Settings;
 using DisasterApp.Infrastructure.Data;
+using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +17,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Newtonsoft.Json;
 using System.Text;
+
 
 namespace DisasterApp
 {
@@ -27,11 +33,24 @@ namespace DisasterApp
             builder.Services.AddDbContext<DisasterDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
+
+            builder.Services.AddSingleton(x =>
+            {
+                var config = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+                return new Cloudinary(new Account(config.CloudName, config.ApiKey, config.ApiSecret));
+            });
+
             // Add repositories
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
-
+            builder.Services.AddScoped<IDisasterTypeRepository, DisasterTypeRepository>();
+            builder.Services.AddScoped<IDisasterEventRepository, DisasterEventRepository>();
+            builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
+            builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
+            
+            ;
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
@@ -39,6 +58,13 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
+            builder.Services.AddScoped<IDisasterTypeService, DisasterTypeService>();
+            builder.Services.AddScoped<IDisasterEventService, DisasterEventService>();
+            builder.Services.AddScoped<IDisasterReportService, DisasterReportService>();
+            builder.Services.AddScoped<IPhotoService,PhotoService>();
+            builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+
+
 
             // Add authorization
             builder.Services.AddAuthorization(options =>
@@ -74,7 +100,9 @@ namespace DisasterApp
                     ValidateAudience = true,
                     ValidAudience = builder.Configuration["Jwt:Audience"],
                     ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
+                    ClockSkew = TimeSpan.Zero,
+                    //NameClaimType = "sub" // Google unique ID
+
                 };
             })
             .AddGoogle(options =>
@@ -85,6 +113,22 @@ namespace DisasterApp
 
             // Add services to the container.
             builder.Services.AddControllers();
+
+            // ✅ Controller + Newtonsoft.Json Configure
+            builder.Services.AddControllers()
+                .AddNewtonsoftJson(options =>
+                {
+                    // EF Core Navigation Properties တွေရဲ့ Loop Error ကို Prevent
+                    options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+                    options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+                });
+
+            //for location
+            builder.Services.AddHttpClient("Nominatim", client =>
+            {
+                client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DisasterApp/1.0 (your-email@example.com)");
+            });
 
             // Add CORS
             builder.Services.AddCors(options =>
@@ -105,6 +149,7 @@ namespace DisasterApp
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "DisasterApp API", Version = "v1" });
 
+                c.SupportNonNullableReferenceTypes();
                 // Add JWT authentication to Swagger
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {

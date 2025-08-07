@@ -5,7 +5,7 @@ namespace DisasterApp.Domain.Entities;
 
 public partial class DisasterEvent
 {
-    public Guid Id { get; set; } // replace int
+    public Guid Id { get; set; } 
 
     public string Name { get; set; } = null!;
 
