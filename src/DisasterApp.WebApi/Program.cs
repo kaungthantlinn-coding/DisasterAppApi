@@ -15,12 +15,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-<<<<<<< HEAD
+
 using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Application.Services;
-=======
 using System.Text.Json;
->>>>>>> main
 
 namespace DisasterApp
 {
@@ -38,14 +36,14 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
-<<<<<<< HEAD
+
             builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
-=======
+
             builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
             builder.Services.AddScoped<IBackupCodeRepository, BackupCodeRepository>();
             builder.Services.AddScoped<IOtpAttemptRepository, OtpAttemptRepository>();
 
->>>>>>> main
+
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
@@ -53,9 +51,9 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
-<<<<<<< HEAD
+
             builder.Services.AddScoped<IDisasterReportService, DisasterReportService>();
-=======
+
 
             // Add Two-Factor Authentication services
             builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
@@ -67,7 +65,7 @@ namespace DisasterApp
             // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
 
->>>>>>> main
+
             // Add authorization
             builder.Services.AddAuthorization(options =>
             {

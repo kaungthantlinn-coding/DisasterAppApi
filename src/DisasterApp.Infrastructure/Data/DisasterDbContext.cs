@@ -345,24 +345,24 @@ public partial class DisasterDbContext : DbContext
 
             entity.Property(e => e.LocationId)
                 .HasDefaultValueSql("(newid())")
-                .HasColumnName("LocationId");
+                .HasColumnName("location_id");
             entity.Property(e => e.Address)
                 .HasMaxLength(255)
-                .HasColumnName("Address");
+                .HasColumnName("address");
             entity.Property(e => e.CoordinatePrecision)
                 .HasMaxLength(20)
                 .IsUnicode(false)
-                .HasColumnName("CoordinatePrecision");
+                .HasColumnName("coordinate_precision");
             entity.Property(e => e.FormattedAddress)
                 .HasMaxLength(512)
-                .HasColumnName("FormattedAddress");
+                .HasColumnName("formatted_address");
             entity.Property(e => e.Latitude)
                 .HasColumnType("decimal(10, 8)")
-                .HasColumnName("Latitude");
+                .HasColumnName("latitude");
             entity.Property(e => e.Longitude)
                 .HasColumnType("decimal(11, 8)")
-                .HasColumnName("Longitude");
-            entity.Property(e => e.ReportId).HasColumnName("ReportId");
+                .HasColumnName("longitude");
+            entity.Property(e => e.ReportId).HasColumnName("report_id");
 
             entity.HasOne(d => d.Report).WithOne(p => p.Location)
                 .HasForeignKey<Location>(d => d.ReportId)

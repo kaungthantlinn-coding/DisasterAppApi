@@ -17,6 +17,7 @@ namespace DisasterApp.Infrastructure.Repositories
         {
             _context = context;
         }
+        
         public async Task<List<DisasterReport>> GetAllReportsAsync()
         {
             return await _context.DisasterReports
@@ -55,20 +56,46 @@ namespace DisasterApp.Infrastructure.Repositories
                     .OrderByDescending(r => r.Timestamp)
                     .ToListAsync();
             }
-            return await _context.DisasterReports
-                .Include(r => r.DisasterEvent)
-                .Include(r => r.Location)
-                .Where(r => (!r.IsDeleted.HasValue || r.IsDeleted == false) &&
-                (
-                    EF.Functions.Like(r.Title, $"%{keyword}%") ||
-                    EF.Functions.Like(r.Description, $"%{keyword}%") ||
-                    EF.Functions.Like(r.DisasterEvent.Name, $"%{keyword}%") ||
-                    (r.Location != null && r.Location.Address != null &&
-                    EF.Functions.Like(r.Location.Address, $"%{keyword}%"))
-                    ))
-                .OrderByDescending(r => r.Timestamp)
-                .ToListAsync();
-        }
+              return await _context.DisasterReports
+        .Include(r => r.DisasterEvent)
+        .Include(r => r.Location)
+        .Where(r => (!r.IsDeleted.HasValue || r.IsDeleted == false) &&
+            (
+                EF.Functions.Like(
+                    EF.Functions.Collate(
+                        r.Title.Replace(" ", "").ToLower(), 
+                        "SQL_Latin1_General_CP1_CI_AI" // Case & Accent Insensitive
+                    ),
+                    $"%{keyword}%"
+                ) ||
+                EF.Functions.Like(
+                    EF.Functions.Collate(
+                        r.Description.Replace(" ", "").ToLower(), 
+                        "SQL_Latin1_General_CP1_CI_AI"
+                    ),
+                    $"%{keyword}%"
+                ) ||
+                EF.Functions.Like(
+                    EF.Functions.Collate(
+                        r.DisasterEvent.Name.Replace(" ", "").ToLower(), 
+                        "SQL_Latin1_General_CP1_CI_AI"
+                    ),
+                    $"%{keyword}%"
+                ) ||
+                (r.Location != null && r.Location.Address != null &&
+                    EF.Functions.Like(
+                        EF.Functions.Collate(
+                            r.Location.Address.Replace(" ", "").ToLower(),
+                            "SQL_Latin1_General_CP1_CI_AI"
+                        ),
+                        $"%{keyword}%"
+                    )
+                )
+            )
+        )
+        .OrderByDescending(r => r.Timestamp)
+        .ToListAsync();
+}
         public async Task UpdateAsync(DisasterReport report)
         {
             _context.DisasterReports.Update(report);
