@@ -312,12 +312,8 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update user roles only
-    /// </summary>
-    /// <param name="userId">User ID</param>
-    /// <param name="updateRolesDto">Role update data</param>
-    /// <returns>Updated user details</returns>
+    // update user roles only
+    
     [HttpPut("{userId}/roles")]
     [AdminOnly]
     public async Task<ActionResult<UserDetailsDto>> UpdateUserRoles(Guid userId, [FromBody] UpdateUserRolesDto updateRolesDto)
@@ -344,17 +340,15 @@ public class UserManagementController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user roles for user {UserId}", userId);
-            return StatusCode(500, new { message = "Internal server error" });
+            _logger.LogError(ex, "Error updating user roles for user {UserId}. Exception: {ExceptionType}, Message: {Message}, StackTrace: {StackTrace}", 
+                userId, ex.GetType().Name, ex.Message, ex.StackTrace);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Validate role update before applying changes
-    /// </summary>
-    /// <param name="userId">User ID</param>
-    /// <param name="updateRolesDto">Role update data</param>
-    /// <returns>Validation result</returns>
+  
+    // validate role update before applying changes
+    
     [HttpPost("{userId}/roles/validate")]
     [AdminOnly]
     public async Task<ActionResult<RoleUpdateValidationDto>> ValidateRoleUpdate(Guid userId, [FromBody] UpdateUserRolesDto updateRolesDto)
@@ -376,10 +370,8 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get available roles for filtering
-    /// </summary>
-    /// <returns>List of available roles</returns>
+    // get available roles for filtering
+    
     [HttpGet("roles")]
     [AdminOnly]
     public async Task<ActionResult<List<string>>> GetAvailableRoles()
@@ -398,6 +390,7 @@ public class UserManagementController : ControllerBase
     }
 
     /// Get all CJ users (for chat)
+    
     [HttpGet("cj-users")]
     [Authorize]
     public async Task<ActionResult<List<UserListItemDto>>> GetAllCjUsers()

@@ -197,6 +197,67 @@ public class RoleController : ControllerBase
             return StatusCode(500, "Internal server error");
         }
     }
+
+    [HttpPost("cleanup-duplicates")]
+    [AdminOnly]
+    public async Task<IActionResult> CleanupDuplicateRoles()
+    {
+        try
+        {
+            await _roleService.CleanupDuplicateUserRolesAsync();
+            return Ok(new { message = "Duplicate role cleanup completed successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during duplicate role cleanup");
+            return StatusCode(500, new { message = "Internal server error", type = "SystemError" });
+        }
+    }
+
+    [HttpPut("{userId}/roles")]
+    [AdminOnly]
+    public async Task<IActionResult> ReplaceUserRoles(Guid userId, [FromBody] ReplaceUserRolesRequest request)
+    {
+        try
+        {
+            if (userId != request.UserId)
+            {
+                return BadRequest("User ID in URL does not match request body");
+            }
+
+            var performedByUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var performedByUserId = string.IsNullOrEmpty(performedByUserIdString) ? (Guid?)null : Guid.TryParse(performedByUserIdString, out var guid) ? guid : (Guid?)null;
+            var performedByUserName = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+            var userAgent = Request.Headers["User-Agent"].ToString();
+
+            await _roleService.ReplaceUserRolesAsync(
+                userId,
+                request.RoleNames,
+                performedByUserId,
+                performedByUserName,
+                ipAddress,
+                userAgent
+            );
+
+            return Ok(new { message = "User roles replaced successfully" });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid request for replacing user roles");
+            return BadRequest(new { message = ex.Message, type = "ValidationError" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation for replacing user roles");
+            return BadRequest(new { message = ex.Message, type = "BusinessLogicError" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error replacing user roles for user {UserId}", userId);
+            return StatusCode(500, new { message = "Internal server error", type = "SystemError" });
+        }
+    }
 }
 
 public class AssignRoleRequest
@@ -223,4 +284,13 @@ public class RemoveRoleRequest
     [Required]
     [StringLength(50, MinimumLength = 2, ErrorMessage = "Role name must be between 2 and 50 characters")]
     public string RoleName { get; set; } = null!;
+}
+
+public class ReplaceUserRolesRequest
+{
+    [Required]
+    public Guid UserId { get; set; }
+
+    [Required]
+    public ICollection<string> RoleNames { get; set; } = new List<string>();
 }

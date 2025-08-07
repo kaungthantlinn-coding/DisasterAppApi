@@ -4,3 +4,14 @@ GET {{DisasterApp_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Test Google Login Endpoint
+POST {{DisasterApp_HostAddress}}/api/auth/google-login
+Content-Type: application/json
+
+{
+  "idToken": "test-token",
+  "deviceInfo": "test-device"
+}
+
+###

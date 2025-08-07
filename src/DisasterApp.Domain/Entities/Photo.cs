@@ -13,7 +13,7 @@ public partial class Photo
 
     public string? Caption { get; set; }
 
-    public string? PublicId { get; set; }
+    public string? PublicId { get; set; }  // public_id
 
     public DateTime? UploadedAt { get; set; }
 

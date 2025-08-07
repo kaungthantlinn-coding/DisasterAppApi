@@ -116,14 +116,14 @@ public class PasswordValidationService : IPasswordValidationService
         if (strength.HasNumber) score++;
         if (strength.HasSpecialChar) score++;
 
-        // Bonus points for longer passwords
+        // longer passwords
         if (password.Length >= 12) score++;
         if (password.Length >= 16) score++;
 
-        // Bonus for variety of special characters
+        // variety of special characters
         if (Regex.Matches(password, @"[@$!%*?&]").Count > 1) score++;
 
-        // Cap at 5
+        // cap at 5
         return Math.Min(score, 5);
     }
 }

@@ -12,7 +12,11 @@ public interface IRoleService
     Task<IEnumerable<Role>> GetUserRolesAsync(Guid userId);
     Task<bool> UserHasRoleAsync(Guid userId, string roleName);
     Task RemoveRoleFromUserAsync(Guid userId, string roleName, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null);
+    Task RemoveRoleFromUserDirectAsync(Guid userId, string roleName, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null);
     Task<bool> CanRemoveRoleAsync(Guid userId, string roleName);
     Task<int> GetAdminCountAsync();
     Task<bool> IsLastAdminAsync(Guid userId);
+    Task<int> CleanupDuplicateUserRolesAsync();
+    Task<bool> FixRoleNamesAsync();
+    Task ReplaceUserRolesAsync(Guid userId, IEnumerable<string> roleNames, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null);
 }

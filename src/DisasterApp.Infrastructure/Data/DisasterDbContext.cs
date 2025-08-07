@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DisasterApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +50,12 @@ public partial class DisasterDbContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<OtpCode> OtpCodes { get; set; }
+
+    public virtual DbSet<BackupCode> BackupCodes { get; set; }
+
+    public virtual DbSet<OtpAttempt> OtpAttempts { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
 
@@ -74,12 +80,18 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.Action)
                 .HasMaxLength(100)
                 .HasColumnName("action");
+            entity.Property(e => e.Severity)
+                .HasMaxLength(20)
+                .HasColumnName("severity");
             entity.Property(e => e.EntityType)
                 .HasMaxLength(100)
                 .HasColumnName("entity_type");
             entity.Property(e => e.EntityId)
                 .HasMaxLength(100)
                 .HasColumnName("entity_id");
+            entity.Property(e => e.Details)
+                .HasColumnType("nvarchar(max)")
+                .HasColumnName("details");
             entity.Property(e => e.OldValues)
                 .HasColumnType("nvarchar(max)")
                 .HasColumnName("old_values");
@@ -100,6 +112,18 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.UserAgent)
                 .HasMaxLength(500)
                 .HasColumnName("user_agent");
+            entity.Property(e => e.Resource)
+                .HasMaxLength(100)
+                .HasColumnName("resource");
+            entity.Property(e => e.Metadata)
+                .HasColumnType("nvarchar(max)")
+                .HasColumnName("metadata");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("updated_at");
 
             entity.HasOne(d => d.User).WithMany()
                 .HasForeignKey(d => d.UserId)
@@ -572,6 +596,14 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20)
                 .HasColumnName("phone_number");
+            entity.Property(e => e.TwoFactorEnabled)
+                .HasDefaultValue(false)
+                .HasColumnName("two_factor_enabled");
+            entity.Property(e => e.BackupCodesRemaining)
+                .HasDefaultValue(0)
+                .HasColumnName("backup_codes_remaining");
+            entity.Property(e => e.TwoFactorLastUsed)
+                .HasColumnName("two_factor_last_used");
 
             entity.HasMany(d => d.Roles).WithMany(p => p.Users)
                 .UsingEntity<Dictionary<string, object>>(
@@ -592,6 +624,112 @@ public partial class DisasterDbContext : DbContext
                         j.IndexerProperty<Guid>("UserId").HasColumnName("user_id");
                         j.IndexerProperty<Guid>("RoleId").HasColumnName("role_id");
                     });
+        });
+
+        modelBuilder.Entity<OtpCode>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK_OtpCode_Id");
+
+            entity.ToTable("OtpCode");
+
+            entity.HasIndex(e => e.UserId, "IX_OtpCode_UserId");
+            entity.HasIndex(e => e.Code, "IX_OtpCode_Code");
+            entity.HasIndex(e => e.ExpiresAt, "IX_OtpCode_ExpiresAt");
+            entity.HasIndex(e => e.Type, "IX_OtpCode_Type");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("(newid())")
+                .HasColumnName("id");
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id");
+            entity.Property(e => e.Code)
+                .HasMaxLength(6)
+                .HasColumnName("code");
+            entity.Property(e => e.Type)
+                .HasMaxLength(20)
+                .HasColumnName("type");
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnName("expires_at");
+            entity.Property(e => e.UsedAt)
+                .HasColumnName("used_at");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.AttemptCount)
+                .HasDefaultValue(0)
+                .HasColumnName("attempt_count");
+
+            entity.HasOne(d => d.User).WithMany(p => p.OtpCodes)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_OtpCode_User");
+        });
+
+        modelBuilder.Entity<BackupCode>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK_BackupCode_Id");
+
+            entity.ToTable("BackupCode");
+
+            entity.HasIndex(e => e.UserId, "IX_BackupCode_UserId");
+            entity.HasIndex(e => e.CodeHash, "IX_BackupCode_CodeHash");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("(newid())")
+                .HasColumnName("id");
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id");
+            entity.Property(e => e.CodeHash)
+                .HasMaxLength(255)
+                .HasColumnName("code_hash");
+            entity.Property(e => e.UsedAt)
+                .HasColumnName("used_at");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.User).WithMany(p => p.BackupCodes)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_BackupCode_User");
+        });
+
+        modelBuilder.Entity<OtpAttempt>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK_OtpAttempt_Id");
+
+            entity.ToTable("OtpAttempt");
+
+            entity.HasIndex(e => new { e.UserId, e.AttemptedAt }, "IX_OtpAttempt_UserId_AttemptedAt");
+            entity.HasIndex(e => new { e.IpAddress, e.AttemptedAt }, "IX_OtpAttempt_IpAddress_AttemptedAt");
+            entity.HasIndex(e => new { e.Email, e.AttemptedAt }, "IX_OtpAttempt_Email_AttemptedAt");
+            entity.HasIndex(e => e.AttemptType, "IX_OtpAttempt_AttemptType");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("(newid())")
+                .HasColumnName("id");
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id");
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(45)
+                .HasColumnName("ip_address");
+            entity.Property(e => e.AttemptType)
+                .HasMaxLength(20)
+                .HasColumnName("attempt_type");
+            entity.Property(e => e.AttemptedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("attempted_at");
+            entity.Property(e => e.Success)
+                .HasDefaultValue(false)
+                .HasColumnName("success");
+            entity.Property(e => e.Email)
+                .HasMaxLength(255)
+                .HasColumnName("email");
+
+            entity.HasOne(d => d.User).WithMany(p => p.OtpAttempts)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_OtpAttempt_User");
         });
 
         OnModelCreatingPartial(modelBuilder);
