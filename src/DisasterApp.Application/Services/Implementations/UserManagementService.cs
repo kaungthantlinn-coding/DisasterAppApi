@@ -152,7 +152,7 @@ public class UserManagementService : IUserManagementService
                 Email = createUserDto.Email,
                 PhotoUrl = createUserDto.PhotoUrl,
                 PhoneNumber = createUserDto.PhoneNumber,
-                AuthProvider = "local",
+                AuthProvider = "Email",
                 AuthId = hashedPassword,
                 IsBlacklisted = createUserDto.IsBlacklisted,
                 CreatedAt = DateTime.UtcNow
@@ -219,55 +219,12 @@ public class UserManagementService : IUserManagementService
             user.PhoneNumber = updateUserDto.PhoneNumber;
             user.IsBlacklisted = updateUserDto.IsBlacklisted;
 
-            // Update user
+            // Update user first
             await _userRepository.UpdateAsync(user);
 
-            // Update roles with validation
-            var currentRoles = await _roleService.GetUserRolesAsync(userId);
-            var currentRoleNames = currentRoles.Select(r => r.Name).ToList();
-
-            // Validate role changes before applying them
-            var rolesToRemove = currentRoleNames.Where(r => !updateUserDto.Roles.Contains(r)).ToList();
-            var rolesToAdd = updateUserDto.Roles.Where(r => !currentRoleNames.Contains(r)).ToList();
-
-            // Validate role removals
-            foreach (var roleToRemove in rolesToRemove)
-            {
-                if (!await _roleService.CanRemoveRoleAsync(userId, roleToRemove))
-                {
-                    throw new InvalidOperationException($"Cannot remove role '{roleToRemove}' from user. This would violate system constraints.");
-                }
-            }
-
-            // Remove roles that are no longer assigned
-            foreach (var currentRole in rolesToRemove)
-            {
-                try
-                {
-                    await _roleService.RemoveRoleFromUserAsync(userId, currentRole);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogError("Failed to remove role {RoleName} from user {UserId}: {Message}",
-                        currentRole, userId, ex.Message);
-                    throw;
-                }
-            }
-
-            // Add new roles
-            foreach (var newRole in rolesToAdd)
-            {
-                try
-                {
-                    await _roleService.AssignRoleToUserAsync(userId, newRole);
-                }
-                catch (ArgumentException ex)
-                {
-                    _logger.LogWarning("Failed to assign role {RoleName} to user {UserId}: {Message}",
-                        newRole, userId, ex.Message);
-                    throw;
-                }
-            }
+            // Replace user roles atomically using ReplaceUserRolesAsync
+            // This method handles all role validation and ensures atomic updates
+            await _roleService.ReplaceUserRolesAsync(userId, updateUserDto.Roles);
 
             _logger.LogInformation("Updated user {UserId}", userId);
 
@@ -293,8 +250,7 @@ public class UserManagementService : IUserManagementService
                 throw new InvalidOperationException($"Cannot delete user: {string.Join(", ", validation.Reasons)}");
             }
 
-            // Clean up associated tokens before deleting the user
-            // This prevents foreign key constraint violations
+        
             _logger.LogInformation("Cleaning up tokens for user {UserId} before deletion", userId);
 
             // Delete all refresh tokens for the user
@@ -387,7 +343,7 @@ public class UserManagementService : IUserManagementService
             if (user == null) return false;
 
             // Only allow password change for local auth users
-            if (user.AuthProvider != "local")
+            if (user.AuthProvider != "Email")
             {
                 throw new InvalidOperationException("Cannot change password for non-local authentication users");
             }
@@ -568,8 +524,7 @@ public class UserManagementService : IUserManagementService
                 }
             }
 
-            // For now, allow deletion even with active reports/requests (soft delete via blacklisting)
-            // In production, you might want to set CanDelete = false for these cases
+            // if the user is the last admin, they cannot be deleted
             validation.CanDelete = !validation.IsLastAdmin;
 
             return validation;
@@ -605,22 +560,23 @@ public class UserManagementService : IUserManagementService
             var rolesToRemove = currentRoleNames.Where(r => !updateRolesDto.Roles.Contains(r)).ToList();
             var rolesToAdd = updateRolesDto.Roles.Where(r => !currentRoleNames.Contains(r)).ToList();
 
-            // Remove roles that are no longer assigned
-            foreach (var roleToRemove in rolesToRemove)
-            {
-                await _roleService.RemoveRoleFromUserAsync(userId, roleToRemove);
-            }
-
-            // Add new roles
+            // Add new roles FIRST to ensure user always has at least one role
             foreach (var roleToAdd in rolesToAdd)
             {
                 await _roleService.AssignRoleToUserAsync(userId, roleToAdd);
             }
 
+            // Remove roles that are no longer assigned (after adding new ones)
+            foreach (var roleToRemove in rolesToRemove)
+            {
+                // Use direct role removal without individual validation since we've already validated the final state
+                await _roleService.RemoveRoleFromUserDirectAsync(userId, roleToRemove);
+            }
+
             // Log the overall role update
             if (rolesToAdd.Any() || rolesToRemove.Any())
             {
-                await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null);
+                await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null, updateRolesDto.Reason);
             }
 
             _logger.LogInformation("Updated roles for user {UserId}. Added: {AddedRoles}, Removed: {RemovedRoles}",

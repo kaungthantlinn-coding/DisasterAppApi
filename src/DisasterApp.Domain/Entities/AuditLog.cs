@@ -6,9 +6,13 @@ public partial class AuditLog
 
     public string Action { get; set; } = null!;
 
+    public string Severity { get; set; } = "info";
+
     public string EntityType { get; set; } = null!;
 
     public string? EntityId { get; set; }
+
+    public string Details { get; set; } = null!;
 
     public string? OldValues { get; set; }
 
@@ -23,6 +27,14 @@ public partial class AuditLog
     public string? IpAddress { get; set; }
 
     public string? UserAgent { get; set; }
+
+    public string Resource { get; set; } = null!;
+
+    public string? Metadata { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
 
     public virtual User? User { get; set; }
 }
