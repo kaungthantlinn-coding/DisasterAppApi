@@ -8,6 +8,7 @@ using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
+using DisasterApp.WebApi.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -154,16 +155,16 @@ namespace DisasterApp
                 var services = scope.ServiceProvider;
                 var context = services.GetRequiredService<DisasterDbContext>();
                 var logger = services.GetRequiredService<ILogger<Program>>();
-                
+
                 try
                 {
                     logger.LogInformation("Ensuring database is created and migrated...");
-                    
+
                     // Apply migrations (this will create the database if it doesn't exist)
                     logger.LogInformation("Ensuring database is created and migrated...");
                     await context.Database.MigrateAsync();
                     logger.LogInformation("Database migration completed successfully.");
-                    
+
                     logger.LogInformation("Seeding database...");
                     await DataSeeder.SeedAsync(services);
                     logger.LogInformation("Database seeding completed successfully.");
@@ -188,15 +189,15 @@ namespace DisasterApp
             {
                 // Allow same-origin-allow-popups for Google OAuth popups
                 if (!context.Response.Headers.ContainsKey("Cross-Origin-Opener-Policy"))
-                    context.Response.Headers.Add("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+                    context.Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
                 if (!context.Response.Headers.ContainsKey("Cross-Origin-Embedder-Policy"))
-                    context.Response.Headers.Add("Cross-Origin-Embedder-Policy", "unsafe-none");
+                    context.Response.Headers.Append("Cross-Origin-Embedder-Policy", "unsafe-none");
                 if (!context.Response.Headers.ContainsKey("X-Content-Type-Options"))
-                    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+                    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
                 if (!context.Response.Headers.ContainsKey("X-Frame-Options"))
-                    context.Response.Headers.Add("X-Frame-Options", "SAMEORIGIN");
+                    context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
                 if (!context.Response.Headers.ContainsKey("X-XSS-Protection"))
-                    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
+                    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
                 await next();
             });
 
@@ -209,7 +210,7 @@ namespace DisasterApp
             }
 
             app.UseAuthentication();
-            app.UseAuditLogging();
+            app.UseMiddleware<AuditLogMiddleware>();
             app.UseAuthorization();
 
             app.MapControllers();
