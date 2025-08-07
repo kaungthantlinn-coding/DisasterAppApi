@@ -23,6 +23,21 @@ public partial class User
 
     public DateTime? CreatedAt { get; set; }
 
+    /// <summary>
+    /// Whether two-factor authentication is enabled for this user
+    /// </summary>
+    public bool TwoFactorEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Number of unused backup codes remaining for this user
+    /// </summary>
+    public int BackupCodesRemaining { get; set; } = 0;
+
+    /// <summary>
+    /// When two-factor authentication was last used by this user
+    /// </summary>
+    public DateTime? TwoFactorLastUsed { get; set; }
+
 
 
     public virtual ICollection<Chat> ChatReceivers { get; set; } = new List<Chat>();
@@ -46,4 +61,10 @@ public partial class User
     public virtual ICollection<SupportRequest> SupportRequests { get; set; } = new List<SupportRequest>();
 
     public virtual ICollection<Role> Roles { get; set; } = new List<Role>();
+
+    public virtual ICollection<OtpCode> OtpCodes { get; set; } = new List<OtpCode>();
+
+    public virtual ICollection<BackupCode> BackupCodes { get; set; } = new List<BackupCode>();
+
+    public virtual ICollection<OtpAttempt> OtpAttempts { get; set; } = new List<OtpAttempt>();
 }

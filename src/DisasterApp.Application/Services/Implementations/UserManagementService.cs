@@ -152,7 +152,7 @@ public class UserManagementService : IUserManagementService
                 Email = createUserDto.Email,
                 PhotoUrl = createUserDto.PhotoUrl,
                 PhoneNumber = createUserDto.PhoneNumber,
-                AuthProvider = "local",
+                AuthProvider = "Email",
                 AuthId = hashedPassword,
                 IsBlacklisted = createUserDto.IsBlacklisted,
                 CreatedAt = DateTime.UtcNow
@@ -219,10 +219,7 @@ public class UserManagementService : IUserManagementService
             user.PhoneNumber = updateUserDto.PhoneNumber;
             user.IsBlacklisted = updateUserDto.IsBlacklisted;
 
-            // Update user
-            await _userRepository.UpdateAsync(user);
-
-            // Update roles with validation
+            // Get current roles for comparison
             var currentRoles = await _roleService.GetUserRolesAsync(userId);
             var currentRoleNames = currentRoles.Select(r => r.Name).ToList();
 
@@ -239,7 +236,10 @@ public class UserManagementService : IUserManagementService
                 }
             }
 
-            // Remove roles that are no longer assigned
+            // Update user first
+            await _userRepository.UpdateAsync(user);
+
+            // Remove roles that are no longer assigned (now with proper transaction handling in RoleService)
             foreach (var currentRole in rolesToRemove)
             {
                 try
@@ -254,7 +254,7 @@ public class UserManagementService : IUserManagementService
                 }
             }
 
-            // Add new roles
+            // Add new roles (now with proper transaction handling in RoleService)
             foreach (var newRole in rolesToAdd)
             {
                 try
@@ -387,7 +387,7 @@ public class UserManagementService : IUserManagementService
             if (user == null) return false;
 
             // Only allow password change for local auth users
-            if (user.AuthProvider != "local")
+            if (user.AuthProvider != "Email")
             {
                 throw new InvalidOperationException("Cannot change password for non-local authentication users");
             }
@@ -568,8 +568,7 @@ public class UserManagementService : IUserManagementService
                 }
             }
 
-            // For now, allow deletion even with active reports/requests (soft delete via blacklisting)
-            // In production, you might want to set CanDelete = false for these cases
+            // if the user is the last admin, they cannot be deleted
             validation.CanDelete = !validation.IsLastAdmin;
 
             return validation;
@@ -620,7 +619,7 @@ public class UserManagementService : IUserManagementService
             // Log the overall role update
             if (rolesToAdd.Any() || rolesToRemove.Any())
             {
-                await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null);
+                await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null, updateRolesDto.Reason);
             }
 
             _logger.LogInformation("Updated roles for user {UserId}. Added: {AddedRoles}, Removed: {RemovedRoles}",

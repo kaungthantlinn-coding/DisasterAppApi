@@ -3,6 +3,7 @@ using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace DisasterApp.Application.Services.Implementations;
 
@@ -38,36 +39,67 @@ public class RoleService : IRoleService
 
     public async Task AssignRoleToUserAsync(Guid userId, string roleName, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null)
     {
-        var user = await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.UserId == userId);
-
-        if (user == null)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            _logger.LogWarning("User with ID {UserId} not found", userId);
-            throw new ArgumentException($"User with ID {userId} not found");
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with ID {UserId} not found", userId);
+                throw new ArgumentException($"User with ID {userId} not found");
+            }
+
+            var role = await GetRoleByNameAsync(roleName);
+            if (role == null)
+            {
+                _logger.LogWarning("Role {RoleName} not found", roleName);
+                throw new ArgumentException($"Role {roleName} not found");
+            }
+
+            if (!user.Roles.Any(r => r.RoleId == role.RoleId))
+            {
+                user.Roles.Add(role);
+                await _context.SaveChangesAsync();
+
+                // Log the role assignment in the same transaction
+                var auditLog = new AuditLog
+                {
+                    AuditLogId = Guid.NewGuid(),
+                    Action = "ROLE_ASSIGNED",
+                    EntityType = "UserRole",
+                    EntityId = userId.ToString(),
+                    Details = $"Assigned role '{roleName}' to user {userId}",
+                    Resource = "user-roles",
+                    OldValues = null,
+                    NewValues = System.Text.Json.JsonSerializer.Serialize(new { RoleName = roleName }),
+                    UserId = performedByUserId,
+                    UserName = performedByUserName,
+                    Timestamp = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent
+                };
+
+                await _context.AuditLogs.AddAsync(auditLog);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Assigned role {RoleName} to user {UserId}", roleName, userId);
+            }
+            else
+            {
+                await transaction.CommitAsync();
+                _logger.LogInformation("User {UserId} already has role {RoleName}", userId, roleName);
+            }
         }
-
-        var role = await GetRoleByNameAsync(roleName);
-        if (role == null)
+        catch
         {
-            _logger.LogWarning("Role {RoleName} not found", roleName);
-            throw new ArgumentException($"Role {roleName} not found");
-        }
-
-        if (!user.Roles.Any(r => r.RoleId == role.RoleId))
-        {
-            user.Roles.Add(role);
-            await _context.SaveChangesAsync();
-
-            // Log the role assignment
-            await _auditService.LogRoleAssignmentAsync(userId, roleName, performedByUserId, performedByUserName, ipAddress, userAgent);
-
-            _logger.LogInformation("Assigned role {RoleName} to user {UserId}", roleName, userId);
-        }
-        else
-        {
-            _logger.LogInformation("User {UserId} already has role {RoleName}", userId, roleName);
+            await transaction.RollbackAsync();
+            throw;
         }
     }
 
@@ -96,33 +128,60 @@ public class RoleService : IRoleService
 
     public async Task RemoveRoleFromUserAsync(Guid userId, string roleName, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null)
     {
-        var user = await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.UserId == userId);
-
-        if (user == null)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            _logger.LogWarning("User with ID {UserId} not found", userId);
-            throw new ArgumentException($"User with ID {userId} not found");
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with ID {UserId} not found", userId);
+                throw new ArgumentException($"User with ID {userId} not found");
+            }
+
+            // Validate role removal
+            await ValidateRoleRemovalAsync(userId, roleName);
+
+            var role = user.Roles.FirstOrDefault(r => r.Name.ToLower() == roleName.ToLower());
+            if (role != null)
+            {
+                user.Roles.Remove(role);
+                await _context.SaveChangesAsync();
+
+                // Log the role removal in the same transaction
+                var auditLog = new AuditLog
+                {
+                    AuditLogId = Guid.NewGuid(),
+                    Action = "ROLE_REMOVED",
+                    EntityType = "UserRole",
+                    EntityId = userId.ToString(),
+                    OldValues = JsonSerializer.Serialize(new { RoleName = roleName }),
+                    NewValues = null,
+                    UserId = performedByUserId,
+                    UserName = performedByUserName,
+                    Timestamp = DateTime.UtcNow,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent
+                };
+
+                await _context.AuditLogs.AddAsync(auditLog);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Removed role {RoleName} from user {UserId}", roleName, userId);
+            }
+            else
+            {
+                await transaction.CommitAsync();
+                _logger.LogInformation("User {UserId} does not have role {RoleName}", userId, roleName);
+            }
         }
-
-        // Validate role removal
-        await ValidateRoleRemovalAsync(userId, roleName);
-
-        var role = user.Roles.FirstOrDefault(r => r.Name.ToLower() == roleName.ToLower());
-        if (role != null)
+        catch
         {
-            user.Roles.Remove(role);
-            await _context.SaveChangesAsync();
-
-            // Log the role removal
-            await _auditService.LogRoleRemovalAsync(userId, roleName, performedByUserId, performedByUserName, ipAddress, userAgent);
-
-            _logger.LogInformation("Removed role {RoleName} from user {UserId}", roleName, userId);
-        }
-        else
-        {
-            _logger.LogInformation("User {UserId} does not have role {RoleName}", userId, roleName);
+            await transaction.RollbackAsync();
+            throw;
         }
     }
 

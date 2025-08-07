@@ -4,6 +4,7 @@ using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
+using DisasterApp.WebApi.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
@@ -14,8 +15,12 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+<<<<<<< HEAD
 using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Application.Services;
+=======
+using System.Text.Json;
+>>>>>>> main
 
 namespace DisasterApp
 {
@@ -33,7 +38,14 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+<<<<<<< HEAD
             builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
+=======
+            builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+            builder.Services.AddScoped<IBackupCodeRepository, BackupCodeRepository>();
+            builder.Services.AddScoped<IOtpAttemptRepository, OtpAttemptRepository>();
+
+>>>>>>> main
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
@@ -41,7 +53,21 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
+<<<<<<< HEAD
             builder.Services.AddScoped<IDisasterReportService, DisasterReportService>();
+=======
+
+            // Add Two-Factor Authentication services
+            builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
+            builder.Services.AddScoped<IOtpService, OtpService>();
+            builder.Services.AddScoped<IBackupCodeService, BackupCodeService>();
+            builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
+            builder.Services.AddScoped<ITokenService, TokenService>();
+            
+            // Add Email OTP services
+            builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
+
+>>>>>>> main
             // Add authorization
             builder.Services.AddAuthorization(options =>
             {
@@ -86,14 +112,17 @@ namespace DisasterApp
             });
 
             // Add services to the container.
-            builder.Services.AddControllers();
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            });
 
-            // Add CORS
+            // Add CORS (optimized for Google OAuth)
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
                 {
-                    policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+                    policy.SetIsOriginAllowed(_ => true) // Allow any origin for development
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials()
@@ -141,18 +170,30 @@ namespace DisasterApp
 
             var app = builder.Build();
 
-            // Seed the database
+            // Initialize and seed the database
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
+                var context = services.GetRequiredService<DisasterDbContext>();
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                
                 try
                 {
+                    logger.LogInformation("Ensuring database is created and migrated...");
+                    
+                    // Apply migrations (this will create the database if it doesn't exist)
+                    logger.LogInformation("Ensuring database is created and migrated...");
+                    await context.Database.MigrateAsync();
+                    logger.LogInformation("Database migration completed successfully.");
+                    
+                    logger.LogInformation("Seeding database...");
                     await DataSeeder.SeedAsync(services);
+                    logger.LogInformation("Database seeding completed successfully.");
                 }
                 catch (Exception ex)
                 {
-                    var logger = services.GetRequiredService<ILogger<Program>>();
-                    logger.LogError(ex, "An error occurred while seeding the database");
+                    logger.LogError(ex, "An error occurred while initializing or seeding the database");
+                    throw; // Re-throw to prevent application startup with broken database
                 }
             }
 
@@ -164,22 +205,33 @@ namespace DisasterApp
                 c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
             });
 
-            // Add security headers
+            // Add security headers (optimized for Google OAuth)
             app.Use(async (context, next) =>
             {
-                context.Response.Headers.Add("Cross-Origin-Opener-Policy", "unsafe-none");
-                context.Response.Headers.Add("Cross-Origin-Embedder-Policy", "unsafe-none");
-                context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-                context.Response.Headers.Add("X-Frame-Options", "SAMEORIGIN");
-                context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
+                // Allow same-origin-allow-popups for Google OAuth popups
+                if (!context.Response.Headers.ContainsKey("Cross-Origin-Opener-Policy"))
+                    context.Response.Headers.Add("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+                if (!context.Response.Headers.ContainsKey("Cross-Origin-Embedder-Policy"))
+                    context.Response.Headers.Add("Cross-Origin-Embedder-Policy", "unsafe-none");
+                if (!context.Response.Headers.ContainsKey("X-Content-Type-Options"))
+                    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+                if (!context.Response.Headers.ContainsKey("X-Frame-Options"))
+                    context.Response.Headers.Add("X-Frame-Options", "SAMEORIGIN");
+                if (!context.Response.Headers.ContainsKey("X-XSS-Protection"))
+                    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
                 await next();
             });
 
             app.UseCors("AllowAll");
 
-            app.UseHttpsRedirection();
+            // Only use HTTPS redirection in production or when HTTPS is configured
+            if (app.Environment.IsProduction() || builder.Configuration.GetValue<string>("ASPNETCORE_URLS")?.Contains("https") == true)
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseAuthentication();
+            app.UseAuditLogging();
             app.UseAuthorization();
 
             app.MapControllers();

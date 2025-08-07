@@ -12,12 +12,18 @@ public class AuthController : ControllerBase
 {
     private readonly DisasterDbContext _context;
     private readonly IAuthService _authService;
+    private readonly IEmailService _emailService;
+    private readonly ITwoFactorService _twoFactorService;
+    private readonly IEmailOtpService _emailOtpService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(DisasterDbContext context, IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(DisasterDbContext context, IAuthService authService, IEmailService emailService, ITwoFactorService twoFactorService, IEmailOtpService emailOtpService, ILogger<AuthController> logger)
     {
         _context = context;
         _authService = authService;
+        _emailService = emailService;
+        _twoFactorService = twoFactorService;
+        _emailOtpService = emailOtpService;
         _logger = logger;
     }
 
@@ -29,6 +35,16 @@ public class AuthController : ControllerBase
         try
         {
             var response = await _authService.LoginAsync(request);
+            
+            // Debug logging to check what's being returned
+            _logger.LogInformation("Login response for {Email}: AccessToken={HasToken}, User.UserId={UserId}, User.Name={Name}, User.Email={Email}, User.Roles={Roles}", 
+                request.Email, 
+                !string.IsNullOrEmpty(response.AccessToken),
+                response.User?.UserId,
+                response.User?.Name,
+                response.User?.Email,
+                response.User?.Roles != null ? string.Join(",", response.User.Roles) : "null");
+            
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
@@ -66,30 +82,36 @@ public class AuthController : ControllerBase
         }
     }
 
-
     /// Google OAuth login endpoint
-
     [HttpPost("google-login")]
     public async Task<ActionResult<AuthResponseDto>> GoogleLogin([FromBody] GoogleLoginRequestDto request)
     {
+        _logger.LogInformation("🚀 AuthController - GoogleLogin endpoint called. IdToken length: {TokenLength}, DeviceInfo: {DeviceInfo}", 
+            request?.IdToken?.Length ?? 0, request?.DeviceInfo ?? "N/A");
+        
         try
         {
             var response = await _authService.GoogleLoginAsync(request);
+            
+            _logger.LogInformation("✅ AuthController - GoogleLogin successful. Returning user: {UserId}, Name: {Name}, Email: {Email}, Roles: {Roles}", 
+                response?.User?.UserId, response?.User?.Name, response?.User?.Email, 
+                response?.User?.Roles != null ? string.Join(", ", response.User.Roles) : "N/A");
+            
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning("Google login failed. Reason: {Reason}", ex.Message);
+            _logger.LogWarning("❌ AuthController - Google login failed. Reason: {Reason}", ex.Message);
             return Unauthorized(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning("Google login configuration error. Reason: {Reason}", ex.Message);
+            _logger.LogWarning("⚙️ AuthController - Google login configuration error. Reason: {Reason}", ex.Message);
             return StatusCode(500, new { message = "Google authentication is not properly configured" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during Google login");
+            _logger.LogError(ex, "💥 AuthController - Error during Google login: {ErrorMessage}", ex.Message);
             return StatusCode(500, new { message = "An error occurred during Google login" });
         }
     }
@@ -192,9 +214,8 @@ public class AuthController : ControllerBase
     }
 
 
-    /// <summary>
     /// Initiate password reset process
-    /// </summary>
+
     [HttpPost("forgot-password")]
     public async Task<ActionResult<ForgotPasswordResponseDto>> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
     {
@@ -214,14 +235,29 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Reset password using reset token
-    /// </summary>
+    
+    // reset password using reset token
     [HttpPost("reset-password")]
     public async Task<ActionResult<ForgotPasswordResponseDto>> ResetPassword([FromBody] ResetPasswordRequestDto request)
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value.Errors.Count > 0)
+                    .SelectMany(x => x.Value.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                _logger.LogWarning("Password reset validation failed: {Errors}", string.Join("; ", errors));
+                return BadRequest(new ForgotPasswordResponseDto
+                {
+                    Success = false,
+                    Message = string.Join("; ", errors)
+                });
+            }
+
             var response = await _authService.ResetPasswordAsync(request);
             if (!response.Success)
             {
@@ -240,9 +276,8 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Verify reset token validity
-    /// </summary>
+    // verify reset token validity
+
     [HttpPost("verify-reset-token")]
     public async Task<ActionResult<VerifyResetTokenResponseDto>> VerifyResetToken([FromBody] VerifyResetTokenRequestDto request)
     {
@@ -266,16 +301,14 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Validate password strength
-    /// </summary>
+    // validate password strength
+    
     [HttpPost("validate-password")]
     public ActionResult ValidatePassword([FromBody] ValidatePasswordRequestDto request)
     {
         try
         {
-            // This would require injecting IPasswordValidationService into the controller
-            // For now, we'll use basic validation that matches the DTO validation
+            // basic validation that matches the DTO validation
             var isValid = !string.IsNullOrWhiteSpace(request.Password) &&
                          request.Password.Length >= 8 &&
                          System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]");
@@ -290,6 +323,490 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during password validation");
             return StatusCode(500, new { message = "An error occurred while validating the password" });
+        }
+    }
+
+    // test email functionality
+    
+    [HttpPost("test-email")]
+    public async Task<IActionResult> TestEmail([FromBody] ForgotPasswordRequestDto request)
+    {
+        try
+        {
+            _logger.LogInformation("=== EMAIL TEST ENDPOINT CALLED ===");
+            _logger.LogInformation("Testing email functionality for: {Email}", request.Email);
+
+            var result = await _emailService.SendEmailAsync(
+                request.Email,
+                "Test Email from Disaster Management System",
+                "<h1>Test Email</h1><p>This is a test email to verify email functionality is working.</p><p>If you receive this, email sending is working correctly!</p>"
+            );
+
+            _logger.LogInformation("Email test result: {Result}", result);
+
+            return Ok(new {
+                message = "Test email sent",
+                success = result,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending test email");
+            return StatusCode(500, new { message = "An error occurred while sending test email" });
+        }
+    }
+
+    // =====================================================
+    // TWO-FACTOR AUTHENTICATION ENDPOINTS
+    // =====================================================
+
+    /// <summary>
+    /// Enhanced login with 2FA support
+    /// </summary>
+    [HttpPost("login-otp")]
+    public async Task<ActionResult<EnhancedAuthResponseDto>> LoginWithTwoFactor([FromBody] LoginRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var response = await _authService.LoginWithTwoFactorAsync(request);
+
+            if (response.RequiresOTP)
+            {
+                return Ok(response);
+            }
+            else if (response.AuthResponse != null)
+            {
+                return Ok(response);
+            }
+            else
+            {
+                return BadRequest(new { message = response.Message });
+            }
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Login failed for email: {Email}. Reason: {Reason}", request.Email, ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during enhanced login for email: {Email}", request.Email);
+            return StatusCode(500, new { message = "An error occurred during login" });
+        }
+    }
+
+
+
+    /// <summary>
+    /// Send OTP code via email
+    /// </summary>
+    [HttpPost("otp/send")]
+    public async Task<ActionResult<SendOtpResponseDto>> SendOtp([FromBody] SendOtpRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var response = await _authService.SendOtpAsync(request, ipAddress);
+
+            if (response.Success)
+            {
+                return Ok(response);
+            }
+            else
+            {
+                return BadRequest(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending OTP");
+            return StatusCode(500, new { message = "An error occurred while sending OTP" });
+        }
+    }
+
+    /// <summary>
+    /// Verify OTP code
+    /// </summary>
+    [HttpPost("otp/verify")]
+    public async Task<ActionResult<AuthResponseDto>> VerifyOtp([FromBody] VerifyOtpRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var response = await _authService.VerifyOtpAsync(request, ipAddress);
+
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("OTP verification failed. Reason: {Reason}", ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying OTP");
+            return StatusCode(500, new { message = "An error occurred while verifying OTP" });
+        }
+    }
+
+    /// <summary>
+    /// Verify backup code
+    /// </summary>
+    [HttpPost("otp/verify-backup")]
+    public async Task<ActionResult<AuthResponseDto>> VerifyBackupCode([FromBody] VerifyBackupCodeRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var response = await _authService.VerifyBackupCodeAsync(request, ipAddress);
+
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Backup code verification failed. Reason: {Reason}", ex.Message);
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying backup code");
+            return StatusCode(500, new { message = "An error occurred while verifying backup code" });
+        }
+    }
+
+    /// <summary>
+    /// Get user's 2FA status
+    /// </summary>
+    [HttpGet("2fa/status")]
+    [Authorize]
+    public async Task<ActionResult<TwoFactorStatusDto>> GetTwoFactorStatus()
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out Guid userGuid))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var status = await _twoFactorService.GetTwoFactorStatusAsync(userGuid);
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting 2FA status");
+            return StatusCode(500, new { message = "An error occurred while getting 2FA status" });
+        }
+    }
+
+    /// <summary>
+    /// Initialize 2FA setup
+    /// </summary>
+    [HttpPost("2fa/setup")]
+    [Authorize]
+    public async Task<ActionResult<SetupTwoFactorResponseDto>> SetupTwoFactor([FromBody] SetupTwoFactorRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out Guid userGuid))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var response = await _twoFactorService.SetupTwoFactorAsync(userGuid, request.CurrentPassword);
+
+            if (response.Success)
+            {
+                return Ok(response);
+            }
+            else
+            {
+                return BadRequest(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting up 2FA");
+            return StatusCode(500, new { message = "An error occurred while setting up 2FA" });
+        }
+    }
+
+    /// <summary>
+    /// Complete 2FA setup
+    /// </summary>
+    [HttpPost("2fa/verify-setup")]
+    [Authorize]
+    public async Task<ActionResult<VerifySetupResponseDto>> VerifySetup([FromBody] VerifySetupRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out Guid userGuid))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var response = await _twoFactorService.VerifySetupAsync(userGuid, request.Code);
+
+            if (response.Success)
+            {
+                return Ok(response);
+            }
+            else
+            {
+                return BadRequest(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying 2FA setup");
+            return StatusCode(500, new { message = "An error occurred while verifying 2FA setup" });
+        }
+    }
+
+    /// <summary>
+    /// Disable 2FA
+    /// </summary>
+    [HttpPost("2fa/disable")]
+    [Authorize]
+    public async Task<ActionResult> DisableTwoFactor([FromBody] DisableTwoFactorRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out Guid userGuid))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var success = await _twoFactorService.DisableTwoFactorAsync(userGuid, request.CurrentPassword, request.OtpCode);
+
+            if (success)
+            {
+                return Ok(new { message = "Two-factor authentication has been disabled successfully" });
+            }
+            else
+            {
+                return BadRequest(new { message = "Failed to disable two-factor authentication. Please check your password and try again." });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error disabling 2FA");
+            return StatusCode(500, new { message = "An error occurred while disabling 2FA" });
+        }
+    }
+
+    /// <summary>
+    /// Generate new backup codes
+    /// </summary>
+    [HttpPost("2fa/backup-codes/generate")]
+    [Authorize]
+    public async Task<ActionResult<GenerateBackupCodesResponseDto>> GenerateBackupCodes([FromBody] SetupTwoFactorRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Validation failed", errors });
+            }
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out Guid userGuid))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var response = await _twoFactorService.GenerateBackupCodesAsync(userGuid, request.CurrentPassword);
+
+            if (response.Success)
+            {
+                return Ok(response);
+            }
+            else
+            {
+                return BadRequest(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating backup codes");
+            return StatusCode(500, new { message = "An error occurred while generating backup codes" });
+        }
+    }
+
+    // =====================================================
+    // EMAIL OTP AUTHENTICATION ENDPOINTS
+    // =====================================================
+
+    /// <summary>
+    /// Send OTP code via email for authentication
+    /// </summary>
+    [HttpPost("send-otp")]
+    public async Task<ActionResult<SendEmailOtpResponseDto>> SendEmailOtp([FromBody] SendEmailOtpRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Invalid email format", errors });
+            }
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var response = await _emailOtpService.SendOtpAsync(request, ipAddress);
+
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("Too many requests"))
+            {
+                return StatusCode(429, new { message = ex.Message, retryAfter = 60 });
+            }
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending email OTP to {Email}", request.email);
+            return StatusCode(500, new { message = "Server error" });
+        }
+    }
+
+    /// <summary>
+    /// Verify OTP code and authenticate user
+    /// </summary>
+    [HttpPost("verify-otp")]
+    public async Task<ActionResult<VerifyEmailOtpResponseDto>> VerifyEmailOtp([FromBody] VerifyEmailOtpRequestDto request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors)
+                    .Select(x => x.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new { message = "Invalid/expired OTP", errors });
+            }
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var response = await _emailOtpService.VerifyOtpAsync(request, ipAddress);
+
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            if (ex.Message.Contains("not found"))
+            {
+                return NotFound(new { message = "OTP not found" });
+            }
+            if (ex.Message.Contains("Too many"))
+            {
+                return StatusCode(429, new { message = ex.Message });
+            }
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying email OTP for {Email}", request.email);
+            return StatusCode(500, new { message = "Server error" });
         }
     }
 }
