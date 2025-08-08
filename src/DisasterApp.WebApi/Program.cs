@@ -44,6 +44,14 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+            builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+            builder.Services.AddScoped<IBackupCodeRepository, BackupCodeRepository>();
+            builder.Services.AddScoped<IOtpAttemptRepository, OtpAttemptRepository>();
+            builder.Services.AddScoped<IDisasterTypeRepository, DisasterTypeRepository>();
+            builder.Services.AddScoped<IDisasterEventRepository, DisasterEventRepository>();
+            builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
+            builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
+            builder.Services.AddScoped<IImpactTypeRepository, ImpactTypeRepository>();
 
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -52,6 +60,23 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
+            builder.Services.AddScoped<IDisasterTypeService, DisasterTypeService>();
+            builder.Services.AddScoped<IDisasterEventService, DisasterEventService>();
+            builder.Services.AddScoped<IDisasterReportService, DisasterReportService>();
+            builder.Services.AddScoped<IPhotoService, PhotoService>();
+            builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+            builder.Services.AddScoped<IImpactTypeService, ImpactTypeService>();
+
+            // Add Two-Factor Authentication services
+            builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
+            builder.Services.AddScoped<IOtpService, OtpService>();
+            builder.Services.AddScoped<IBackupCodeService, BackupCodeService>();
+            builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
+            builder.Services.AddScoped<ITokenService, TokenService>();
+
+            // Add Email OTP services
+            builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
+
 
             // Add authorization
             builder.Services.AddAuthorization(options =>
@@ -100,6 +125,11 @@ namespace DisasterApp
 
             // Add services to the container.
             builder.Services.AddControllers();
+            builder.Services.AddHttpClient("Nominatim", client =>
+            {
+                client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DisasterApp/1.0 (your-email@example.com)");
+            });
 
             // Add CORS (optimized for Google OAuth)
             builder.Services.AddCors(options =>
