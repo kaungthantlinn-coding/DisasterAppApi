@@ -13,6 +13,7 @@ namespace DisasterApp.Application.Services
         Task<DisasterReportDto> CreateAsync(DisasterReportCreateDto dto, Guid userId);
         Task<IEnumerable<DisasterReportDto>> GetAllAsync();
         Task<DisasterReportDto?> GetByIdAsync(Guid id);
+        Task<IEnumerable<DisasterReportSearchDto>> SearchAsync(string keyword);
         Task<DisasterReportDto?> UpdateAsync(Guid id, DisasterReportUpdateDto dto, Guid userId);
         Task<bool> DeleteAsync(Guid id);
     }

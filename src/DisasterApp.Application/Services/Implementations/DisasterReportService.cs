@@ -243,7 +243,9 @@ namespace DisasterApp.Application.Services
                 DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName=r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = r.UserId,
-
+                Latitude=r.Location.Latitude,
+                Longitude = r.Location.Longitude,
+                Address = r.Location.Address,
                 ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
                 {
                     ImpactTypeNames = new List<string> { i.ImpactType?.Name ?? string.Empty },
@@ -273,8 +275,9 @@ namespace DisasterApp.Application.Services
                 DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = report.UserId,
-                // Latitude = report.Location?.Latitude,
-                // Longitude = report.Location?.Longitude,
+                Latitude = report.Location.Latitude,
+                Longitude = report.Location.Longitude,
+                Address = report.Location.Address,
                 ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                 {
                     ImpactTypeNames = i.ImpactType != null ? new List<string> { i.ImpactType.Name } : new List<string>(),
@@ -490,6 +493,23 @@ namespace DisasterApp.Application.Services
 
             GeocodeCache[(lat, lng)] = address;
             return address;
+        }
+        public async Task<IEnumerable<DisasterReportSearchDto>> SearchAsync(string keyword)
+        {
+            var reports = await _repository.SearchAsync(keyword);
+            return reports.Select(r => new DisasterReportSearchDto
+            {
+                Id = r.Id,
+                Title = r.Title,
+                Description = r.Description,
+                Timestamp = r.Timestamp,
+                Severity = r.Severity.ToString(),
+                Status = r.Status.ToString(),
+                DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
+
+
+                LocationAddress = r.Location?.Address ?? string.Empty
+            });
         }
 
     }

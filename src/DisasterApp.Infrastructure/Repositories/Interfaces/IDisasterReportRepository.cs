@@ -13,7 +13,7 @@ namespace DisasterApp.Infrastructure.Repositories
         Task<IEnumerable<DisasterReport>> GetAllAsync();
         //Task<Guid> AddReportWithLocationAsync(DisasterReport report, Location loction);
         Task<DisasterReport> CreateAsync(DisasterReport report,Location location);
-       
+        Task<IEnumerable<DisasterReport>> SearchAsync(string keyword);
         Task<DisasterReport> UpdateAsync(DisasterReport report);
         Task DeleteAsync(Guid id);
     }

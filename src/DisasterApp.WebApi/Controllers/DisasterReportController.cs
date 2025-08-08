@@ -80,5 +80,12 @@ namespace DisasterApp.Controllers
 
             return NoContent();
         }
+
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string keyword)
+        {
+            var results = await _service.SearchAsync(keyword);
+            return Ok(results);
+        }
     }
 }
