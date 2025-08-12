@@ -201,6 +201,8 @@ namespace DisasterApp.Application.Services
                         Status = report.Status,
                         DisasterTypeName = disasterEvent.Name,
                         UserId = userId,
+                        Address=address,
+
                         ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                         {
                             ImpactTypeNames = i.ImpactType != null ? new List<string> { i.ImpactType.Name } : new List<string>(),

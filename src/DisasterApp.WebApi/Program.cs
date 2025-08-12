@@ -52,6 +52,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
             builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
             builder.Services.AddScoped<IImpactTypeRepository, ImpactTypeRepository>();
+            builder.Services.AddScoped<ISupportRequestRepository, SupportRequestRepository>();
 
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -66,6 +67,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IPhotoService, PhotoService>();
             builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
             builder.Services.AddScoped<IImpactTypeService, ImpactTypeService>();
+            builder.Services.AddScoped<ISupportRequestService, SupportRequestService>();
 
             // Add Two-Factor Authentication services
             builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
