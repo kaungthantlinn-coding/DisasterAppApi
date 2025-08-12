@@ -1,10 +1,19 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace DisasterApp.Domain.Entities;
 
 public partial class User
 {
+    public User()
+    {
+        UserId = Guid.NewGuid();
+        CreatedAt = DateTime.UtcNow;
+        // Initialize required auth fields to safe defaults for test entities
+        AuthProvider = "local";
+        AuthId = Guid.NewGuid().ToString();
+    }
+
     public Guid UserId { get; set; }
 
     public string AuthProvider { get; set; } = null!;

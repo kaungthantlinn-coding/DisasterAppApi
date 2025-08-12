@@ -1,3 +1,4 @@
+using DisasterApp.Application.DTOs;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -27,21 +28,21 @@ public class ChatController : ControllerBase
             if (dto.SenderId == Guid.Empty || dto.ReceiverId == Guid.Empty)
                 return BadRequest("Invalid data");
             // Message (text) မရှိ၊ attachment (image) မရှိ - error
-            if (string.IsNullOrWhiteSpace(dto.Message) && (dto.Attachment == null || dto.Attachment.Length == 0))
+            if (string.IsNullOrWhiteSpace(dto.Message) && (dto.File == null || dto.File.Length == 0))
                 return BadRequest("Message or image is required");
 
             string? attachmentUrl = null;
-            if (dto.Attachment != null && dto.Attachment.Length > 0)
+            if (dto.File != null && dto.File.Length > 0)
             {
                 // Save file to wwwroot/uploads/chat
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "chat");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
-                var fileName = Guid.NewGuid() + Path.GetExtension(dto.Attachment.FileName);
+                var fileName = Guid.NewGuid() + Path.GetExtension(dto.File.FileName);
                 var filePath = Path.Combine(uploadsFolder, fileName);
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
-                    await dto.Attachment.CopyToAsync(stream);
+                    await dto.File.CopyToAsync(stream);
                 }
                 // Save relative path for client access
                 attachmentUrl = $"/uploads/chat/{fileName}";
@@ -122,33 +123,15 @@ public class ChatController : ControllerBase
             .OrderBy(c => c.SentAt)
             .Select(c => new ChatMessageDto
             {
-                ChatId = c.ChatId,
+                Id = Guid.NewGuid(), // Generate new Guid since ChatId is int
                 SenderId = c.SenderId,
                 ReceiverId = c.ReceiverId,
-                Message = c.Message,
-                SentAt = c.SentAt,
-                AttachmentUrl = c.AttachmentUrl
+                Message = c.Message ?? string.Empty,
+                SentAt = c.SentAt ?? DateTime.UtcNow,
+                AttachmentUrl = c.AttachmentUrl,
+                IsRead = c.IsRead ?? false
             })
             .ToListAsync();
         return Ok(messages);
     }
-}
-
-// DTO
-public class SendChatWithFileDto
-{
-    public Guid SenderId { get; set; }
-    public Guid ReceiverId { get; set; }
-    public string? Message { get; set; }
-    public IFormFile? Attachment { get; set; }
-}
-
-public class ChatMessageDto
-{
-    public int ChatId { get; set; }
-    public Guid SenderId { get; set; }
-    public Guid ReceiverId { get; set; }
-    public string Message { get; set; }
-    public DateTime? SentAt { get; set; }
-    public string? AttachmentUrl { get; set; }
 }

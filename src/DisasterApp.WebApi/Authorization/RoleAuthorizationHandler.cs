@@ -11,8 +11,8 @@ public class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirement>
 
     public RoleAuthorizationHandler(IRoleService roleService, ILogger<RoleAuthorizationHandler> logger)
     {
-        _roleService = roleService;
-        _logger = logger;
+        _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     protected override async Task HandleRequirementAsync(

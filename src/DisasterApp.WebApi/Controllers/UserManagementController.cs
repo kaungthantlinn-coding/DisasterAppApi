@@ -78,6 +78,11 @@ public class UserManagementController : ControllerBase
     {
         try
         {
+            if (createUserDto == null)
+            {
+                return BadRequest(new { message = "CreateUserDto cannot be null" });
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -108,6 +113,11 @@ public class UserManagementController : ControllerBase
     {
         try
         {
+            if (updateUserDto == null)
+            {
+                return BadRequest(new { message = "UpdateUserDto cannot be null" });
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -148,7 +158,7 @@ public class UserManagementController : ControllerBase
                 return NotFound(new { message = "User not found" });
             }
 
-            return Ok(new { message = "User deleted successfully" });
+            return NoContent();
         }
         catch (InvalidOperationException ex)
         {
@@ -220,6 +230,11 @@ public class UserManagementController : ControllerBase
     {
         try
         {
+            if (changePasswordDto == null)
+            {
+                return BadRequest(new { message = "ChangeUserPasswordDto cannot be null" });
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);

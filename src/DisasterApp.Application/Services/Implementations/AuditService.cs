@@ -399,6 +399,7 @@ public class AuditService : IAuditService
             Severity = severity,
             Details = details,
             Resource = resource,
+            EntityType = "System",
             Metadata = metadata
         });
     }
@@ -412,6 +413,7 @@ public class AuditService : IAuditService
             UserId = userId,
             Details = details,
             Resource = "security",
+            EntityType = "Security",
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Metadata = metadata
@@ -438,6 +440,7 @@ public class AuditService : IAuditService
             UserId = userId,
             Details = details,
             Resource = resource ?? "system",
+            EntityType = "Error",
             Metadata = metadata
         });
     }
