@@ -4,6 +4,7 @@ using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,42 +13,34 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace DisasterApp.Application.Services
+namespace DisasterApp.Application.Services.Implementations
 {
-    public class DisasterReportService : IDisasterReportService
+    public class DisasterReportService(
+        IDisasterReportRepository repository,
+        IPhotoService photoService,
+        IHttpClientFactory httpClientFactory,
+        IDisasterTypeRepository disasterTypeRepository,
+        IImpactTypeRepository impactTypeRepository) : IDisasterReportService
     {
-        private readonly IDisasterReportRepository _repository;
-        private readonly IDisasterTypeRepository _disasterTypeRepository;
-        private readonly IImpactTypeRepository _impactTypeReository;
-
-        private readonly HttpClient _httpClient;
-        private readonly IPhotoService _photoService;
+        private readonly IDisasterReportRepository _repository = repository;
+        private readonly IDisasterTypeRepository _disasterTypeRepository = disasterTypeRepository;
+        private readonly IImpactTypeRepository _impactTypeReository = impactTypeRepository;
+        private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Nominatim");
+        private readonly IPhotoService _photoService = photoService;
         private static readonly ConcurrentDictionary<(decimal, decimal), string> GeocodeCache = new();
         private static DateTime _lastGeocode = DateTime.MinValue;
-        private static readonly object ThrottleLock = new();
-
-        public DisasterReportService(IDisasterReportRepository repository,
-            IPhotoService photoService,
-            IHttpClientFactory httpClientFactory,
-            IDisasterTypeRepository disasterTypeRepository,
-            IImpactTypeRepository impactTypeRepository)
+        private static readonly System.Threading.Lock ThrottleLock = new();
+        private static async Task ThrottleAsync()
         {
-            _repository = repository;
-            _disasterTypeRepository = disasterTypeRepository;
-            _impactTypeReository = impactTypeRepository;
-
-            _photoService = photoService;
-            _httpClient = httpClientFactory.CreateClient("Nominatim");
-        }
-        private async Task ThrottleAsync()
-        {
+            TimeSpan delay;
             lock (ThrottleLock)
             {
                 var since = DateTime.UtcNow - _lastGeocode;
-                if (since < TimeSpan.FromSeconds(1))
-                    Task.Delay(TimeSpan.FromSeconds(1) - since).Wait();
+                delay = since < TimeSpan.FromSeconds(1) ? TimeSpan.FromSeconds(1) - since : TimeSpan.Zero;
                 _lastGeocode = DateTime.UtcNow;
             }
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay);
         }
         public async Task<DisasterReportDto> CreateAsync(DisasterReportCreateDto dto, Guid userId)
         {
@@ -81,7 +74,7 @@ namespace DisasterApp.Application.Services
                         {
 
                             Name = dto.NewDisasterTypeName,
-                            Category = dto.DisasterCategory.Value,
+                            Category = dto.DisasterCategory ?? throw new ArgumentException("DisasterCategory cannot be null"),
 
                         };
                         await _disasterTypeRepository.AddAsync(newType);
@@ -130,8 +123,8 @@ namespace DisasterApp.Application.Services
                     DisasterEventId = disasterEvent.Id,
                     DisasterEvent = disasterEvent,
                     CreatedAt = DateTime.UtcNow,
-                    ImpactDetails = new List<ImpactDetail>(),
-                    Photos = new List<Photo>(),
+                    ImpactDetails = [],
+                Photos = [],
 
 
                 };
@@ -208,16 +201,12 @@ namespace DisasterApp.Application.Services
                     {
                         Description = impactDto.Description,
                         Severity = impactDto.Severity,
-                        ImpactTypes = new List<ImpactType>()
+                        ImpactTypes = []
                     };
 
                     foreach (var impactTypeId in impactDto.ImpactTypeIds)
                     {
-                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId);
-                        if (impactType == null)
-                        {
-                            throw new Exception($"ImpactType with ID {impactTypeId} not found");
-                        }
+                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
                         impactDetail.ImpactTypes.Add(impactType);
                     }
 
@@ -225,7 +214,7 @@ namespace DisasterApp.Application.Services
                 }
                 await _repository.CreateAsync(report, location);
                 // var uploadedPhotoUrls = new List<string>();
-                if (dto.Photos != null && dto.Photos.Any())
+                if (dto.Photos != null && dto.Photos.Count > 0)
                 {
                     foreach (var file in dto.Photos)
                     {
