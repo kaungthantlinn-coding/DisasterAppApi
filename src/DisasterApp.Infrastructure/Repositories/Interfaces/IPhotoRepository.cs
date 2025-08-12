@@ -9,6 +9,7 @@ namespace DisasterApp.Infrastructure.Repositories
 {
     public interface IPhotoRepository
     {
+        Task<List<Photo>> GetAllAsync();
         Task<Photo> AddAsync(Photo photo);
         Task<Photo?> GetByIdAsync(int id);
         void Delete(Photo photo);

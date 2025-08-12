@@ -1,5 +1,6 @@
 ﻿using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,6 +39,11 @@ namespace DisasterApp.Infrastructure.Repositories
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<Photo>> GetAllAsync()
+        {
+            return await _context.Photos.ToListAsync();
         }
     }
 }

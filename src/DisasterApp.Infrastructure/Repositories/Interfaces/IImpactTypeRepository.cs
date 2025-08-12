@@ -9,8 +9,11 @@ namespace DisasterApp.Infrastructure.Repositories
 {
     public interface IImpactTypeRepository
     {
-        Task<List<ImpactType>> GetAllAsync();
         Task<ImpactType?> GetByIdAsync(int id);
-        Task<ImpactType> AddAsync(ImpactType impactType);
+        Task<IEnumerable<ImpactType>> GetAllAsync();
+        Task<ImpactType?> GetByNameAsync(string name);
+        Task<ImpactType> CreateAsync(ImpactType entity);
+        Task<ImpactType> UpdateAsync(ImpactType entity);
+        Task DeleteAsync(int id);
     }
 }

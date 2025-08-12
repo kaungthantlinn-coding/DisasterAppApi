@@ -8,6 +8,7 @@ namespace DisasterApp.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     
     public class DisasterTypeController : ControllerBase
     {

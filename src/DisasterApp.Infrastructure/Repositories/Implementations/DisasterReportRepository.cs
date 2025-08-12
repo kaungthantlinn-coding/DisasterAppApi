@@ -26,6 +26,7 @@ namespace DisasterApp.Infrastructure.Repositories
                 .Include(r => r.Location)
                 .Include(r => r.Photos)
                 .Include(r => r.ImpactDetails)
+                .ThenInclude(id=>id.ImpactTypes)
                 .Where(x => x.IsDeleted != true)
                 .ToListAsync();
         }
@@ -37,14 +38,18 @@ namespace DisasterApp.Infrastructure.Repositories
                 .Include(r => r.Location)
                 .Include(r => r.Photos)
                 .Include(r => r.ImpactDetails)
+                .ThenInclude(id => id.ImpactTypes)
                 .FirstOrDefaultAsync(r => r.Id == id && r.IsDeleted != true);
         }
         public async Task<DisasterReport> CreateAsync(DisasterReport report, Location location)
         {
-           await _context.DisasterReports.AddAsync(report);
-            await _context.Locations.AddAsync(location);
+            report.Location = location;
+           
+            _context.DisasterReports.Add(report);
+            _context.Locations.AddAsync(location);
             await _context.SaveChangesAsync();
             return report;
+
         }
         public async Task<DisasterReport> UpdateAsync(DisasterReport report)
         {
@@ -62,13 +67,15 @@ namespace DisasterApp.Infrastructure.Repositories
                 await _context.SaveChangesAsync();
             }
         }
-        //For Location
-        //public async Task<Guid> AddReportWithLocationAsync(DisasterReport report, Location loction)
-        //{
-        //    await _context.DisasterReports.AddAsync(report);
-        //    await _context.Locations.AddAsync(loction);
-        //    await _context.SaveChangesAsync();
-        //    return report.Id;
-        //}
+       public async Task SoftDeleteAsync(Guid id)
+        {
+            var report = await _context.DisasterReports.FindAsync(id);
+            if (report != null)
+            {
+                report.IsDeleted = true;
+                _context.DisasterReports.Update(report);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }
