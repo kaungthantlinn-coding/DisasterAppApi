@@ -300,7 +300,7 @@ public partial class DisasterDbContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.ImpactTypeId).HasColumnName("impact_type_id");
+           
             entity.Property(e => e.IsResolved)
                 .HasDefaultValue(false)
                 .HasColumnName("is_resolved");
@@ -310,15 +310,28 @@ public partial class DisasterDbContext : DbContext
                 .HasConversion<string>()
                 .HasColumnName("severity");
 
-            entity.HasOne(d => d.ImpactType).WithMany(p => p.ImpactDetails)
-                .HasForeignKey(d => d.ImpactTypeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_ImpactDetail_ImpactType");
+            modelBuilder.Entity<ImpactDetail>()
+    .HasMany(d => d.ImpactTypes)
+    .WithMany(t => t.ImpactDetails)
+    .UsingEntity<Dictionary<string, object>>(
+        "ImpactDetailImpactType",  // join table name
+        r => r.HasOne<ImpactType>()
+              .WithMany()
+              .HasForeignKey("ImpactTypeId")
+              .HasConstraintName("FK_ImpactDetailImpactType_ImpactType")
+              .OnDelete(DeleteBehavior.Cascade),
+        l => l.HasOne<ImpactDetail>()
+              .WithMany()
+              .HasForeignKey("ImpactDetailId")
+              .HasConstraintName("FK_ImpactDetailImpactType_ImpactDetail")
+              .OnDelete(DeleteBehavior.Cascade),
+        je =>
+        {
+            je.HasKey("ImpactDetailId", "ImpactTypeId");
+            je.ToTable("ImpactDetailImpactType");
+        }
+    );
 
-            entity.HasOne(d => d.Report).WithMany(p => p.ImpactDetails)
-                .HasForeignKey(d => d.ReportId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_ImpactDetail_Report");
         });
 
         modelBuilder.Entity<ImpactType>(entity =>

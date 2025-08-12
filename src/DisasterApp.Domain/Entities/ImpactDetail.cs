@@ -17,10 +17,9 @@ public partial class ImpactDetail
     public bool? IsResolved { get; set; }
 
     public DateTime? ResolvedAt { get; set; }
+   
 
-    public int ImpactTypeId { get; set; }
-
-    public virtual ImpactType ImpactType { get; set; } = null!;
+    public virtual ICollection<ImpactType> ImpactTypes { get; set; } =new List<ImpactType>();
 
     public virtual DisasterReport Report { get; set; } = null!;
 }
