@@ -40,16 +40,21 @@ namespace DisasterApp.Application.DTOs
         public DateTime Timestamp { get; set; }
         public SeverityLevel Severity { get; set; }
         public ReportStatus Status { get; set; }
+        public Guid UserId { get; set; }
+        public int DisasterTypeId { get; set; }
+        public string DisasterTypeName { get; set; }
+        public string? NewDisasterTypeName { get; set; }
+
         public Guid DisasterEventId { get; set; }
-        public string? DisasterTypeName { get; set; }
         public string ? DisasterEventName { get; set; }
         public DisasterCategory? DisasterCategory { get; set; }
-
-        public Guid UserId { get; set; }
         public decimal Latitude { get; set; }
         public decimal Longitude { get; set; }
-     
-        public string Address { get; set; }=null!;
+        public string? CoordinatePrecision { get; set; }
+        public string? Address { get; set; }
+
+
+        //public LocationDto? Location { get; set; }
         public List<ImpactDetailDto> ImpactDetails { get; set; } = new List<ImpactDetailDto>();
         // Photos (return as URLs for the frontend)
         public List<string> PhotoUrls { get; set; } = new();

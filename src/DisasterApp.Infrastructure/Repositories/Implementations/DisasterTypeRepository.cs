@@ -26,6 +26,16 @@ namespace DisasterApp.Infrastructure.Repositories
         {
             return await _context.DisasterTypes.FindAsync(id);
         }
+
+        public async Task<bool> ExistsAsync(int id)
+        {
+            return await _context.DisasterTypes.AnyAsync(dt => dt.Id == id);
+        }
+        public async Task<DisasterType?> GetByNameAsync(string name)
+        {
+            return await _context.DisasterTypes
+                .FirstOrDefaultAsync(dt => dt.Name.ToLower() == name.ToLower());
+        }
         public async Task AddAsync(DisasterType disasterType)
         {
             await _context.DisasterTypes.AddAsync(disasterType);

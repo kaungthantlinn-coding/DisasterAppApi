@@ -10,6 +10,7 @@ namespace DisasterApp.Application.Services
 {
     public interface IPhotoService
     {
+        Task<List<PhotoDto>> GetAllPhotosAsync();
         Task<Photo> UploadPhotoAsync(CreatePhotoDto dto);
         Task<Photo> UpdatePhotoAsync(UpdatePhotoDto dto);
         Task DeletePhotoAsync(int photoId);

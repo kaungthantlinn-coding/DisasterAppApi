@@ -10,7 +10,7 @@ namespace DisasterApp.WebApi.Controllers
 
         public ConfigController(IConfiguration configuration)
         {
-            _configuration = configuration;
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         }
 
         [HttpGet("google-client-id")]
@@ -18,7 +18,7 @@ namespace DisasterApp.WebApi.Controllers
         {
             var clientId = _configuration["GoogleAuth:ClientId"];
             
-            if (string.IsNullOrEmpty(clientId))
+            if (string.IsNullOrWhiteSpace(clientId))
             {
                 return BadRequest("Google Client ID not configured");
             }

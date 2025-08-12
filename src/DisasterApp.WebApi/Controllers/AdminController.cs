@@ -17,8 +17,8 @@ public class AdminController : ControllerBase
 
     public AdminController(ILogger<AdminController> logger, IAuditService auditService)
     {
-        _logger = logger;
-        _auditService = auditService;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _auditService = auditService ?? throw new ArgumentNullException(nameof(auditService));
     }
 
     [HttpGet("dashboard")]

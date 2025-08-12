@@ -18,23 +18,49 @@ namespace DisasterApp.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<List<ImpactType>> GetAllAsync()
+        public async Task<IEnumerable<ImpactType>> GetAllAsync()
         {
-            return await _context.ImpactTypes.ToListAsync();
+            return await _context.ImpactTypes.
+                Include(it => it.ImpactDetails).
+                ToListAsync();
         }
 
         public async Task<ImpactType?> GetByIdAsync(int id)
         {
-            return await _context.ImpactTypes.FindAsync(id);
+            return await _context.ImpactTypes.
+                Include(it => it.ImpactDetails).
+                FirstOrDefaultAsync(it => it.Id == id);
+        }
+        public async Task<ImpactType?> GetByNameAsync(string name)
+        {
+            return await _context.ImpactTypes
+                .FirstOrDefaultAsync(it => it.Name.ToLower() == name.ToLower());
         }
 
-        public async Task<ImpactType> AddAsync(ImpactType impactType)
+        public async Task<ImpactType> CreateAsync(ImpactType impactType)
         {
             _context.ImpactTypes.Add(impactType);
             await _context.SaveChangesAsync();
             return impactType;
         }
-    }
+        public async Task<ImpactType> UpdateAsync(ImpactType impactType)
+        {
+            _context.ImpactTypes.Update(impactType);
+            await _context.SaveChangesAsync();
+            return impactType;
+        }
 
+        public async Task DeleteAsync(int id)
+        {
+            var entity = await _context.ImpactTypes.FindAsync(id);
+            if (entity == null)
+            {
+                throw new KeyNotFoundException("ImpactType not found.");
+            }
+            _context.ImpactTypes.Remove(entity);
+            await _context.SaveChangesAsync();
+        }
+
+    }
 }
 

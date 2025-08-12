@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DisasterApp.Domain.Enums;
 
@@ -6,6 +6,11 @@ namespace DisasterApp.Domain.Entities;
 
 public partial class DisasterReport
 {
+    public DisasterReport()
+    {
+        Id = Guid.NewGuid();
+    }
+
     public Guid Id { get; set; }
 
     public string Title { get; set; } = null!;

@@ -413,3 +413,5 @@ $RECYCLE.BIN/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+src/DisasterApp.Infrastructure/Migrations/20250812083858_InitialCreate.cs
+src/DisasterApp.Infrastructure/Migrations/20250812083858_InitialCreate.Designer.cs

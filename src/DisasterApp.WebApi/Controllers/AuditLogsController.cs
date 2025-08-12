@@ -21,18 +21,6 @@ public class AuditLogsController : ControllerBase
         _auditService = auditService;
     }
 
-    /// <summary>
-    /// Get audit logs with filtering and pagination
-    /// </summary>
-    /// <param name="page">Page number for pagination</param>
-    /// <param name="limit">Number of records per page</param>
-    /// <param name="search">Search term for filtering</param>
-    /// <param name="severity">Filter by severity level</param>
-    /// <param name="action">Filter by action type</param>
-    /// <param name="userId">Filter by specific user ID</param>
-    /// <param name="startDate">Start date for date range filter</param>
-    /// <param name="endDate">End date for date range filter</param>
-    /// <returns>Paginated audit logs</returns>
     [HttpGet]
     [AdminOnly]
     public async Task<IActionResult> GetAuditLogs(
@@ -45,6 +33,13 @@ public class AuditLogsController : ControllerBase
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null)
     {
+        // Validate parameters
+        if (page <= 0)
+            return BadRequest(new { message = "Page must be greater than 0" });
+        
+        if (limit <= 0)
+            return BadRequest(new { message = "Limit must be greater than 0" });
+        
         try
         {
             var filters = new AuditLogFiltersDto
@@ -107,10 +102,6 @@ public class AuditLogsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get audit log statistics
-    /// </summary>
-    /// <returns>Audit log statistics</returns>
     [HttpGet("stats")]
     [AdminOnly]
     public async Task<IActionResult> GetAuditLogStatistics()
@@ -137,19 +128,6 @@ public class AuditLogsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Export audit logs in CSV or Excel format
-    /// </summary>
-    /// <param name="format">Export format (csv or excel)</param>
-    /// <param name="page">Page number for pagination</param>
-    /// <param name="limit">Number of records per page</param>
-    /// <param name="search">Search term for filtering</param>
-    /// <param name="severity">Filter by severity level</param>
-    /// <param name="action">Filter by action type</param>
-    /// <param name="userId">Filter by specific user ID</param>
-    /// <param name="startDate">Start date for date range filter</param>
-    /// <param name="endDate">End date for date range filter</param>
-    /// <returns>File download</returns>
     [HttpGet("export")]
     [AdminOnly]
     public async Task<IActionResult> ExportAuditLogs(

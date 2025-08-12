@@ -256,7 +256,7 @@ public partial class DisasterDbContext : DbContext
                 .HasColumnName("amount");
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.DonationType)
-                .HasMaxLength(50)
+                .HasConversion<string>()
                 .HasColumnName("donation_type");
             entity.Property(e => e.DonorContact)
                 .HasMaxLength(255)
@@ -269,10 +269,11 @@ public partial class DisasterDbContext : DbContext
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasColumnName("received_at");
             entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasDefaultValue("Pending")
+                .HasConversion<string>()
                 .HasColumnName("status");
+            entity.Property(e => e.TransactionPhotoUrl)
+                .HasMaxLength(512)
+                .HasColumnName("transaction_photo_url");
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.VerifiedAt).HasColumnName("verified_at");
             entity.Property(e => e.VerifiedBy).HasColumnName("verified_by");
@@ -300,7 +301,7 @@ public partial class DisasterDbContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.ImpactTypeId).HasColumnName("impact_type_id");
+           
             entity.Property(e => e.IsResolved)
                 .HasDefaultValue(false)
                 .HasColumnName("is_resolved");
@@ -310,15 +311,28 @@ public partial class DisasterDbContext : DbContext
                 .HasConversion<string>()
                 .HasColumnName("severity");
 
-            entity.HasOne(d => d.ImpactType).WithMany(p => p.ImpactDetails)
-                .HasForeignKey(d => d.ImpactTypeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_ImpactDetail_ImpactType");
+            modelBuilder.Entity<ImpactDetail>()
+    .HasMany(d => d.ImpactTypes)
+    .WithMany(t => t.ImpactDetails)
+    .UsingEntity<Dictionary<string, object>>(
+        "ImpactDetailImpactType",  // join table name
+        r => r.HasOne<ImpactType>()
+              .WithMany()
+              .HasForeignKey("ImpactTypeId")
+              .HasConstraintName("FK_ImpactDetailImpactType_ImpactType")
+              .OnDelete(DeleteBehavior.Cascade),
+        l => l.HasOne<ImpactDetail>()
+              .WithMany()
+              .HasForeignKey("ImpactDetailId")
+              .HasConstraintName("FK_ImpactDetailImpactType_ImpactDetail")
+              .OnDelete(DeleteBehavior.Cascade),
+        je =>
+        {
+            je.HasKey("ImpactDetailId", "ImpactTypeId");
+            je.ToTable("ImpactDetailImpactType");
+        }
+    );
 
-            entity.HasOne(d => d.Report).WithMany(p => p.ImpactDetails)
-                .HasForeignKey(d => d.ReportId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_ImpactDetail_Report");
         });
 
         modelBuilder.Entity<ImpactType>(entity =>
@@ -521,7 +535,6 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.Status)
                 .HasConversion<string>()
                 .HasColumnName("status");
-            entity.Property(e => e.SupportTypeId).HasColumnName("support_type_id");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             entity.Property(e => e.Urgency).HasColumnName("urgency");
             entity.Property(e => e.UserId).HasColumnName("user_id");
@@ -531,15 +544,25 @@ public partial class DisasterDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_SupportRequest_Report");
 
-            entity.HasOne(d => d.SupportType).WithMany(p => p.SupportRequests)
-                .HasForeignKey(d => d.SupportTypeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_SupportRequest_SupportType");
-
             entity.HasOne(d => d.User).WithMany(p => p.SupportRequests)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_SupportRequest_User");
+
+            entity.HasMany(d => d.SupportTypes).WithMany(p => p.SupportRequests)
+                .UsingEntity<SupportRequestSupportType>(
+                    "SupportRequestSupportType",
+                    l => l.HasOne<SupportType>().WithMany().HasForeignKey("SupportTypeId")
+                        .OnDelete(DeleteBehavior.ClientSetNull),
+                    r => r.HasOne<SupportRequest>().WithMany().HasForeignKey("SupportRequestId")
+                        .OnDelete(DeleteBehavior.ClientSetNull),
+                    j =>
+                    {
+                        j.HasKey("SupportRequestId", "SupportTypeId");
+                        j.ToTable("SupportRequestSupportType");
+                        j.HasIndex(new[] { "SupportRequestId" }, "IX_SupportRequestSupportType_SupportRequestId");
+                        j.HasIndex(new[] { "SupportTypeId" }, "IX_SupportRequestSupportType_SupportTypeId");
+                    });
         });
 
         modelBuilder.Entity<SupportType>(entity =>

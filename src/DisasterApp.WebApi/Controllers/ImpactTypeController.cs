@@ -18,7 +18,7 @@ namespace DisasterApp.Controllers
         {
             _service = service;
         }
-        [Authorize]
+        //[Authorize]
         [HttpGet]
         public async Task<ActionResult<List<ImpactTypeDto>>> GetAll()
         {
@@ -26,15 +26,58 @@ namespace DisasterApp.Controllers
             return Ok(types);
         }
 
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ImpactTypeDto>> GetById(int id)
+        {
+            var impactType = await _service.GetByIdAsync(id);
+            if (impactType == null)
+                return NotFound();
+
+            return Ok(impactType);
+        }
+
+
         [HttpPost]
-        [Authorize]
+        //[Authorize]
         public async Task<ActionResult<ImpactTypeDto>> Create([FromBody] ImpactTypeCreateDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Name))
-                return BadRequest("Name is required.");
+            try
+            {
+                var created = await _service.CreateAsync(dto);
+                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
-            var created = await _service.CreateAsync(dto);
-            return Ok(created);
+        [HttpPut("{id}")]
+        public async Task<ActionResult<ImpactTypeDto>> Update(int id, ImpactTypeUpdateDto dto)
+        {
+            try
+            {
+                var updated = await _service.UpdateAsync(id, dto);
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                await _service.DeleteAsync(id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

@@ -6,10 +6,6 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace DisasterApp.Application.Services.Implementations;
-
-/// <summary>
-/// Service implementation for backup code operations
-/// </summary>
 public class BackupCodeService : IBackupCodeService
 {
     private readonly IBackupCodeRepository _backupCodeRepository;

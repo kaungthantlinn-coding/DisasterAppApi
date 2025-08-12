@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using DisasterApp.Domain.Enums;
 
 namespace DisasterApp.Domain.Entities;
 
@@ -15,7 +16,7 @@ public partial class Donation
 
     public string? DonorContact { get; set; }
 
-    public string DonationType { get; set; } = null!;
+    public DonationType DonationType { get; set; }
 
     public decimal? Amount { get; set; }
 
@@ -23,7 +24,9 @@ public partial class Donation
 
     public DateTime ReceivedAt { get; set; }
 
-    public string? Status { get; set; }
+    public DonationStatus Status { get; set; }
+
+    public string? TransactionPhotoUrl { get; set; }
 
     public Guid? VerifiedBy { get; set; }
 

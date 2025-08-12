@@ -15,6 +15,7 @@ namespace DisasterApp.Infrastructure.Repositories
         Task<DisasterReport> CreateAsync(DisasterReport report,Location location);
         Task<IEnumerable<DisasterReport>> SearchAsync(string keyword);
         Task<DisasterReport> UpdateAsync(DisasterReport report);
+        Task SoftDeleteAsync(Guid id);
         Task DeleteAsync(Guid id);
     }
 }

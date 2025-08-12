@@ -9,10 +9,15 @@ namespace DisasterApp.Application.DTOs
     public class ImpactTypeDto
     {
         public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; set; } = null!;
     }
     public class ImpactTypeCreateDto
     {
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; set; } = null!;
+    }
+    public class ImpactTypeUpdateDto
+    {
+
+        public string Name { get; set; } = null!;
     }
 }

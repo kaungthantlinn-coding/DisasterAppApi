@@ -74,5 +74,24 @@ namespace DisasterApp.Application.Services
             await _photoRepository.SaveChangesAsync();
         }
 
+        public async Task<List<PhotoDto>> GetAllPhotosAsync()
+        {
+            var photos = await _photoRepository.GetAllAsync();
+
+            // Entity ကို manual map လုပ်
+            var photoDtos = photos.Select(p => new PhotoDto
+            {
+                Id = p.Id,
+                ReportId = p.ReportId.ToString(),
+                Url = p.Url,
+                Caption = p.Caption,
+                UploadedAt = p.UploadedAt.HasValue
+    ? p.UploadedAt.Value.ToString("o")  // ISO 8601 format
+    : null
+            }).ToList();
+
+            return photoDtos;
+        }
+
     }
 }

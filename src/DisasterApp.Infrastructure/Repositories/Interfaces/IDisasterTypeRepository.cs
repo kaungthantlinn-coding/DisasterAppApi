@@ -11,6 +11,8 @@ namespace DisasterApp.Infrastructure.Repositories
     {       
             Task<List<DisasterType>> GetAllAsync();
             Task<DisasterType?> GetByIdAsync(int id);
+        Task<bool> ExistsAsync(int id);
+        Task<DisasterType?> GetByNameAsync(string name);
             Task AddAsync(DisasterType disasterType);
             Task UpdateAsync(DisasterType disasterType);       
             Task<bool> DeleteAsync(int id);

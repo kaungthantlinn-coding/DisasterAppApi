@@ -2,6 +2,14 @@ namespace DisasterApp.Domain.Entities;
 
 public partial class AuditLog
 {
+    public AuditLog()
+    {
+        AuditLogId = Guid.NewGuid();
+        Timestamp = DateTime.UtcNow;
+        CreatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public Guid AuditLogId { get; set; }
 
     public string Action { get; set; } = null!;

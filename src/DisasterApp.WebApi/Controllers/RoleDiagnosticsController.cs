@@ -22,9 +22,9 @@ public class RoleDiagnosticsController : ControllerBase
         IRoleService roleService,
         ILogger<RoleDiagnosticsController> logger)
     {
-        _context = context;
-        _roleService = roleService;
-        _logger = logger;
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _roleService = roleService ?? throw new ArgumentNullException(nameof(roleService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     [HttpGet("roles-status")]
@@ -34,25 +34,17 @@ public class RoleDiagnosticsController : ControllerBase
         try
         {
             var roles = await _context.Roles.ToListAsync();
-            var userRoles = await _context.Set<object>()
-                .FromSqlRaw(@"
-                    SELECT 
-                        ur.user_id,
-                        ur.role_id,
-                        r.name as role_name,
-                        u.name as user_name,
-                        u.email as user_email
-                    FROM UserRole ur
-                    INNER JOIN [Role] r ON ur.role_id = r.role_id
-                    INNER JOIN [User] u ON ur.user_id = u.user_id
-                ")
-                .ToListAsync();
+            // In-memory friendly computation of total user-role assignments
+            var userRolesCount = await _context.Users
+                .Include(u => u.Roles)
+                .Select(u => u.Roles.Count)
+                .SumAsync();
 
             return Ok(new
             {
                 roles = roles.Select(r => new { r.RoleId, r.Name }),
                 totalRoles = roles.Count,
-                userRoleAssignments = userRoles.Count,
+                userRoleAssignments = userRolesCount,
                 message = "Role diagnostics completed successfully"
             });
         }
