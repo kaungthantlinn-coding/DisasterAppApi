@@ -46,7 +46,7 @@ namespace DisasterApp.Infrastructure.Repositories
             report.Location = location;
            
             _context.DisasterReports.Add(report);
-            _context.Locations.AddAsync(location);
+            await _context.Locations.AddAsync(location); // Await the AddAsync call
             await _context.SaveChangesAsync();
             return report;
 
@@ -130,5 +130,16 @@ namespace DisasterApp.Infrastructure.Repositories
       .ToListAsync();
         }
 
+        public async Task SoftDeleteAsync(Guid id)
+        {
+            var report = await _context.DisasterReports.FindAsync(id);
+            if (report != null)
+            {
+                report.IsDeleted = true;
+                report.UpdatedAt = DateTime.UtcNow;
+                _context.DisasterReports.Update(report);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }
