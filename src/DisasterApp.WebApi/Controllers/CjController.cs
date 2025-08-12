@@ -1,6 +1,11 @@
 using DisasterApp.WebApi.Authorization;
+using DisasterApp.Infrastructure.Data;
+using DisasterApp.Domain.Entities;
+using DisasterApp.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DisasterApp.WebApi.Controllers;
 
@@ -10,10 +15,12 @@ namespace DisasterApp.WebApi.Controllers;
 public class CjController : ControllerBase
 {
     private readonly ILogger<CjController> _logger;
+    private readonly DisasterDbContext _context;
 
-    public CjController(ILogger<CjController> logger)
+    public CjController(ILogger<CjController> logger, DisasterDbContext context)
     {
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
     [HttpGet("dashboard")]
@@ -46,9 +53,28 @@ public class CjController : ControllerBase
 
     [HttpGet("verification-queue")]
     [AdminOrCj]
-    public IActionResult GetVerificationQueue()
+    public async Task<IActionResult> GetVerificationQueue()
     {
-        return Ok(new { message = "Admin or CJ can view verification queue", data = "Verification queue would be here" });
+        var pendingReports = await _context.DisasterReports
+            .Where(r => r.Status == ReportStatus.Pending)
+            .Include(r => r.User)
+            .Select(r => new 
+            {
+                id = r.Id,
+                title = r.Title,
+                description = r.Description,
+                severity = r.Severity,
+                timestamp = r.Timestamp,
+                user = new 
+                {
+                    userId = r.User!.UserId,
+                    name = r.User.Name,
+                    email = r.User.Email
+                }
+            })
+            .ToListAsync();
+
+        return Ok(pendingReports);
     }
 
     [HttpGet("statistics")]
@@ -64,6 +90,101 @@ public class CjController : ControllerBase
                 pendingReports = 25,
                 approvedReports = 120,
                 rejectedReports = 5
+            }
+        });
+    }
+
+    [HttpPost("approve-report/{reportId}")]
+    [CjOnly]
+    public async Task<IActionResult> ApproveReport(Guid reportId)
+    {
+        if (reportId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Invalid report ID" });
+        }
+
+        var report = await _context.DisasterReports.FindAsync(reportId);
+        if (report == null)
+        {
+            return NotFound(new { message = "Report not found" });
+        }
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        report.Status = ReportStatus.Verified;
+        report.VerifiedBy = Guid.Parse(userId);
+        report.VerifiedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Report approved successfully", reportId });
+    }
+
+    [HttpPost("reject-report/{reportId}")]
+    [CjOnly]
+    public async Task<IActionResult> RejectReport(Guid reportId, [FromBody] string? reason = null)
+    {
+        if (reportId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Invalid report ID" });
+        }
+
+        var report = await _context.DisasterReports.FindAsync(reportId);
+        if (report == null)
+        {
+            return NotFound(new { message = "Report not found" });
+        }
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        report.Status = ReportStatus.Rejected;
+        report.VerifiedBy = Guid.Parse(userId);
+        report.VerifiedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Report rejected successfully", reportId, reason });
+    }
+
+    [HttpGet("report-details/{reportId}")]
+    [CjOnly]
+    public async Task<IActionResult> GetReportDetails(Guid reportId)
+    {
+        if (reportId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Invalid report ID" });
+        }
+
+        var report = await _context.DisasterReports
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Id == reportId);
+
+        if (report == null)
+        {
+            return NotFound(new { message = "Report not found" });
+        }
+
+        return Ok(new 
+        { 
+            reportId = report.Id,
+            title = report.Title,
+            description = report.Description,
+            status = report.Status,
+            severity = report.Severity,
+            timestamp = report.Timestamp,
+            user = new 
+            {
+                userId = report.User?.UserId,
+                name = report.User?.Name,
+                email = report.User?.Email
             }
         });
     }

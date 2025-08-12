@@ -63,7 +63,7 @@ public class AuthService : IAuthService
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
     {
         var user = await _userRepository.GetByEmailAsync(request.Email);
-        if (user == null)
+        if (user is null)
             throw new UnauthorizedAccessException("Invalid email or password");
 
         // Debug logging to check user data from database
@@ -108,8 +108,8 @@ public class AuthService : IAuthService
 
         return new AuthResponseDto
         {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken.Token,
+            AccessToken = accessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+            RefreshToken = refreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
             ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
             User = userDto
         };
@@ -150,8 +150,8 @@ public class AuthService : IAuthService
 
         return new AuthResponseDto
         {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken.Token,
+            AccessToken = accessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+            RefreshToken = refreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
             ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
             User = new UserDto
             {
@@ -170,13 +170,13 @@ public class AuthService : IAuthService
         {
             var clientId = _configuration["GoogleAuth:ClientId"] ?? throw new InvalidOperationException("Google Client ID not configured");
 
-            _logger.LogInformation("🔍 GoogleLogin - Starting authentication with ClientId: {ClientId}", clientId?.Substring(0, 10) + "...");
+            _logger.LogInformation("🔍 GoogleLogin - Starting authentication with ClientId: {ClientId}", clientId?.Length > 10 ? string.Concat(clientId.AsSpan(0, 10), "...") : clientId + "...");
             _logger.LogInformation("🔍 GoogleLogin - Received IdToken length: {TokenLength}", request.IdToken?.Length ?? 0);
 
             // Verify the Google ID token
             var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
             {
-                Audience = new[] { clientId }
+                Audience = [clientId]
             });
 
             if (payload == null)
@@ -229,8 +229,8 @@ public class AuthService : IAuthService
 
                 var existingUserResponse = new AuthResponseDto
                 {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken.Token,
+                    AccessToken = accessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+                    RefreshToken = refreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
                     ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
                     User = new UserDto
                     {
@@ -287,8 +287,8 @@ public class AuthService : IAuthService
 
                 var newUserResponse = new AuthResponseDto
                 {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken.Token,
+                    AccessToken = accessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+                    RefreshToken = refreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
                     ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
                     User = new UserDto
                     {
@@ -353,8 +353,8 @@ public class AuthService : IAuthService
 
         return new AuthResponseDto
         {
-            AccessToken = newAccessToken,
-            RefreshToken = newRefreshToken.Token,
+            AccessToken = newAccessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+            RefreshToken = newRefreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
             ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
             User = new UserDto
             {
@@ -933,7 +933,7 @@ public class AuthService : IAuthService
             if (!string.IsNullOrEmpty(request.LoginToken))
             {
                 var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
-                if (userIdFromToken == null)
+                if (userIdFromToken is null)
                 {
                     throw new UnauthorizedAccessException("Invalid or expired login token");
                 }
@@ -942,7 +942,7 @@ public class AuthService : IAuthService
             else if (!string.IsNullOrEmpty(request.Email))
             {
                 var userByEmail = await _userRepository.GetByEmailAsync(request.Email);
-                if (userByEmail == null)
+                if (userByEmail is null)
                 {
                     throw new UnauthorizedAccessException("User not found");
                 }
@@ -979,7 +979,7 @@ public class AuthService : IAuthService
 
             // Complete login
             var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
+            if (user is null)
             {
                 throw new UnauthorizedAccessException("User not found");
             }
@@ -993,8 +993,8 @@ public class AuthService : IAuthService
 
             return new AuthResponseDto
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken.Token,
+                AccessToken = accessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+                RefreshToken = refreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
                 ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
                 User = new UserDto
                 {
@@ -1023,7 +1023,7 @@ public class AuthService : IAuthService
             if (!string.IsNullOrEmpty(request.LoginToken))
             {
                 var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
-                if (userIdFromToken == null)
+                if (userIdFromToken is null)
                 {
                     throw new UnauthorizedAccessException("Invalid or expired login token");
                 }
@@ -1032,10 +1032,10 @@ public class AuthService : IAuthService
             else if (!string.IsNullOrEmpty(request.Email))
             {
                 var userByEmail = await _userRepository.GetByEmailAsync(request.Email);
-                if (userByEmail == null)
-                {
-                    throw new UnauthorizedAccessException("User not found");
-                }
+            if (userByEmail is null)
+            {
+                throw new UnauthorizedAccessException("User not found");
+            }
                 userId = userByEmail.UserId;
             }
             else
@@ -1073,7 +1073,7 @@ public class AuthService : IAuthService
             }
 
             // Complete login
-            if (user == null)
+            if (user is null)
             {
                 throw new UnauthorizedAccessException("User not found");
             }
@@ -1087,8 +1087,8 @@ public class AuthService : IAuthService
 
             return new AuthResponseDto
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken.Token,
+                AccessToken = accessToken ?? throw new InvalidOperationException("Failed to generate access token"),
+                RefreshToken = refreshToken?.Token ?? throw new InvalidOperationException("Failed to generate refresh token"),
                 ExpiresAt = DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
                 User = new UserDto
                 {

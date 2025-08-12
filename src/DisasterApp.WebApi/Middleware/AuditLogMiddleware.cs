@@ -28,9 +28,9 @@ namespace DisasterApp.WebApi.Middleware
 
         public AuditLogMiddleware(RequestDelegate next, ILogger<AuditLogMiddleware> logger, IServiceScopeFactory serviceScopeFactory)
         {
-            _next = next;
-            _logger = logger;
-            _serviceScopeFactory = serviceScopeFactory;
+            _next = next ?? throw new ArgumentNullException(nameof(next));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
         }
 
         public async Task InvokeAsync(HttpContext context)
