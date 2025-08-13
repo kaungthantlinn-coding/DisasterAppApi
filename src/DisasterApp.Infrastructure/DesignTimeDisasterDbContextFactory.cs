@@ -9,7 +9,7 @@ public class DesignTimeDisasterDbContextFactory : IDesignTimeDbContextFactory<Di
         var optionsBuilder = new DbContextOptionsBuilder<DisasterDbContext>();
         // Use your actual connection string here
         optionsBuilder.UseSqlServer(
-            "Server=localhost;Database=DisasterDb;Trusted_Connection=True;TrustServerCertificate=True;",
+            "Server=.;Database=Disaster;User ID=sa;Password=sasa@123;TrustServerCertificate=True;",
             b => b.MigrationsAssembly("DisasterApp.Infrastructure")
         );
 

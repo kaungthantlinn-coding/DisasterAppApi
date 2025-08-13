@@ -13,6 +13,7 @@ public class UserManagementControllerTests
 {
     private readonly Mock<IUserManagementService> _mockUserManagementService;
     private readonly Mock<IRoleService> _mockRoleService;
+    private readonly Mock<IBlacklistService> _mockBlacklistService;
     private readonly Mock<ILogger<UserManagementController>> _mockLogger;
     private readonly UserManagementController _controller;
 
@@ -20,8 +21,9 @@ public class UserManagementControllerTests
     {
         _mockUserManagementService = new Mock<IUserManagementService>();
         _mockRoleService = new Mock<IRoleService>();
+        _mockBlacklistService = new Mock<IBlacklistService>();
         _mockLogger = new Mock<ILogger<UserManagementController>>();
-        _controller = new UserManagementController(_mockUserManagementService.Object, _mockRoleService.Object, _mockLogger.Object);
+        _controller = new UserManagementController(_mockUserManagementService.Object, _mockRoleService.Object, _mockBlacklistService.Object, _mockLogger.Object);
     }
 
     [Fact]

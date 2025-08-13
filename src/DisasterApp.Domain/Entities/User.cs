@@ -76,4 +76,6 @@ public partial class User
     public virtual ICollection<BackupCode> BackupCodes { get; set; } = new List<BackupCode>();
 
     public virtual ICollection<OtpAttempt> OtpAttempts { get; set; } = new List<OtpAttempt>();
+
+    public virtual ICollection<UserBlacklist> BlacklistHistory { get; set; } = new List<UserBlacklist>();
 }

@@ -3,6 +3,7 @@ using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace DisasterApp.WebApi.Controllers;
 
@@ -14,15 +15,18 @@ public class UserManagementController : ControllerBase
 {
     private readonly IUserManagementService _userManagementService;
     private readonly IRoleService _roleService;
+    private readonly IBlacklistService _blacklistService;
     private readonly ILogger<UserManagementController> _logger;
 
     public UserManagementController(
         IUserManagementService userManagementService,
         IRoleService roleService,
+        IBlacklistService blacklistService,
         ILogger<UserManagementController> logger)
     {
         _userManagementService = userManagementService;
         _roleService = roleService;
+        _blacklistService = blacklistService;
         _logger = logger;
     }
 
@@ -173,21 +177,32 @@ public class UserManagementController : ControllerBase
     }
 
 
-    /// Blacklist/suspend a user
-
+    /// Blacklist/suspend a user with reason
     [HttpPost("{userId}/blacklist")]
     [AdminOnly]
-    public async Task<IActionResult> BlacklistUser(Guid userId)
+    public async Task<IActionResult> BlacklistUser(Guid userId, [FromBody] BlacklistUserDto blacklistDto)
     {
         try
         {
-            var result = await _userManagementService.BlacklistUserAsync(userId);
-            if (!result)
+            if (!ModelState.IsValid)
             {
-                return NotFound(new { message = "User not found" });
+                return BadRequest(ModelState);
             }
 
-            return Ok(new { message = "User blacklisted successfully" });
+            var adminUserId = GetCurrentUserId();
+            if (adminUserId == Guid.Empty)
+            {
+                return Unauthorized(new { message = "Unable to identify admin user" });
+            }
+
+            var result = await _blacklistService.BlacklistUserAsync(userId, blacklistDto, adminUserId);
+            
+            if (!result.Success)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(result);
         }
         catch (Exception ex)
         {
@@ -196,26 +211,53 @@ public class UserManagementController : ControllerBase
         }
     }
 
-
     /// Remove blacklist/unsuspend a user
-
     [HttpPost("{userId}/unblacklist")]
     [AdminOnly]
-    public async Task<IActionResult> UnblacklistUser(Guid userId)
+    public async Task<IActionResult> UnblacklistUser(Guid userId, [FromBody] UnblacklistUserDto? unblacklistDto = null)
     {
         try
         {
-            var result = await _userManagementService.UnblacklistUserAsync(userId);
-            if (!result)
+            if (unblacklistDto != null && !ModelState.IsValid)
             {
-                return NotFound(new { message = "User not found" });
+                return BadRequest(ModelState);
             }
 
-            return Ok(new { message = "User unblacklisted successfully" });
+            var adminUserId = GetCurrentUserId();
+            if (adminUserId == Guid.Empty)
+            {
+                return Unauthorized(new { message = "Unable to identify admin user" });
+            }
+
+            var result = await _blacklistService.UnblacklistUserAsync(userId, unblacklistDto, adminUserId);
+            
+            if (!result.Success)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(result);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error unblacklisting user {UserId}", userId);
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
+
+    /// Get blacklist history for a user
+    [HttpGet("{userId}/blacklist-history")]
+    [AdminOnly]
+    public async Task<IActionResult> GetBlacklistHistory(Guid userId)
+    {
+        try
+        {
+            var history = await _blacklistService.GetBlacklistHistoryAsync(userId);
+            return Ok(new { success = true, data = history });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving blacklist history for user {UserId}", userId);
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
@@ -421,5 +463,11 @@ public class UserManagementController : ControllerBase
             _logger.LogError(ex, "Error retrieving CJ users");
             return StatusCode(500, new { message = "Internal server error" });
         }
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
     }
 }

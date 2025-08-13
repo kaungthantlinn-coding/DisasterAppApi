@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
@@ -598,6 +598,27 @@ namespace DisasterApp.Application.Services.Implementations
         public Task<bool> DeleteAsync(Guid id)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<object> GetStatisticsAsync()
+        {
+            var reports = await _repository.GetAllAsync();
+            
+            var totalReports = reports.Count();
+            var reportsByStatus = reports.GroupBy(r => r.Status)
+                .ToDictionary(g => g.Key, g => g.Count());
+            var reportsBySeverity = reports.GroupBy(r => r.Severity)
+                .ToDictionary(g => g.Key, g => g.Count());
+            var recentReports = reports.Count(r => r.Timestamp >= DateTime.UtcNow.AddDays(-7));
+            
+            return new
+            {
+                TotalReports = totalReports,
+                ReportsByStatus = reportsByStatus,
+                ReportsBySeverity = reportsBySeverity,
+                RecentReports = recentReports,
+                LastUpdated = DateTime.UtcNow
+            };
         }
     }
 }
