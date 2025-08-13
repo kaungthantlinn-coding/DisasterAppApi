@@ -15,8 +15,8 @@ public static class DataSeeder
 
         try
         {
-            // Ensure 2FA tables exist
-            await EnsureTwoFactorTablesExistAsync(context, logger);
+            // Ensure 2FA tables exist - COMMENTED OUT: Tables are now created via EF migrations
+            // await EnsureTwoFactorTablesExistAsync(context, logger);
 
             // Seed roles
             await SeedRolesAsync(context, logger);

@@ -56,13 +56,19 @@ public partial class DisasterDbContext : DbContext
 
     public virtual DbSet<OtpAttempt> OtpAttempts { get; set; }
 
+    public virtual DbSet<UserBlacklist> UserBlacklists { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-
         if (!optionsBuilder.IsConfigured)
         {
-
+            // Configuration is typically done in Program.cs or Startup.cs
+            // This method is left empty as configuration is handled externally
         }
+        
+        // Suppress pending model changes warning for navigation property updates
+        optionsBuilder.ConfigureWarnings(warnings => 
+            warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -753,6 +759,54 @@ public partial class DisasterDbContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_OtpAttempt_User");
+        });
+
+        modelBuilder.Entity<UserBlacklist>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__UserBlac__3213E83F");
+
+            entity.ToTable("UserBlacklist");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("(newid())")
+                .HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Reason)
+                .HasMaxLength(1000)
+                .HasColumnName("reason");
+            entity.Property(e => e.BlacklistedBy).HasColumnName("blacklisted_by");
+            entity.Property(e => e.BlacklistedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("blacklisted_at");
+            entity.Property(e => e.UnblacklistedBy).HasColumnName("unblacklisted_by");
+            entity.Property(e => e.UnblacklistedAt).HasColumnName("unblacklisted_at");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.User).WithMany(p => p.BlacklistHistory)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UserBlacklist_User");
+
+            entity.HasOne(d => d.BlacklistedByUser).WithMany()
+                .HasForeignKey(d => d.BlacklistedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UserBlacklist_BlacklistedBy");
+
+            entity.HasOne(d => d.UnblacklistedByUser).WithMany()
+                .HasForeignKey(d => d.UnblacklistedBy)
+                .HasConstraintName("FK_UserBlacklist_UnblacklistedBy");
+
+            entity.HasIndex(e => e.UserId, "IX_UserBlacklist_UserId");
+            entity.HasIndex(e => e.IsActive, "IX_UserBlacklist_IsActive");
+            entity.HasIndex(e => e.BlacklistedAt, "IX_UserBlacklist_BlacklistedAt");
         });
 
         OnModelCreatingPartial(modelBuilder);

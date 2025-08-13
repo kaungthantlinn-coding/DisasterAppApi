@@ -30,7 +30,8 @@ namespace DisasterApp
 
             // Add Entity Framework
             builder.Services.AddDbContext<DisasterDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+                    sqlOptions => sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
 
             builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
 
@@ -52,6 +53,8 @@ namespace DisasterApp
             builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
             builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
             builder.Services.AddScoped<IImpactTypeRepository, ImpactTypeRepository>();
+            builder.Services.AddScoped<ISupportRequestRepository, SupportRequestRepository>();
+            builder.Services.AddScoped<IUserBlacklistRepository, UserBlacklistRepository>();
 
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -66,6 +69,8 @@ namespace DisasterApp
             builder.Services.AddScoped<IPhotoService, PhotoService>();
             builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
             builder.Services.AddScoped<IImpactTypeService, ImpactTypeService>();
+            builder.Services.AddScoped<ISupportRequestService, SupportRequestService>();
+            builder.Services.AddScoped<IBlacklistService, BlacklistService>();
 
             // Add Two-Factor Authentication services
             builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
@@ -190,10 +195,10 @@ namespace DisasterApp
                 {
                     logger.LogInformation("Ensuring database is created and migrated...");
 
-                    // Apply migrations (this will create the database if it doesn't exist)
+                    // Ensure database is created (this will create the database if it doesn't exist)
                     logger.LogInformation("Ensuring database is created and migrated...");
-                    await context.Database.MigrateAsync();
-                    logger.LogInformation("Database migration completed successfully.");
+                    await context.Database.EnsureCreatedAsync();
+                    logger.LogInformation("Database creation completed successfully.");
 
                     logger.LogInformation("Seeding database...");
                     await DataSeeder.SeedAsync(services);
