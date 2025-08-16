@@ -733,7 +733,7 @@ public class UserManagementServiceTests
             .ReturnsAsync(true);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(2, result);
@@ -764,7 +764,7 @@ public class UserManagementServiceTests
             .ReturnsAsync(true);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(2, result);
@@ -796,7 +796,7 @@ public class UserManagementServiceTests
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(2, result);
@@ -828,7 +828,7 @@ public class UserManagementServiceTests
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(2, result);
@@ -851,7 +851,7 @@ public class UserManagementServiceTests
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => 
-            _userManagementService.BulkOperationAsync(bulkOperation));
+            _userManagementService.BulkOperationAsync(bulkOperation, null));
         Assert.Equal("Role name is required for role assignment", exception.Message);
     }
 
@@ -869,7 +869,7 @@ public class UserManagementServiceTests
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => 
-            _userManagementService.BulkOperationAsync(bulkOperation));
+            _userManagementService.BulkOperationAsync(bulkOperation, null));
         Assert.Equal("Role name is required for role removal", exception.Message);
     }
 
@@ -886,7 +886,7 @@ public class UserManagementServiceTests
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => 
-            _userManagementService.BulkOperationAsync(bulkOperation));
+            _userManagementService.BulkOperationAsync(bulkOperation, null));
         Assert.Equal("Unknown operation: unknown-operation", exception.Message);
     }
 
@@ -911,7 +911,7 @@ public class UserManagementServiceTests
             .ReturnsAsync(true);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(1, result);
@@ -943,7 +943,7 @@ public class UserManagementServiceTests
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(1, result); // Only one user should be affected
@@ -967,11 +967,44 @@ public class UserManagementServiceTests
             .ReturnsAsync(users);
 
         // Act
-        var result = await _userManagementService.BulkOperationAsync(bulkOperation);
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, null);
 
         // Assert
         Assert.Equal(0, result);
         _mockUserRepository.Verify(x => x.BulkUpdateUsersAsync(It.IsAny<List<User>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkOperationAsync_BlacklistOperation_PreventsSelfBlacklisting()
+    {
+        // Arrange
+        var adminUserId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var userIds = new List<Guid> { adminUserId, otherUserId };
+        var users = new List<User>
+        {
+            new User { UserId = adminUserId, Email = "admin@test.com", IsBlacklisted = false },
+            new User { UserId = otherUserId, Email = "user@test.com", IsBlacklisted = false }
+        };
+        var bulkOperation = new BulkUserOperationDto
+        {
+            UserIds = userIds,
+            Operation = "blacklist"
+        };
+
+        _mockUserRepository.Setup(x => x.GetUsersByIdsAsync(userIds))
+            .ReturnsAsync(users);
+        _mockUserRepository.Setup(x => x.BulkUpdateUsersAsync(users))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _userManagementService.BulkOperationAsync(bulkOperation, adminUserId);
+
+        // Assert
+        Assert.Equal(1, result); // Only one user should be affected (not the admin)
+        Assert.False(users[0].IsBlacklisted); // Admin should not be blacklisted
+        Assert.True(users[1].IsBlacklisted); // Other user should be blacklisted
+        _mockUserRepository.Verify(x => x.BulkUpdateUsersAsync(users), Times.Once);
     }
 
     #endregion

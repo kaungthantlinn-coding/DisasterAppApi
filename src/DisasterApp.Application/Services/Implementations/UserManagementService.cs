@@ -4,6 +4,11 @@ using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.Extensions.Logging;
 using BCrypt.Net;
+using System.Text;
+using System.Text.Json;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+
 
 namespace DisasterApp.Application.Services.Implementations;
 
@@ -15,7 +20,6 @@ public class UserManagementService : IUserManagementService
     private readonly IRoleService _roleService;
     private readonly IAuditService _auditService;
     private readonly ILogger<UserManagementService> _logger;
-
     public UserManagementService(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
@@ -31,6 +35,8 @@ public class UserManagementService : IUserManagementService
         _auditService = auditService;
         _logger = logger;
     }
+
+
 
     public async Task<PagedUserListDto> GetUsersAsync(UserFilterDto filter)
     {
@@ -364,7 +370,7 @@ public class UserManagementService : IUserManagementService
         }
     }
 
-    public async Task<int> BulkOperationAsync(BulkUserOperationDto bulkOperation)
+    public async Task<int> BulkOperationAsync(BulkUserOperationDto bulkOperation, Guid? adminUserId = null)
     {
         try
         {
@@ -376,6 +382,12 @@ public class UserManagementService : IUserManagementService
                 case "blacklist":
                     foreach (var user in users)
                     {
+                        // Prevent self-blacklisting
+                        if (adminUserId.HasValue && user.UserId == adminUserId.Value)
+                        {
+                            _logger.LogWarning("Admin {AdminUserId} attempted to blacklist themselves, skipping", adminUserId.Value);
+                            continue;
+                        }
                         user.IsBlacklisted = true;
                         affectedCount++;
                     }
@@ -658,6 +670,298 @@ public class UserManagementService : IUserManagementService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating role update for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<byte[]> ExportUsersAsync(UserExportRequestDto exportRequest)
+    {
+        try
+        {
+            // Apply filters or use default filter if none provided
+            var filter = exportRequest.Filters ?? new UserFilterDto { PageSize = int.MaxValue, PageNumber = 1 };
+            filter.PageSize = int.MaxValue; // Get all users for export
+            filter.PageNumber = 1;
+
+            // Get users data
+            var usersResult = await GetUsersAsync(filter);
+            var users = usersResult.Users;
+
+            // Convert to export format
+            var exportItems = new List<UserExportItemDto>();
+            foreach (var user in users)
+            {
+                // Get detailed user info for statistics
+                var userDetails = await GetUserByIdAsync(user.UserId);
+                
+                exportItems.Add(new UserExportItemDto
+                {
+                    UserId = user.UserId,
+                    Name = user.Name,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    AuthProvider = user.AuthProvider,
+                    Status = user.Status,
+                    Roles = string.Join(", ", user.RoleNames),
+                    CreatedAt = user.CreatedAt,
+                    DisasterReports = userDetails?.Statistics?.DisasterReportsCount ?? 0,
+                    SupportRequests = userDetails?.Statistics?.SupportRequestsCount ?? 0,
+                    Donations = userDetails?.Statistics?.DonationsCount ?? 0,
+                    Organizations = userDetails?.Statistics?.OrganizationsCount ?? 0
+                });
+            }
+
+            // Generate export based on format
+            return exportRequest.Format.ToLower() switch
+            {
+                "json" => GenerateJsonExport(exportItems),
+                "csv" => GenerateCsvExport(exportItems),
+                "excel" => GenerateExcelExport(exportItems),
+                "pdf" => GeneratePdfExport(exportItems),
+                _ => GenerateCsvExport(exportItems) // Default to CSV
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting users");
+            throw;
+        }
+    }
+
+    private byte[] GenerateJsonExport(List<UserExportItemDto> users)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        
+        var json = JsonSerializer.Serialize(users, options);
+        return Encoding.UTF8.GetBytes(json);
+    }
+
+    private byte[] GenerateCsvExport(List<UserExportItemDto> users)
+    {
+        var csv = new StringBuilder();
+        
+        // Add header
+        csv.AppendLine("UserId,Name,Email,PhoneNumber,AuthProvider,Status,Roles,CreatedAt,DisasterReports,SupportRequests,Donations,Organizations");
+        
+        // Add data rows
+        foreach (var user in users)
+        {
+            csv.AppendLine($"{user.UserId},\"{EscapeCsvField(user.Name)}\",\"{EscapeCsvField(user.Email)}\",\"{EscapeCsvField(user.PhoneNumber ?? "")}\",\"{EscapeCsvField(user.AuthProvider)}\",\"{EscapeCsvField(user.Status)}\",\"{EscapeCsvField(user.Roles)}\",{user.CreatedAt:yyyy-MM-dd HH:mm:ss},{user.DisasterReports},{user.SupportRequests},{user.Donations},{user.Organizations}");
+        }
+        
+        return Encoding.UTF8.GetBytes(csv.ToString());
+    }
+
+    private byte[] GenerateExcelExport(List<UserExportItemDto> users)
+    {
+        // For now, return CSV format as Excel implementation would require additional packages
+        // In a real implementation, you would use libraries like EPPlus or ClosedXML
+        return GenerateCsvExport(users);
+    }
+
+    private byte[] GeneratePdfExport(List<UserExportItemDto> users)
+    {
+        using var memoryStream = new MemoryStream();
+        var document = new Document(PageSize.A4.Rotate(), 10, 10, 10, 10);
+        var writer = PdfWriter.GetInstance(document, memoryStream);
+        
+        document.Open();
+        
+        // Add title
+        var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 16);
+        var title = new Paragraph($"Disaster Watch - Users Export - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}", titleFont)
+        {
+            Alignment = Element.ALIGN_CENTER,
+            SpacingAfter = 20
+        };
+        document.Add(title);
+        
+        // Create table
+        var table = new PdfPTable(12) { WidthPercentage = 100 };
+        
+        // Set column widths
+        float[] widths = { 8f, 12f, 15f, 10f, 8f, 8f, 12f, 10f, 6f, 6f, 6f, 6f };
+        table.SetWidths(widths);
+        
+        // Add headers
+        var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 8);
+        var headers = new[] { "User ID", "Name", "Email", "Phone", "Provider", "Status", "Roles", "Created", "Reports", "Requests", "Donations", "Orgs" };
+        
+        foreach (var header in headers)
+        {
+            var cell = new PdfPCell(new Phrase(header, headerFont))
+            {
+                BackgroundColor = new BaseColor(220, 220, 220),
+                HorizontalAlignment = Element.ALIGN_CENTER,
+                Padding = 5
+            };
+            table.AddCell(cell);
+        }
+        
+        // Add data rows
+        var dataFont = FontFactory.GetFont(FontFactory.HELVETICA, 7);
+        foreach (var user in users)
+        {
+            table.AddCell(new PdfPCell(new Phrase(user.UserId.ToString()[..8] + "...", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.Name ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.Email ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.PhoneNumber ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.AuthProvider ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.Status ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.Roles ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.CreatedAt?.ToString("yyyy-MM-dd") ?? "", dataFont)) { Padding = 3 });
+            table.AddCell(new PdfPCell(new Phrase(user.DisasterReports.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
+            table.AddCell(new PdfPCell(new Phrase(user.SupportRequests.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
+            table.AddCell(new PdfPCell(new Phrase(user.Donations.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
+            table.AddCell(new PdfPCell(new Phrase(user.Organizations.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
+        }
+        
+        document.Add(table);
+        
+        // Add footer
+        var footerFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+        var footer = new Paragraph($"Total Users: {users.Count} | Generated on: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC", footerFont)
+        {
+            Alignment = Element.ALIGN_CENTER,
+            SpacingBefore = 20
+        };
+        document.Add(footer);
+        
+        document.Close();
+        writer.Close();
+        
+        return memoryStream.ToArray();
+    }
+
+    private string EscapeCsvField(string field)
+    {
+        if (string.IsNullOrEmpty(field))
+            return string.Empty;
+            
+        // Escape quotes by doubling them
+        return field.Replace("\"", "\"\"");
+    }
+
+    // Analytics methods implementation
+    public async Task<UserStatisticsResponseDto> GetUserStatisticsAsync()
+    {
+        try
+        {
+            var totalUsers = await _userRepository.GetTotalUsersCountAsync();
+            var activeUsers = await _userRepository.GetActiveUsersCountAsync();
+            var suspendedUsers = await _userRepository.GetSuspendedUsersCountAsync();
+            var adminUsers = await _userRepository.GetAdminUsersCountAsync();
+
+            // Get new users this month and last month
+            var thisMonth = DateTime.UtcNow.Date.AddDays(1 - DateTime.UtcNow.Day);
+            var lastMonth = thisMonth.AddMonths(-1);
+            var twoMonthsAgo = lastMonth.AddMonths(-1);
+
+            var (thisMonthUsers, thisMonthCount) = await _userRepository.GetUsersAsync(
+                1, int.MaxValue, createdAfter: thisMonth);
+            var (lastMonthUsers, lastMonthCount) = await _userRepository.GetUsersAsync(
+                1, int.MaxValue, createdAfter: lastMonth, createdBefore: thisMonth);
+
+            return new UserStatisticsResponseDto
+            {
+                TotalUsers = totalUsers,
+                ActiveUsers = activeUsers,
+                SuspendedUsers = suspendedUsers,
+                AdminUsers = adminUsers,
+                NewUsersThisMonth = thisMonthCount,
+                NewUsersLastMonth = lastMonthCount
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user statistics");
+            throw;
+        }
+    }
+
+    public async Task<UserActivityTrendsDto> GetUserActivityTrendsAsync(string period = "monthly", int months = 12)
+    {
+        try
+        {
+            var trends = new List<UserTrendDataDto>();
+            var currentDate = DateTime.UtcNow.Date;
+            
+            for (int i = months - 1; i >= 0; i--)
+            {
+                var monthStart = currentDate.AddMonths(-i).AddDays(1 - currentDate.AddMonths(-i).Day);
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                
+                // Get new users for this month
+                var (newUsers, newUsersCount) = await _userRepository.GetUsersAsync(
+                    1, int.MaxValue, createdAfter: monthStart, createdBefore: monthEnd.AddDays(1));
+                
+                // Get active users (users who have logged in during this month)
+                // For now, we'll use total users as active users since we don't have last_login tracking
+                var (allUsers, totalCount) = await _userRepository.GetUsersAsync(
+                    1, int.MaxValue, createdBefore: monthEnd.AddDays(1));
+                
+                // Get suspended users count for this month
+                var suspendedCount = await _userRepository.GetSuspendedUsersCountAsync();
+                
+                trends.Add(new UserTrendDataDto
+                {
+                    Month = monthStart.ToString("yyyy-MM"),
+                    NewUsers = newUsersCount,
+                    ActiveUsers = totalCount, // This would ideally be users active in this month
+                    SuspendedUsers = suspendedCount
+                });
+            }
+
+            return new UserActivityTrendsDto
+            {
+                Period = period,
+                Data = trends
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user activity trends");
+            throw;
+        }
+    }
+
+    public async Task<RoleDistributionDto> GetRoleDistributionAsync()
+    {
+        try
+        {
+            var totalUsers = await _userRepository.GetTotalUsersCountAsync();
+            var roleDistribution = new List<RoleDistributionItemDto>();
+
+            // Get all roles and calculate their user counts
+            var allRoles = await _roleService.GetAllRolesAsync();
+            
+            foreach (var role in allRoles)
+            {
+                // Get users with this specific role
+                var (users, userCount) = await _userRepository.GetUsersAsync(
+                    1, int.MaxValue, role: role.Name);
+                
+                var percentage = totalUsers > 0 ? Math.Round((double)userCount / totalUsers * 100, 1) : 0;
+                roleDistribution.Add(new RoleDistributionItemDto
+                {
+                    Role = role.Name ?? "Unknown",
+                    Count = userCount,
+                    Percentage = percentage
+                });
+            }
+
+            return new RoleDistributionDto
+            {
+                Roles = roleDistribution
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving role distribution");
             throw;
         }
     }

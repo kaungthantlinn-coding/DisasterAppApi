@@ -9,6 +9,8 @@ using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using DisasterApp.WebApi.Middleware;
+using DisasterApp.WebApi.Hubs;
+using DisasterApp.WebApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -108,7 +110,7 @@ namespace DisasterApp
             {
                 options.RequireHttpsMetadata = false;
                 options.SaveToken = true;
-                options.TokenValidationParameters = new TokenValidationParameters
+                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
@@ -117,9 +119,23 @@ namespace DisasterApp
                     ValidateAudience = true,
                     ValidAudience = builder.Configuration["Jwt:Audience"],
                     ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero,
-                    //NameClaimType = "sub" // Google unique ID
+                    ClockSkew = TimeSpan.Zero
+                };
 
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/userStatsHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
                 };
             })
             .AddGoogle(options =>
@@ -130,6 +146,10 @@ namespace DisasterApp
 
             // Add services to the container.
             builder.Services.AddControllers();
+            
+            // Add SignalR
+            builder.Services.AddSignalR();
+            builder.Services.AddScoped<IUserStatsHubService, UserStatsHubService>();
             builder.Services.AddHttpClient("Nominatim", client =>
             {
                 client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
@@ -249,6 +269,7 @@ namespace DisasterApp
             app.UseAuthorization();
 
             app.MapControllers();
+            app.MapHub<UserStatsHub>("/userStatsHub");
 
             app.Run();
         }

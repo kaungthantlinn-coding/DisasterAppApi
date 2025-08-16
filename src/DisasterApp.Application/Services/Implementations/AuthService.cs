@@ -77,6 +77,10 @@ public class AuthService : IAuthService
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.AuthId))
             throw new UnauthorizedAccessException("Invalid email or password");
 
+        // Check if user is blacklisted
+        if (user.IsBlacklisted == true)
+            throw new UnauthorizedAccessException("Account has been suspended");
+
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         _logger.LogInformation("Retrieved roles for user {UserId}: {Roles}", user.UserId, string.Join(",", roles));
         
@@ -195,6 +199,13 @@ public class AuthService : IAuthService
             {
                 _logger.LogInformation("👤 GoogleLogin - Existing user found: {UserId}, Name: {Name}, Email: {Email}", 
                     existingUser.UserId, existingUser.Name, existingUser.Email);
+                
+                // Check if user is blacklisted
+                if (existingUser.IsBlacklisted == true)
+                {
+                    _logger.LogWarning("❌ GoogleLogin - User {UserId} is blacklisted", existingUser.UserId);
+                    throw new UnauthorizedAccessException("Account has been suspended");
+                }
                 
                 // User exists, log them in
                 if (existingUser.AuthProvider != "Google")

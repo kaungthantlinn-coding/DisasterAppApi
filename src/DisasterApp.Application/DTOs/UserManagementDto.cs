@@ -207,6 +207,53 @@ public class UserManagementStatsDto
     public int AdminUsers { get; set; }
     public int NewUsersThisMonth { get; set; }
     public int NewUsersToday { get; set; }
+    public int NewUsersLastMonth { get; set; }
+}
+
+
+
+public class UserStatisticsResponseDto
+{
+    public int TotalUsers { get; set; }
+    public int ActiveUsers { get; set; }
+    public int SuspendedUsers { get; set; }
+    public int AdminUsers { get; set; }
+    public int NewUsersThisMonth { get; set; }
+    public int NewUsersLastMonth { get; set; }
+}
+
+
+
+public class UserActivityTrendsDto
+{
+    public string Period { get; set; } = null!;
+    public List<UserTrendDataDto> Data { get; set; } = new();
+}
+
+
+
+public class UserTrendDataDto
+{
+    public string Month { get; set; } = null!;
+    public int NewUsers { get; set; }
+    public int ActiveUsers { get; set; }
+    public int SuspendedUsers { get; set; }
+}
+
+
+
+public class RoleDistributionDto
+{
+    public List<RoleDistributionItemDto> Roles { get; set; } = new();
+}
+
+
+
+public class RoleDistributionItemDto
+{
+    public string Role { get; set; } = null!;
+    public int Count { get; set; }
+    public double Percentage { get; set; }
 }
 
 
@@ -218,4 +265,43 @@ public class UserDeletionValidationDto
     public bool HasActiveReports { get; set; }
     public bool HasActiveRequests { get; set; }
     public bool IsLastAdmin { get; set; }
+}
+
+
+
+public class UserExportRequestDto
+{
+    public string Format { get; set; } = "csv"; // csv, json, excel, pdf
+    public UserFilterDto? Filters { get; set; }
+    public List<string>? Fields { get; set; } // Optional: specify which fields to export
+}
+
+
+
+public class UserExportResponseDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? DownloadUrl { get; set; }
+    public string? FileName { get; set; }
+    public int TotalRecords { get; set; }
+    public DateTime ExportedAt { get; set; }
+}
+
+
+
+public class UserExportItemDto
+{
+    public Guid UserId { get; set; }
+    public string Name { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public string? PhoneNumber { get; set; }
+    public string AuthProvider { get; set; } = null!;
+    public string Status { get; set; } = null!;
+    public string Roles { get; set; } = null!;
+    public DateTime? CreatedAt { get; set; }
+    public int DisasterReports { get; set; }
+    public int SupportRequests { get; set; }
+    public int Donations { get; set; }
+    public int Organizations { get; set; }
 }

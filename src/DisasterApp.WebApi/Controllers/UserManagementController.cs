@@ -316,7 +316,15 @@ public class UserManagementController : ControllerBase
                 return BadRequest(ModelState);
             }
 
-            var affectedCount = await _userManagementService.BulkOperationAsync(bulkOperation);
+            // Get current admin user ID from JWT token
+            var adminUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid? adminUserId = null;
+            if (Guid.TryParse(adminUserIdClaim, out var parsedAdminId))
+            {
+                adminUserId = parsedAdminId;
+            }
+
+            var affectedCount = await _userManagementService.BulkOperationAsync(bulkOperation, adminUserId);
             return Ok(new { message = $"Operation completed successfully", affectedCount });
         }
         catch (ArgumentException ex)
@@ -346,6 +354,59 @@ public class UserManagementController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving dashboard stats");
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
+
+    /// Get comprehensive user statistics for analytics
+    [HttpGet("statistics")]
+    [AdminOnly]
+    public async Task<ActionResult<UserStatisticsResponseDto>> GetUserStatistics()
+    {
+        try
+        {
+            var statistics = await _userManagementService.GetUserStatisticsAsync();
+            return Ok(statistics);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user statistics");
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
+
+    /// Get user activity trends over time
+    [HttpGet("trends")]
+    [AdminOnly]
+    public async Task<ActionResult<UserActivityTrendsDto>> GetUserActivityTrends(
+        [FromQuery] string period = "monthly",
+        [FromQuery] int months = 12)
+    {
+        try
+        {
+            var trends = await _userManagementService.GetUserActivityTrendsAsync(period, months);
+            return Ok(trends);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user activity trends");
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
+
+    /// Get role distribution statistics
+    [HttpGet("roles/distribution")]
+    [AdminOnly]
+    public async Task<ActionResult<RoleDistributionDto>> GetRoleDistribution()
+    {
+        try
+        {
+            var distribution = await _userManagementService.GetRoleDistributionAsync();
+            return Ok(distribution);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving role distribution");
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
@@ -462,6 +523,55 @@ public class UserManagementController : ControllerBase
         {
             _logger.LogError(ex, "Error retrieving CJ users");
             return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
+
+    /// Export users data in various formats
+    
+    [HttpPost("export")]
+    [AdminOnly]
+    public async Task<IActionResult> ExportUsers([FromBody] UserExportRequestDto exportRequest)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Validate format
+            var validFormats = new[] { "csv", "json", "excel", "pdf" };
+            if (!validFormats.Contains(exportRequest.Format.ToLower()))
+            {
+                return BadRequest(new { message = "Invalid format. Supported formats: csv, json, excel, pdf" });
+            }
+
+            var exportData = await _userManagementService.ExportUsersAsync(exportRequest);
+            
+            var contentType = exportRequest.Format.ToLower() switch
+            {
+                "json" => "application/json",
+                "csv" => "text/csv",
+                "excel" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "pdf" => "application/pdf",
+                _ => "text/csv"
+            };
+            
+            var fileName = $"users-export-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.{exportRequest.Format.ToLower()}";
+            
+            // Log export action
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId != Guid.Empty)
+            {
+                _logger.LogInformation("Admin {AdminId} exported users data in {Format} format", currentUserId, exportRequest.Format.ToUpper());
+            }
+            
+            return File(exportData, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export users in format {Format}", exportRequest.Format);
+            return StatusCode(500, new { message = "Failed to export users data" });
         }
     }
 

@@ -11,11 +11,17 @@ public interface IUserManagementService
     Task<bool> BlacklistUserAsync(Guid userId);
     Task<bool> UnblacklistUserAsync(Guid userId);
     Task<bool> ChangeUserPasswordAsync(Guid userId, ChangeUserPasswordDto changePasswordDto);
-    Task<int> BulkOperationAsync(BulkUserOperationDto bulkOperation); // bulk operation on multiple users
+    Task<int> BulkOperationAsync(BulkUserOperationDto bulkOperation, Guid? adminUserId = null); // bulk operation on multiple users
     Task<UserManagementStatsDto> GetDashboardStatsAsync();
     Task<UserDeletionValidationDto> ValidateUserDeletionAsync(Guid userId);
     Task<UserDetailsDto> UpdateUserRolesAsync(Guid userId, UpdateUserRolesDto updateRolesDto);
     Task<RoleUpdateValidationDto> ValidateRoleUpdateAsync(Guid userId, List<string> newRoles);
+    Task<byte[]> ExportUsersAsync(UserExportRequestDto exportRequest);
+    
+    // Analytics endpoints
+    Task<UserStatisticsResponseDto> GetUserStatisticsAsync();
+    Task<UserActivityTrendsDto> GetUserActivityTrendsAsync(string period = "monthly", int months = 12);
+    Task<RoleDistributionDto> GetRoleDistributionAsync();
 }
 
 
