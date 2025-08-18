@@ -1,5 +1,7 @@
 using Xunit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
 using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Domain.Entities;
@@ -18,7 +20,8 @@ public class RefreshTokenRepositoryTests : IDisposable
             .Options;
 
         _context = new DisasterDbContext(options);
-        _repository = new RefreshTokenRepository(_context);
+        var mockLogger = new Mock<ILogger<RefreshTokenRepository>>();
+        _repository = new RefreshTokenRepository(_context, mockLogger.Object);
     }
 
     [Fact]

@@ -80,6 +80,31 @@ public partial class DisasterDbContext : DbContext
 
             entity.ToTable("AuditLog");
 
+            // Performance indexes for common query patterns
+            entity.HasIndex(e => e.Timestamp, "IX_AuditLog_Timestamp_DESC")
+                .IsDescending()
+                .IncludeProperties(e => new { e.AuditLogId, e.Action, e.Severity, e.Details, e.UserId, e.UserName, e.IpAddress, e.UserAgent, e.Resource, e.Metadata });
+            
+            entity.HasIndex(e => new { e.UserId, e.Timestamp }, "IX_AuditLog_UserId_Timestamp")
+                .IsDescending(false, true)
+                .HasFilter("[user_id] IS NOT NULL");
+            
+            entity.HasIndex(e => new { e.Severity, e.Timestamp }, "IX_AuditLog_Severity_Timestamp")
+                .IsDescending(false, true);
+            
+            entity.HasIndex(e => new { e.Action, e.Timestamp }, "IX_AuditLog_Action_Timestamp")
+                .IsDescending(false, true);
+            
+            entity.HasIndex(e => new { e.Resource, e.Timestamp }, "IX_AuditLog_Resource_Timestamp")
+                .IsDescending(false, true);
+            
+            entity.HasIndex(e => new { e.EntityType, e.Timestamp }, "IX_AuditLog_EntityType_Timestamp")
+                .IsDescending(false, true);
+            
+            entity.HasIndex(e => new { e.UserName, e.Action, e.Timestamp }, "IX_AuditLog_Search")
+                .IsDescending(false, false, true)
+                .IncludeProperties(e => e.Details);
+
             entity.Property(e => e.AuditLogId)
                 .HasDefaultValueSql("(newid())")
                 .HasColumnName("audit_log_id");

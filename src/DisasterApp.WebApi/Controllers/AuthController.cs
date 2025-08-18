@@ -30,11 +30,22 @@ public class AuthController : ControllerBase
     /// User login endpoint
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
+    public async Task<ActionResult<CookieAuthResponseDto>> Login([FromBody] LoginRequestDto request)
     {
         try
         {
             var response = await _authService.LoginAsync(request);
+            
+            // Set refresh token as HTTP-only secure cookie
+            SetRefreshTokenCookie(response.RefreshToken);
+            
+            // Return response without refresh token (stored in cookie)
+            var cookieResponse = new CookieAuthResponseDto
+            {
+                AccessToken = response.AccessToken,
+                ExpiresAt = response.ExpiresAt,
+                User = response.User
+            };
             
             // Debug logging to check what's being returned
             _logger.LogInformation("Login response for {Email}: AccessToken={HasToken}, User.UserId={UserId}, User.Name={Name}, User.Email={Email}, User.Roles={Roles}", 
@@ -45,7 +56,7 @@ public class AuthController : ControllerBase
                 response.User?.Email,
                 response.User?.Roles != null ? string.Join(",", response.User.Roles) : "null");
             
-            return Ok(response);
+            return Ok(cookieResponse);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -63,12 +74,24 @@ public class AuthController : ControllerBase
     /// User signup endpoint
 
     [HttpPost("signup")]
-    public async Task<ActionResult<AuthResponseDto>> Signup([FromBody] SignupRequestDto request)
+    public async Task<ActionResult<CookieAuthResponseDto>> Signup([FromBody] SignupRequestDto request)
     {
         try
         {
             var response = await _authService.SignupAsync(request);
-            return Ok(response);
+            
+            // Set refresh token as HTTP-only secure cookie
+            SetRefreshTokenCookie(response.RefreshToken);
+            
+            // Return response without refresh token (stored in cookie)
+            var cookieResponse = new CookieAuthResponseDto
+            {
+                AccessToken = response.AccessToken,
+                ExpiresAt = response.ExpiresAt,
+                User = response.User
+            };
+            
+            return Ok(cookieResponse);
         }
         catch (InvalidOperationException ex)
         {
@@ -84,7 +107,7 @@ public class AuthController : ControllerBase
 
     /// Google OAuth login endpoint
     [HttpPost("google-login")]
-    public async Task<ActionResult<AuthResponseDto>> GoogleLogin([FromBody] GoogleLoginRequestDto request)
+    public async Task<ActionResult<CookieAuthResponseDto>> GoogleLogin([FromBody] GoogleLoginRequestDto request)
     {
         _logger.LogInformation("🚀 AuthController - GoogleLogin endpoint called. IdToken length: {TokenLength}, DeviceInfo: {DeviceInfo}", 
             request?.IdToken?.Length ?? 0, request?.DeviceInfo ?? "N/A");
@@ -93,11 +116,22 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.GoogleLoginAsync(request);
             
+            // Set refresh token as HTTP-only secure cookie
+            SetRefreshTokenCookie(response.RefreshToken);
+            
+            // Return response without refresh token (stored in cookie)
+            var cookieResponse = new CookieAuthResponseDto
+            {
+                AccessToken = response.AccessToken,
+                ExpiresAt = response.ExpiresAt,
+                User = response.User
+            };
+            
             _logger.LogInformation("✅ AuthController - GoogleLogin successful. Returning user: {UserId}, Name: {Name}, Email: {Email}, Roles: {Roles}", 
                 response?.User?.UserId, response?.User?.Name, response?.User?.Email, 
                 response?.User?.Roles != null ? string.Join(", ", response.User.Roles) : "N/A");
             
-            return Ok(response);
+            return Ok(cookieResponse);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -116,14 +150,40 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// Refresh access token using refresh token
+    /// Refresh access token using refresh token from cookie
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponseDto>> RefreshToken([FromBody] RefreshTokenRequestDto request)
+    public async Task<ActionResult<CookieAuthResponseDto>> RefreshToken()
     {
         try
         {
+            // Get refresh token from HTTP-only cookie
+            var refreshToken = GetRefreshTokenFromCookie();
+            
+            // Debug logging
+            _logger.LogInformation("🔍 RefreshToken - Cookie value: {HasCookie}, Length: {Length}", 
+                !string.IsNullOrEmpty(refreshToken), refreshToken?.Length ?? 0);
+            
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                _logger.LogWarning("❌ RefreshToken - No refresh token found in cookies");
+                return Unauthorized(new { message = "Refresh token not found in cookies" });
+            }
+
+            var request = new RefreshTokenRequestDto { RefreshToken = refreshToken };
             var response = await _authService.RefreshTokenAsync(request);
-            return Ok(response);
+            
+            // Set new refresh token as HTTP-only secure cookie
+            SetRefreshTokenCookie(response.RefreshToken);
+            
+            // Return response without refresh token (stored in cookie)
+            var cookieResponse = new CookieAuthResponseDto
+            {
+                AccessToken = response.AccessToken,
+                ExpiresAt = response.ExpiresAt,
+                User = response.User
+            };
+            
+            return Ok(cookieResponse);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -141,20 +201,35 @@ public class AuthController : ControllerBase
 
     [HttpPost("logout")]
     [Authorize]
-    public async Task<ActionResult> Logout([FromBody] RefreshTokenRequestDto request)
+    public async Task<ActionResult> Logout()
     {
         try
         {
-            var success = await _authService.LogoutAsync(request.RefreshToken);
+            // Get refresh token from HTTP-only cookie
+            var refreshToken = GetRefreshTokenFromCookie();
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                // Clear cookie anyway and return success
+                ClearRefreshTokenCookie();
+                return Ok(new { message = "Logged out successfully" });
+            }
+
+            var success = await _authService.LogoutAsync(refreshToken);
+            
+            // Clear refresh token cookie regardless of logout success
+            ClearRefreshTokenCookie();
+            
             if (success)
             {
                 return Ok(new { message = "Logged out successfully" });
             }
-            return BadRequest(new { message = "Invalid refresh token" });
+            return Ok(new { message = "Logged out successfully" }); // Return success even if token was invalid
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
+            // Clear cookie even on error
+            ClearRefreshTokenCookie();
             return StatusCode(500, new { message = "An error occurred during logout" });
         }
     }
@@ -808,5 +883,57 @@ public class AuthController : ControllerBase
             _logger.LogError(ex, "Error verifying email OTP for {Email}", request.email);
             return StatusCode(500, new { message = "Server error" });
         }
+    }
+
+    /// <summary>
+    /// Helper method to set refresh token as HTTP-only secure cookie
+    /// </summary>
+    private void SetRefreshTokenCookie(string refreshToken)
+    {
+        var environment = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+        var isHttps = Request.IsHttps;
+        
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            // In development, allow non-secure cookies with SameSite.Lax
+            // In production, require secure cookies with SameSite.None for cross-origin
+            Secure = isHttps,
+            SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax,
+            Expires = DateTime.UtcNow.AddDays(int.Parse(HttpContext.RequestServices.GetRequiredService<IConfiguration>()["Jwt:RefreshTokenExpirationDays"] ?? "30")),
+            Path = "/"
+        };
+
+        _logger.LogInformation("🍪 SetRefreshTokenCookie - Setting cookie: Length={Length}, IsHttps={IsHttps}, Secure={Secure}, SameSite={SameSite}", 
+            refreshToken?.Length ?? 0, isHttps, cookieOptions.Secure, cookieOptions.SameSite);
+        
+        Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+    }
+
+    /// <summary>
+    /// Helper method to get refresh token from HTTP-only cookie
+    /// </summary>
+    private string? GetRefreshTokenFromCookie()
+    {
+        return Request.Cookies["refreshToken"];
+    }
+
+    /// <summary>
+    /// Helper method to clear refresh token cookie
+    /// </summary>
+    private void ClearRefreshTokenCookie()
+    {
+        var isHttps = Request.IsHttps;
+        
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = isHttps,
+            SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax,
+            Expires = DateTime.UtcNow.AddDays(-1), // Expire the cookie
+            Path = "/"
+        };
+
+        Response.Cookies.Append("refreshToken", "", cookieOptions);
     }
 }

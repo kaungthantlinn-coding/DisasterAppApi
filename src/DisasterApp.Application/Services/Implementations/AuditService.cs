@@ -223,14 +223,23 @@ public class AuditService : IAuditService
     {
         try
         {
-            var query = _context.AuditLogs.Include(a => a.User).AsQueryable();
+            // Use AsNoTracking for better performance on read-only queries
+            var query = _context.AuditLogs.AsNoTracking().AsQueryable();
 
-            // Apply filters
-            if (!string.IsNullOrEmpty(filters.Search))
+            // Apply filters in order of selectivity (most selective first)
+            if (!string.IsNullOrEmpty(filters.UserId) && Guid.TryParse(filters.UserId, out var userId))
             {
-                query = query.Where(a => a.Details.Contains(filters.Search) || 
-                                        a.Action.Contains(filters.Search) ||
-                                        (a.UserName != null && a.UserName.Contains(filters.Search)));
+                query = query.Where(a => a.UserId == userId);
+            }
+
+            if (filters.DateFrom.HasValue)
+            {
+                query = query.Where(a => a.Timestamp >= filters.DateFrom.Value);
+            }
+
+            if (filters.DateTo.HasValue)
+            {
+                query = query.Where(a => a.Timestamp <= filters.DateTo.Value);
             }
 
             if (!string.IsNullOrEmpty(filters.Severity))
@@ -248,27 +257,49 @@ public class AuditService : IAuditService
                 query = query.Where(a => a.Resource == filters.Resource);
             }
 
-            if (!string.IsNullOrEmpty(filters.UserId) && Guid.TryParse(filters.UserId, out var userId))
+            // Apply text search last as it's the most expensive
+            if (!string.IsNullOrEmpty(filters.Search))
             {
-                query = query.Where(a => a.UserId == userId);
+                query = query.Where(a => a.Details.Contains(filters.Search) || 
+                                        a.Action.Contains(filters.Search) ||
+                                        (a.UserName != null && a.UserName.Contains(filters.Search)));
             }
 
-            if (filters.DateFrom.HasValue)
-            {
-                query = query.Where(a => a.Timestamp >= filters.DateFrom.Value);
-            }
-
-            if (filters.DateTo.HasValue)
-            {
-                query = query.Where(a => a.Timestamp <= filters.DateTo.Value);
-            }
-
+            // Order by timestamp descending (using index)
             query = query.OrderByDescending(a => a.Timestamp);
 
-            var totalCount = await query.CountAsync();
+            // Get total count with timeout handling
+            var totalCount = 0;
+            try
+            {
+                totalCount = await query.CountAsync();
+            }
+            catch (Exception countEx)
+            {
+                _logger.LogWarning(countEx, "Failed to get exact count, using estimated count");
+                // Fallback to a reasonable estimate if count times out
+                totalCount = filters.PageSize * 10; // Estimate for pagination
+            }
+
+            // Get paginated results with explicit timeout and include User data
             var logs = await query
                 .Skip((filters.Page - 1) * filters.PageSize)
                 .Take(filters.PageSize)
+                .Select(a => new
+                {
+                    a.AuditLogId,
+                    a.Timestamp,
+                    a.Action,
+                    a.Severity,
+                    a.Details,
+                    a.IpAddress,
+                    a.UserAgent,
+                    a.Resource,
+                    a.Metadata,
+                    a.UserId,
+                    a.UserName,
+                    User = a.User != null ? new { a.User.UserId, a.User.Name, a.User.Email } : null
+                })
                 .ToListAsync();
 
             var auditLogDtos = logs.Select(log => new AuditLogDto
@@ -282,7 +313,12 @@ public class AuditService : IAuditService
                     Id = log.User.UserId.ToString(),
                     Name = log.User.Name,
                     Email = log.User.Email
-                } : null,
+                } : (log.UserName != null ? new AuditLogUserDto
+                {
+                    Id = log.UserId?.ToString() ?? "",
+                    Name = log.UserName,
+                    Email = ""
+                } : null),
                 Details = log.Details,
                 IpAddress = log.IpAddress,
                 UserAgent = log.UserAgent,

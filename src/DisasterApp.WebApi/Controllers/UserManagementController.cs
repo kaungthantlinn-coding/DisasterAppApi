@@ -539,11 +539,29 @@ public class UserManagementController : ControllerBase
                 return BadRequest(ModelState);
             }
 
+            // Normalize and validate filters
+            if (exportRequest.Filters != null)
+            {
+                exportRequest.Filters.Role = exportRequest.Filters.Role?.Trim().ToLowerInvariant();
+                exportRequest.Filters.Status = exportRequest.Filters.Status?.Trim().ToLowerInvariant();
+            }
+
             // Validate format
             var validFormats = new[] { "csv", "json", "excel", "pdf" };
             if (!validFormats.Contains(exportRequest.Format.ToLower()))
             {
                 return BadRequest(new { message = "Invalid format. Supported formats: csv, json, excel, pdf" });
+            }
+
+            // Validate fields if provided
+            var validFields = new[] { "name", "email", "role", "status", "createdAt", "phoneNumber", "authProvider", "disasterReports", "supportRequests", "donations", "organizations" };
+            if (exportRequest.Fields?.Any() == true)
+            {
+                var invalidFields = exportRequest.Fields.Where(f => !validFields.Contains(f, StringComparer.OrdinalIgnoreCase)).ToList();
+                if (invalidFields.Any())
+                {
+                    return BadRequest(new { message = $"Invalid fields: {string.Join(", ", invalidFields)}. Valid fields: {string.Join(", ", validFields)}" });
+                }
             }
 
             var exportData = await _userManagementService.ExportUsersAsync(exportRequest);
@@ -559,11 +577,24 @@ public class UserManagementController : ControllerBase
             
             var fileName = $"users-export-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.{exportRequest.Format.ToLower()}";
             
-            // Log export action
+            // Log export action with filters
             var currentUserId = GetCurrentUserId();
             if (currentUserId != Guid.Empty)
             {
-                _logger.LogInformation("Admin {AdminId} exported users data in {Format} format", currentUserId, exportRequest.Format.ToUpper());
+                var filterInfo = "";
+                if (exportRequest.Filters != null)
+                {
+                    var filters = new List<string>();
+                    if (!string.IsNullOrEmpty(exportRequest.Filters.Role))
+                        filters.Add($"role:{exportRequest.Filters.Role}");
+                    if (!string.IsNullOrEmpty(exportRequest.Filters.Status))
+                        filters.Add($"status:{exportRequest.Filters.Status}");
+                    if (filters.Any())
+                        filterInfo = $" with filters: {string.Join(", ", filters)}";
+                }
+                
+                _logger.LogInformation("Admin {AdminId} exported users data in {Format} format{FilterInfo}", 
+                    currentUserId, exportRequest.Format.ToUpper(), filterInfo);
             }
             
             return File(exportData, contentType, fileName);

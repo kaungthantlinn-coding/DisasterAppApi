@@ -33,7 +33,11 @@ namespace DisasterApp
             // Add Entity Framework
             builder.Services.AddDbContext<DisasterDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
-                    sqlOptions => sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+                    sqlOptions => 
+                    {
+                        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+                        sqlOptions.CommandTimeout(60); // Increase timeout to 60 seconds for large audit queries
+                    }));
 
             builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
 
@@ -153,7 +157,15 @@ namespace DisasterApp
             builder.Services.AddHttpClient("Nominatim", client =>
             {
                 client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("DisasterApp/1.0 (your-email@example.com)");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DisasterApp/1.0 (kaungthantlinn78@gmail.com)");
+            });
+
+            // Add Cookie Policy for secure refresh token storage
+            builder.Services.Configure<CookiePolicyOptions>(options =>
+            {
+                options.CheckConsentNeeded = context => false; // Disable consent for API
+                options.MinimumSameSitePolicy = SameSiteMode.None;
+                options.Secure = CookieSecurePolicy.SameAsRequest; // Use HTTPS in production
             });
 
             // Add CORS (optimized for Google OAuth)
@@ -257,6 +269,7 @@ namespace DisasterApp
             });
 
             app.UseCors("AllowAll");
+            app.UseCookiePolicy();
 
             // Only use HTTPS redirection in production or when HTTPS is configured
             if (app.Environment.IsProduction() || builder.Configuration.GetValue<string>("ASPNETCORE_URLS")?.Contains("https") == true)

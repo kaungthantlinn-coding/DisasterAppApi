@@ -6,8 +6,12 @@ using Microsoft.Extensions.Logging;
 using BCrypt.Net;
 using System.Text;
 using System.Text.Json;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Colors;
+using iText.Kernel.Geom;
 
 
 namespace DisasterApp.Application.Services.Implementations;
@@ -678,37 +682,53 @@ public class UserManagementService : IUserManagementService
     {
         try
         {
-            // Apply filters or use default filter if none provided
-            var filter = exportRequest.Filters ?? new UserFilterDto { PageSize = int.MaxValue, PageNumber = 1 };
-            filter.PageSize = int.MaxValue; // Get all users for export
-            filter.PageNumber = 1;
+            // Get filtered users data
+            var users = await GetFilteredUsersForExportAsync(exportRequest.Filters);
 
-            // Get users data
-            var usersResult = await GetUsersAsync(filter);
-            var users = usersResult.Users;
-
-            // Convert to export format
-            var exportItems = new List<UserExportItemDto>();
+            // Convert to export format with field filtering
+            var exportItems = new List<Dictionary<string, object?>>();
             foreach (var user in users)
             {
                 // Get detailed user info for statistics
                 var userDetails = await GetUserByIdAsync(user.UserId);
                 
-                exportItems.Add(new UserExportItemDto
-                {
-                    UserId = user.UserId,
-                    Name = user.Name,
-                    Email = user.Email,
-                    PhoneNumber = user.PhoneNumber,
-                    AuthProvider = user.AuthProvider,
-                    Status = user.Status,
-                    Roles = string.Join(", ", user.RoleNames),
-                    CreatedAt = user.CreatedAt,
-                    DisasterReports = userDetails?.Statistics?.DisasterReportsCount ?? 0,
-                    SupportRequests = userDetails?.Statistics?.SupportRequestsCount ?? 0,
-                    Donations = userDetails?.Statistics?.DonationsCount ?? 0,
-                    Organizations = userDetails?.Statistics?.OrganizationsCount ?? 0
-                });
+                var exportItem = new Dictionary<string, object?>();
+                
+                // Add fields based on request
+                if (exportRequest.Fields.Contains("name") || !exportRequest.Fields.Any())
+                    exportItem["name"] = user.Name;
+                    
+                if (exportRequest.Fields.Contains("email") || !exportRequest.Fields.Any())
+                    exportItem["email"] = user.Email;
+                    
+                if (exportRequest.Fields.Contains("role") || !exportRequest.Fields.Any())
+                    exportItem["role"] = string.Join(", ", user.RoleNames);
+                    
+                if (exportRequest.Fields.Contains("status") || !exportRequest.Fields.Any())
+                    exportItem["status"] = user.Status;
+                    
+                if (exportRequest.Fields.Contains("createdAt") || !exportRequest.Fields.Any())
+                    exportItem["createdAt"] = user.CreatedAt;
+                    
+                if (exportRequest.Fields.Contains("phoneNumber"))
+                    exportItem["phoneNumber"] = user.PhoneNumber;
+                    
+                if (exportRequest.Fields.Contains("authProvider"))
+                    exportItem["authProvider"] = user.AuthProvider;
+                    
+                if (exportRequest.Fields.Contains("disasterReports"))
+                    exportItem["disasterReports"] = userDetails?.Statistics?.DisasterReportsCount ?? 0;
+                    
+                if (exportRequest.Fields.Contains("supportRequests"))
+                    exportItem["supportRequests"] = userDetails?.Statistics?.SupportRequestsCount ?? 0;
+                    
+                if (exportRequest.Fields.Contains("donations"))
+                    exportItem["donations"] = userDetails?.Statistics?.DonationsCount ?? 0;
+                    
+                if (exportRequest.Fields.Contains("organizations"))
+                    exportItem["organizations"] = userDetails?.Statistics?.OrganizationsCount ?? 0;
+                
+                exportItems.Add(exportItem);
             }
 
             // Generate export based on format
@@ -728,7 +748,42 @@ public class UserManagementService : IUserManagementService
         }
     }
 
-    private byte[] GenerateJsonExport(List<UserExportItemDto> users)
+    private async Task<List<UserListItemDto>> GetFilteredUsersForExportAsync(ExportUsersFilters filters)
+    {
+        try
+        {
+            // Create a filter DTO for the existing GetUsersAsync method
+            var filterDto = new UserFilterDto
+            {
+                PageSize = int.MaxValue,
+                PageNumber = 1,
+                Role = filters.Role?.Trim().ToLowerInvariant(),
+                Status = filters.Status?.Trim().ToLowerInvariant()
+            };
+
+            // Map status values: frontend "suspended" -> backend "Suspended"
+            if (!string.IsNullOrEmpty(filterDto.Status))
+            {
+                filterDto.Status = filterDto.Status switch
+                {
+                    "active" => "Active",
+                    "suspended" => "Suspended", 
+                    "inactive" => "Inactive",
+                    _ => filterDto.Status
+                };
+            }
+
+            var result = await GetUsersAsync(filterDto);
+            return result.Users;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error filtering users for export");
+            throw;
+        }
+    }
+
+    private byte[] GenerateJsonExport(List<Dictionary<string, object?>> users)
     {
         var options = new JsonSerializerOptions
         {
@@ -740,95 +795,122 @@ public class UserManagementService : IUserManagementService
         return Encoding.UTF8.GetBytes(json);
     }
 
-    private byte[] GenerateCsvExport(List<UserExportItemDto> users)
+    private byte[] GenerateCsvExport(List<Dictionary<string, object?>> users)
     {
         var csv = new StringBuilder();
         
-        // Add header
-        csv.AppendLine("UserId,Name,Email,PhoneNumber,AuthProvider,Status,Roles,CreatedAt,DisasterReports,SupportRequests,Donations,Organizations");
+        if (!users.Any()) return Encoding.UTF8.GetBytes("");
+        
+        // Add header based on available fields
+        var headers = users.First().Keys.ToList();
+        csv.AppendLine(string.Join(",", headers));
         
         // Add data rows
         foreach (var user in users)
         {
-            csv.AppendLine($"{user.UserId},\"{EscapeCsvField(user.Name)}\",\"{EscapeCsvField(user.Email)}\",\"{EscapeCsvField(user.PhoneNumber ?? "")}\",\"{EscapeCsvField(user.AuthProvider)}\",\"{EscapeCsvField(user.Status)}\",\"{EscapeCsvField(user.Roles)}\",{user.CreatedAt:yyyy-MM-dd HH:mm:ss},{user.DisasterReports},{user.SupportRequests},{user.Donations},{user.Organizations}");
+            var values = headers.Select(header => 
+            {
+                var value = user.ContainsKey(header) ? user[header]?.ToString() ?? "" : "";
+                return $"\"{EscapeCsvField(value)}\"";
+            });
+            csv.AppendLine(string.Join(",", values));
         }
         
         return Encoding.UTF8.GetBytes(csv.ToString());
     }
 
-    private byte[] GenerateExcelExport(List<UserExportItemDto> users)
+    private byte[] GenerateExcelExport(List<Dictionary<string, object?>> users)
     {
         // For now, return CSV format as Excel implementation would require additional packages
         // In a real implementation, you would use libraries like EPPlus or ClosedXML
         return GenerateCsvExport(users);
     }
 
-    private byte[] GeneratePdfExport(List<UserExportItemDto> users)
+    private byte[] GeneratePdfExport(List<Dictionary<string, object?>> users)
     {
         using var memoryStream = new MemoryStream();
-        var document = new Document(PageSize.A4.Rotate(), 10, 10, 10, 10);
-        var writer = PdfWriter.GetInstance(document, memoryStream);
-        
-        document.Open();
+        var writer = new PdfWriter(memoryStream);
+        var pdf = new PdfDocument(writer);
+        var document = new Document(pdf, PageSize.A4.Rotate());
+        document.SetMargins(10, 10, 10, 10);
         
         // Add title
-        var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 16);
-        var title = new Paragraph($"Disaster Watch - Users Export - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}", titleFont)
-        {
-            Alignment = Element.ALIGN_CENTER,
-            SpacingAfter = 20
-        };
+        var title = new Paragraph($"Disaster Watch - Users Export - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}")
+            .SetFontSize(16)
+            .SetBold()
+            .SetTextAlignment(TextAlignment.CENTER)
+            .SetMarginBottom(20);
         document.Add(title);
         
-        // Create table
-        var table = new PdfPTable(12) { WidthPercentage = 100 };
+        if (!users.Any())
+        {
+            document.Add(new Paragraph("No users found matching the specified criteria."));
+            document.Close();
+            return memoryStream.ToArray();
+        }
         
-        // Set column widths
-        float[] widths = { 8f, 12f, 15f, 10f, 8f, 8f, 12f, 10f, 6f, 6f, 6f, 6f };
-        table.SetWidths(widths);
+        // Get headers from first user
+        var headers = users.First().Keys.ToList();
+        var columnCount = headers.Count;
+        
+        // Create dynamic column widths
+        var widths = new float[columnCount];
+        for (int i = 0; i < columnCount; i++)
+        {
+            widths[i] = 100f / columnCount; // Equal width distribution
+        }
+        
+        var table = new Table(widths).UseAllAvailableWidth();
         
         // Add headers
-        var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 8);
-        var headers = new[] { "User ID", "Name", "Email", "Phone", "Provider", "Status", "Roles", "Created", "Reports", "Requests", "Donations", "Orgs" };
-        
         foreach (var header in headers)
         {
-            var cell = new PdfPCell(new Phrase(header, headerFont))
-            {
-                BackgroundColor = new BaseColor(220, 220, 220),
-                HorizontalAlignment = Element.ALIGN_CENTER,
-                Padding = 5
-            };
+            var cell = new Cell()
+                .Add(new Paragraph(header.ToUpperInvariant()))
+                .SetFontSize(8)
+                .SetBold()
+                .SetBackgroundColor(ColorConstants.LIGHT_GRAY)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetPadding(5);
             table.AddCell(cell);
         }
         
         // Add data rows
-        var dataFont = FontFactory.GetFont(FontFactory.HELVETICA, 7);
         foreach (var user in users)
         {
-            table.AddCell(new PdfPCell(new Phrase(user.UserId.ToString()[..8] + "...", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.Name ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.Email ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.PhoneNumber ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.AuthProvider ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.Status ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.Roles ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.CreatedAt?.ToString("yyyy-MM-dd") ?? "", dataFont)) { Padding = 3 });
-            table.AddCell(new PdfPCell(new Phrase(user.DisasterReports.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
-            table.AddCell(new PdfPCell(new Phrase(user.SupportRequests.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
-            table.AddCell(new PdfPCell(new Phrase(user.Donations.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
-            table.AddCell(new PdfPCell(new Phrase(user.Organizations.ToString(), dataFont)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
+            foreach (var header in headers)
+            {
+                var value = user.ContainsKey(header) ? user[header]?.ToString() ?? "" : "";
+                
+                // Format specific fields
+                if (header == "createdAt" && DateTime.TryParse(value, out var date))
+                {
+                    value = date.ToString("yyyy-MM-dd");
+                }
+                
+                var cell = new Cell()
+                    .Add(new Paragraph(value))
+                    .SetFontSize(7)
+                    .SetPadding(3);
+                    
+                // Right-align numeric fields
+                if (header.Contains("Reports") || header.Contains("Requests") || 
+                    header.Contains("Donations") || header.Contains("Organizations"))
+                {
+                    cell.SetTextAlignment(TextAlignment.RIGHT);
+                }
+                
+                table.AddCell(cell);
+            }
         }
         
         document.Add(table);
         
         // Add footer
-        var footerFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
-        var footer = new Paragraph($"Total Users: {users.Count} | Generated on: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC", footerFont)
-        {
-            Alignment = Element.ALIGN_CENTER,
-            SpacingBefore = 20
-        };
+        var footer = new Paragraph($"Total Users: {users.Count} | Generated on: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC")
+            .SetFontSize(8)
+            .SetTextAlignment(TextAlignment.CENTER)
+            .SetMarginTop(20);
         document.Add(footer);
         
         document.Close();

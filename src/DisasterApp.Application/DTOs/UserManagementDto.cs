@@ -272,8 +272,14 @@ public class UserDeletionValidationDto
 public class UserExportRequestDto
 {
     public string Format { get; set; } = "csv"; // csv, json, excel, pdf
-    public UserFilterDto? Filters { get; set; }
-    public List<string>? Fields { get; set; } // Optional: specify which fields to export
+    public List<string> Fields { get; set; } = new();
+    public ExportUsersFilters Filters { get; set; } = new();
+}
+
+public class ExportUsersFilters
+{
+    public string? Role { get; set; }   // e.g., "admin" | "cj" | "user"
+    public string? Status { get; set; } // "active" | "inactive" | "suspended"
 }
 
 

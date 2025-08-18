@@ -3,11 +3,11 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.InMemory;
+using Microsoft.EntityFrameworkCore.Query;
 using DisasterApp.Application.Services.Implementations;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Application.DTOs;
-using DisasterApp.Tests.Helpers;
 using System.Text.Json;
 
 namespace DisasterApp.Tests.Services;
@@ -604,4 +604,97 @@ public class AuditServiceTests
     }
 
 
+}
+
+// Helper classes for async testing
+public class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
+{
+    private readonly IQueryProvider _inner;
+
+    public TestAsyncQueryProvider(IQueryProvider inner)
+    {
+        _inner = inner;
+    }
+
+    public IQueryable CreateQuery(System.Linq.Expressions.Expression expression)
+    {
+        return new TestAsyncEnumerable<TEntity>(expression);
+    }
+
+    public IQueryable<TElement> CreateQuery<TElement>(System.Linq.Expressions.Expression expression)
+    {
+        return new TestAsyncEnumerable<TElement>(expression);
+    }
+
+    public object Execute(System.Linq.Expressions.Expression expression)
+    {
+        return _inner.Execute(expression);
+    }
+
+    public TResult Execute<TResult>(System.Linq.Expressions.Expression expression)
+    {
+        return _inner.Execute<TResult>(expression);
+    }
+
+    public TResult ExecuteAsync<TResult>(System.Linq.Expressions.Expression expression, CancellationToken cancellationToken = default)
+    {
+        if (typeof(TResult).IsGenericType && typeof(TResult).GetGenericTypeDefinition() == typeof(Task<>))
+        {
+            var taskResultType = typeof(TResult).GetGenericArguments()[0];
+            var syncResult = _inner.Execute(expression);
+            var taskFromResultMethod = typeof(Task).GetMethod("FromResult").MakeGenericMethod(taskResultType);
+            return (TResult)taskFromResultMethod.Invoke(null, new object[] { syncResult });
+        }
+        return Execute<TResult>(expression);
+    }
+}
+
+public class TestAsyncEnumerable<T> : EnumerableQuery<T>, IAsyncEnumerable<T>, IQueryable<T>
+{
+    public TestAsyncEnumerable(IEnumerable<T> enumerable)
+        : base(enumerable)
+    { }
+
+    public TestAsyncEnumerable(System.Linq.Expressions.Expression expression)
+        : base(expression)
+    { }
+
+    public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+    {
+        return new TestAsyncEnumerator<T>(this.AsEnumerable().GetEnumerator());
+    }
+
+    IQueryProvider IQueryable.Provider
+    {
+        get { return new TestAsyncQueryProvider<T>(this); }
+    }
+}
+
+public class TestAsyncEnumerator<T> : IAsyncEnumerator<T>
+{
+    private readonly IEnumerator<T> _inner;
+
+    public TestAsyncEnumerator(IEnumerator<T> inner)
+    {
+        _inner = inner;
+    }
+
+    public ValueTask<bool> MoveNextAsync()
+    {
+        return ValueTask.FromResult(_inner.MoveNext());
+    }
+
+    public T Current
+    {
+        get
+        {
+            return _inner.Current;
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _inner.Dispose();
+        return ValueTask.CompletedTask;
+    }
 }

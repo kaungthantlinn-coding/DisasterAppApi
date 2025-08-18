@@ -338,9 +338,26 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request)
     {
+        _logger.LogInformation("🔍 RefreshTokenAsync - Attempting to refresh token with length: {Length}", request.RefreshToken?.Length ?? 0);
+        
         var refreshToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
-        if (refreshToken == null || refreshToken.ExpiredAt <= DateTime.UtcNow)
+        
+        _logger.LogInformation("🔍 RefreshTokenAsync - Token found: {Found}, Expired: {Expired}", 
+            refreshToken != null, 
+            refreshToken?.ExpiredAt <= DateTime.UtcNow);
+            
+        if (refreshToken == null)
+        {
+            _logger.LogWarning("❌ RefreshTokenAsync - Refresh token not found in database");
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
+        }
+            
+        if (refreshToken.ExpiredAt <= DateTime.UtcNow)
+        {
+            _logger.LogWarning("❌ RefreshTokenAsync - Refresh token expired. ExpiredAt: {ExpiredAt}, Now: {Now}", 
+                refreshToken.ExpiredAt, DateTime.UtcNow);
+            throw new UnauthorizedAccessException("Invalid or expired refresh token");
+        }
 
         var user = refreshToken.User;
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
@@ -357,8 +374,12 @@ public class AuthService : IAuthService
         var newAccessToken = GenerateAccessToken(user, roles);
         var newRefreshToken = await GenerateRefreshTokenAsync(user.UserId);
 
-        // Delete old refresh token
-        await _refreshTokenRepository.DeleteAsync(request.RefreshToken);
+        // Delete old refresh token (atomic operation handles concurrency)
+        var deleted = await _refreshTokenRepository.DeleteAsync(request.RefreshToken);
+        if (!deleted)
+        {
+            _logger.LogDebug("Old refresh token {Token} was already deleted or not found", request.RefreshToken);
+        }
 
         var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
 
