@@ -1,4 +1,5 @@
 ﻿using DisasterApp.Domain.Entities;
+using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -22,11 +23,12 @@ namespace DisasterApp.Infrastructure.Repositories
         {
             return await _context.DisasterReports
                 .Include(r => r.DisasterEvent)
+                 .ThenInclude(r => r.DisasterType)
                 .Include(r => r.User)
                 .Include(r => r.Location)
                 .Include(r => r.Photos)
                 .Include(r => r.ImpactDetails)
-                .ThenInclude(id=>id.ImpactTypes)
+                .ThenInclude(id => id.ImpactTypes)
                 .Where(x => x.IsDeleted != true)
                 .ToListAsync();
         }
@@ -34,6 +36,7 @@ namespace DisasterApp.Infrastructure.Repositories
         {
             return await _context.DisasterReports
                 .Include(r => r.DisasterEvent)
+                 .ThenInclude(r => r.DisasterType)
                 .Include(r => r.User)
                 .Include(r => r.Location)
                 .Include(r => r.Photos)
@@ -44,7 +47,7 @@ namespace DisasterApp.Infrastructure.Repositories
         public async Task<DisasterReport> CreateAsync(DisasterReport report, Location location)
         {
             report.Location = location;
-           
+
             _context.DisasterReports.Add(report);
             _context.Locations.AddAsync(location);
             await _context.SaveChangesAsync();
@@ -67,7 +70,7 @@ namespace DisasterApp.Infrastructure.Repositories
                 await _context.SaveChangesAsync();
             }
         }
-       public async Task SoftDeleteAsync(Guid id)
+        public async Task SoftDeleteAsync(Guid id)
         {
             var report = await _context.DisasterReports.FindAsync(id);
             if (report != null)
@@ -77,5 +80,64 @@ namespace DisasterApp.Infrastructure.Repositories
                 await _context.SaveChangesAsync();
             }
         }
+
+        public async Task<IEnumerable<DisasterReport>> GetPendingReportsAsync()
+        {
+            return await _context.DisasterReports
+            .Include(r => r.User)
+            .ThenInclude(r => r.Roles)
+            .Include(r => r.DisasterEvent)
+             .ThenInclude(r => r.DisasterType)
+            .Include(r => r.Location)
+            .Include(r =>r.ImpactDetails)
+            .ThenInclude(r=>r.ImpactTypes)
+            .Where(r => r.Status == ReportStatus.Pending && r.IsDeleted != true)
+            .ToListAsync();
+        }
+
+        public async Task<IEnumerable<DisasterReport>> GetAcceptedReportsAsync()
+        {
+            return await _context.DisasterReports
+                .Include(r => r.User)
+                .ThenInclude(u => u.Roles)
+                .Include(r => r.DisasterEvent)
+                 .ThenInclude(r => r.DisasterType)
+                .Include(r => r.Location)
+                .Include(r => r.Photos)
+                .Include(r => r.ImpactDetails)
+                .ThenInclude(id => id.ImpactTypes)
+                .Where(r => r.Status == ReportStatus.Verified && r.IsDeleted != true)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<DisasterReport>> GetRejectedReportsAsync()
+        {
+            return await _context.DisasterReports
+                .Include(r => r.User)
+                .ThenInclude(u => u.Roles)
+                .Include(r => r.DisasterEvent)
+                .Include(r => r.Location)
+                .Include(r => r.Photos)
+                .Include(r => r.ImpactDetails)
+                .ThenInclude(id => id.ImpactTypes)
+                .Where(r => r.Status == ReportStatus.Rejected && r.IsDeleted != true)
+                .ToListAsync();
+        }
+
+        public async Task<bool> UpdateStatusAsync(Guid id, ReportStatus status, Guid verifiedBy)
+        {
+            var report = await _context.DisasterReports.FirstOrDefaultAsync(r => r.Id == id);
+            if (report == null)
+                return false;
+
+            report.Status = status;
+            report.VerifiedBy = verifiedBy;
+            report.VerifiedAt = DateTime.UtcNow;
+            report.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
     }
 }

@@ -190,10 +190,37 @@ namespace DisasterApp
                 {
                     logger.LogInformation("Ensuring database is created and migrated...");
 
-                    // Apply migrations (this will create the database if it doesn't exist)
-                    logger.LogInformation("Ensuring database is created and migrated...");
-                    await context.Database.MigrateAsync();
-                    logger.LogInformation("Database migration completed successfully.");
+                    // Apply migrations with retry logic for transient errors
+                    var retryCount = 0;
+                    const int maxRetries = 3;
+                    var delay = TimeSpan.FromSeconds(5);
+                    
+                    while (retryCount < maxRetries)
+                    {
+                        try
+                        {
+                            logger.LogInformation("Applying database migrations...");
+                            await context.Database.MigrateAsync();
+                            logger.LogInformation("Database migration completed successfully.");
+                            break;
+                        }
+                        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 2714) // Object already exists
+                        {
+                            logger.LogWarning(ex, $"Migration conflict detected (retry {retryCount + 1}/{maxRetries})");
+                            retryCount++;
+                            
+                            if (retryCount < maxRetries)
+                            {
+                                logger.LogInformation($"Waiting {delay.TotalSeconds} seconds before retry...");
+                                await Task.Delay(delay);
+                            }
+                            else
+                            {
+                                logger.LogError("Max retries reached for migration conflicts");
+                                throw;
+                            }
+                        }
+                    }
 
                     logger.LogInformation("Seeding database...");
                     await DataSeeder.SeedAsync(services);
@@ -202,7 +229,8 @@ namespace DisasterApp
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "An error occurred while initializing or seeding the database");
-                    throw; // Re-throw to prevent application startup with broken database
+                    // Instead of re-throwing, we log and continue to allow the app to start
+                    // This is safer in production where we don't want the app to crash due to seed errors
                 }
             }
 

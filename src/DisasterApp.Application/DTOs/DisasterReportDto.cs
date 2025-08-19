@@ -14,11 +14,11 @@ namespace DisasterApp.Application.DTOs
         public string Description { get; set; } = null!;
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public SeverityLevel Severity { get; set; }
-    
+
 
         public DisasterCategory? DisasterCategory { get; set; }
         public int DisasterTypeId { get; set; }
-        public Guid? DisasterEventId { get; set; } 
+        public Guid? DisasterEventId { get; set; }
 
         public string? NewDisasterTypeName { get; set; }
         public string? DisasterEventName { get; set; }
@@ -41,12 +41,13 @@ namespace DisasterApp.Application.DTOs
         public SeverityLevel Severity { get; set; }
         public ReportStatus Status { get; set; }
         public Guid UserId { get; set; }
+        public string? UserName { get; set; }
         public int DisasterTypeId { get; set; }
         public string DisasterTypeName { get; set; }
         public string? NewDisasterTypeName { get; set; }
 
         public Guid DisasterEventId { get; set; }
-        public string ? DisasterEventName { get; set; }
+        public string? DisasterEventName { get; set; }
         public DisasterCategory? DisasterCategory { get; set; }
         public decimal Latitude { get; set; }
         public decimal Longitude { get; set; }
@@ -76,11 +77,16 @@ namespace DisasterApp.Application.DTOs
         public string? NewDisasterTypeName { get; set; }
         public DisasterCategory? DisasterCategory { get; set; }
 
-        
+
         public List<ImpactDetailUpdateDto>? ImpactDetails { get; set; }
         public List<IFormFile>? NewPhotos { get; set; } // For new photos to be added
         public List<int>? RemovePhotoIds { get; set; } // For photos to be removed
 
+    }
+
+    public class UpdateStatusDto
+    {
+        public ReportStatus Status { get; set; }
     }
 
 }

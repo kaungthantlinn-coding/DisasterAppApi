@@ -294,46 +294,41 @@ public partial class DisasterDbContext : DbContext
         });
 
         modelBuilder.Entity<ImpactDetail>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PK__ImpactDe__3213E83F8E740B80");
+{
+    entity.HasKey(e => e.Id).HasName("PK__ImpactDe__3213E83F8E740B80");
 
-            entity.ToTable("ImpactDetail");
+    entity.ToTable("ImpactDetail");
 
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Description).HasColumnName("description");
-           
-            entity.Property(e => e.IsResolved)
-                .HasDefaultValue(false)
-                .HasColumnName("is_resolved");
-            entity.Property(e => e.ReportId).HasColumnName("report_id");
-            entity.Property(e => e.ResolvedAt).HasColumnName("resolved_at");
-            entity.Property(e => e.Severity)
-                .HasConversion<string>()
-                .HasColumnName("severity");
+    entity.Property(e => e.Id).HasColumnName("id");
+    entity.Property(e => e.Description).HasColumnName("description");
 
-            modelBuilder.Entity<ImpactDetail>()
-    .HasMany(d => d.ImpactTypes)
-    .WithMany(t => t.ImpactDetails)
-    .UsingEntity<Dictionary<string, object>>(
-        "ImpactDetailImpactType",  // join table name
-        r => r.HasOne<ImpactType>()
-              .WithMany()
-              .HasForeignKey("ImpactTypeId")
-              .HasConstraintName("FK_ImpactDetailImpactType_ImpactType")
-              .OnDelete(DeleteBehavior.Cascade),
-        l => l.HasOne<ImpactDetail>()
-              .WithMany()
-              .HasForeignKey("ImpactDetailId")
-              .HasConstraintName("FK_ImpactDetailImpactType_ImpactDetail")
-              .OnDelete(DeleteBehavior.Cascade),
-        je =>
-        {
-            je.HasKey("ImpactDetailId", "ImpactTypeId");
-            je.ToTable("ImpactDetailImpactType");
-        }
-    );
+    entity.Property(e => e.IsResolved)
+        .HasDefaultValue(false)
+        .HasColumnName("is_resolved");
+    entity.Property(e => e.ReportId).HasColumnName("report_id");
+    entity.Property(e => e.ResolvedAt).HasColumnName("resolved_at");
+    entity.Property(e => e.Severity)
+        .HasConversion<string>()
+        .HasColumnName("severity");
 
-        });
+    // Many-to-many mapping to ImpactType
+    entity.HasMany(d => d.ImpactTypes)
+        .WithMany(t => t.ImpactDetails)
+        .UsingEntity<Dictionary<string, object>>(
+            "ImpactDetailImpactType", // join table name
+            j => j.HasOne<ImpactType>()
+                  .WithMany()
+                  .HasForeignKey("ImpactTypeId"),
+            j => j.HasOne<ImpactDetail>()
+                  .WithMany()
+                  .HasForeignKey("ImpactDetailId"),
+            j =>
+            {
+                j.ToTable("ImpactDetailImpactType");
+                j.Property<int>("ImpactDetailId");
+                j.Property<int>("ImpactTypeId");
+            });
+});
 
         modelBuilder.Entity<ImpactType>(entity =>
         {
@@ -348,6 +343,7 @@ public partial class DisasterDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("name");
         });
+
 
         modelBuilder.Entity<Location>(entity =>
         {
@@ -538,6 +534,7 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             entity.Property(e => e.Urgency).HasColumnName("urgency");
             entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.SupportTypeId).HasColumnName("support_type_id"); // Added property mapping
 
             entity.HasOne(d => d.Report).WithMany(p => p.SupportRequests)
                 .HasForeignKey(d => d.ReportId)
@@ -549,20 +546,12 @@ public partial class DisasterDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_SupportRequest_User");
 
-            entity.HasMany(d => d.SupportTypes).WithMany(p => p.SupportRequests)
-                .UsingEntity<SupportRequestSupportType>(
-                    "SupportRequestSupportType",
-                    l => l.HasOne<SupportType>().WithMany().HasForeignKey("SupportTypeId")
-                        .OnDelete(DeleteBehavior.ClientSetNull),
-                    r => r.HasOne<SupportRequest>().WithMany().HasForeignKey("SupportRequestId")
-                        .OnDelete(DeleteBehavior.ClientSetNull),
-                    j =>
-                    {
-                        j.HasKey("SupportRequestId", "SupportTypeId");
-                        j.ToTable("SupportRequestSupportType");
-                        j.HasIndex(new[] { "SupportRequestId" }, "IX_SupportRequestSupportType_SupportRequestId");
-                        j.HasIndex(new[] { "SupportTypeId" }, "IX_SupportRequestSupportType_SupportTypeId");
-                    });
+            // Add one-to-many relationship with SupportType
+            entity.HasOne(d => d.SupportType)
+                .WithMany()
+                .HasForeignKey(d => d.SupportTypeId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SupportRequest_SupportType");
         });
 
         modelBuilder.Entity<SupportType>(entity =>
@@ -577,6 +566,13 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(50)
                 .HasColumnName("name");
+
+            // Define one-to-many relationship with SupportRequest
+            entity.HasMany(st => st.SupportRequests)
+                .WithOne(sr => sr.SupportType)
+                .HasForeignKey(sr => sr.SupportTypeId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SupportRequest_SupportType");
         });
 
         modelBuilder.Entity<User>(entity =>
@@ -753,6 +749,28 @@ public partial class DisasterDbContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_OtpAttempt_User");
+        });
+
+        modelBuilder.Entity<SupportRequestSupportType>(entity =>
+        {
+            entity.HasKey(e => new { e.SupportRequestId, e.SupportTypeId }).HasName("PK_SupportRequestSupportType");
+
+            entity.ToTable("SupportRequestSupportType");
+
+            entity.Property(e => e.SupportRequestId).HasColumnName("SupportRequestId");
+            entity.Property(e => e.SupportTypeId).HasColumnName("SupportTypeId");
+
+            entity.HasOne(d => d.SupportRequest)
+                .WithMany(p => p.SupportRequestSupportTypes)
+                .HasForeignKey(d => d.SupportRequestId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SupportRequestSupportType_SupportRequest_SupportRequestId");
+
+            entity.HasOne(d => d.SupportType)
+                .WithMany(p => p.SupportRequestSupportTypes)
+                .HasForeignKey(d => d.SupportTypeId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SupportRequestSupportType_SupportType_SupportTypeId");
         });
 
         OnModelCreatingPartial(modelBuilder);

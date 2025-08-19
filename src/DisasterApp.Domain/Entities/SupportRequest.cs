@@ -22,11 +22,13 @@ public partial class SupportRequest
 
     public DateTime? UpdatedAt { get; set; }
 
+    public int SupportTypeId { get; set; } // Added SupportTypeId property
+
     public virtual DisasterReport Report { get; set; } = null!;
 
     public virtual User User { get; set; } = null!;
 
+    public virtual SupportType SupportType { get; set; } = null!; // Added navigation property
+    
     public virtual ICollection<SupportRequestSupportType> SupportRequestSupportTypes { get; set; } = new List<SupportRequestSupportType>();
-
-    public virtual ICollection<SupportType> SupportTypes { get; set; } = new List<SupportType>();
 }
