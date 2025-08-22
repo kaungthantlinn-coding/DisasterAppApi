@@ -34,7 +34,7 @@ public class UserManagementController : ControllerBase
     /// Get paginated list of users with filtering
 
     [HttpGet]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<PagedUserListDto>> GetUsers([FromQuery] UserFilterDto filter)
     {
         try
@@ -53,7 +53,7 @@ public class UserManagementController : ControllerBase
     /// Get user details by ID
 
     [HttpGet("{userId}")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserDetailsDto>> GetUser(Guid userId)
     {
         try
@@ -77,7 +77,7 @@ public class UserManagementController : ControllerBase
     /// Create a new user
 
     [HttpPost]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserDetailsDto>> CreateUser([FromBody] CreateUserDto createUserDto)
     {
         try
@@ -112,7 +112,7 @@ public class UserManagementController : ControllerBase
 
 
     [HttpPut("{userId}")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserDetailsDto>> UpdateUser(Guid userId, [FromBody] UpdateUserDto updateUserDto)
     {
         try
@@ -151,7 +151,7 @@ public class UserManagementController : ControllerBase
     /// Delete a user
 
     [HttpDelete("{userId}")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> DeleteUser(Guid userId)
     {
         try
@@ -179,7 +179,7 @@ public class UserManagementController : ControllerBase
 
     /// Blacklist/suspend a user with reason
     [HttpPost("{userId}/blacklist")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> BlacklistUser(Guid userId, [FromBody] BlacklistUserDto blacklistDto)
     {
         try
@@ -213,7 +213,7 @@ public class UserManagementController : ControllerBase
 
     /// Remove blacklist/unsuspend a user
     [HttpPost("{userId}/unblacklist")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> UnblacklistUser(Guid userId, [FromBody] UnblacklistUserDto? unblacklistDto = null)
     {
         try
@@ -247,7 +247,7 @@ public class UserManagementController : ControllerBase
 
     /// Get blacklist history for a user
     [HttpGet("{userId}/blacklist-history")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> GetBlacklistHistory(Guid userId)
     {
         try
@@ -267,7 +267,7 @@ public class UserManagementController : ControllerBase
 
 
     [HttpPost("{userId}/change-password")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> ChangeUserPassword(Guid userId, [FromBody] ChangeUserPasswordDto changePasswordDto)
     {
         try
@@ -306,7 +306,7 @@ public class UserManagementController : ControllerBase
     /// Perform bulk operations on multiple users
 
     [HttpPost("bulk-operation")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> BulkOperation([FromBody] BulkUserOperationDto bulkOperation)
     {
         try
@@ -343,7 +343,7 @@ public class UserManagementController : ControllerBase
     /// Get user management dashboard statistics
 
     [HttpGet("dashboard/stats")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserManagementStatsDto>> GetDashboardStats()
     {
         try
@@ -360,7 +360,7 @@ public class UserManagementController : ControllerBase
 
     /// Get comprehensive user statistics for analytics
     [HttpGet("statistics")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserStatisticsResponseDto>> GetUserStatistics()
     {
         try
@@ -377,7 +377,7 @@ public class UserManagementController : ControllerBase
 
     /// Get user activity trends over time
     [HttpGet("trends")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserActivityTrendsDto>> GetUserActivityTrends(
         [FromQuery] string period = "monthly",
         [FromQuery] int months = 12)
@@ -396,7 +396,7 @@ public class UserManagementController : ControllerBase
 
     /// Get role distribution statistics
     [HttpGet("roles/distribution")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<RoleDistributionDto>> GetRoleDistribution()
     {
         try
@@ -415,7 +415,7 @@ public class UserManagementController : ControllerBase
     /// Validate if user can be deleted
 
     [HttpGet("{userId}/validate-deletion")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserDeletionValidationDto>> ValidateUserDeletion(Guid userId)
     {
         try
@@ -433,7 +433,7 @@ public class UserManagementController : ControllerBase
     // update user roles only
     
     [HttpPut("{userId}/roles")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<UserDetailsDto>> UpdateUserRoles(Guid userId, [FromBody] UpdateUserRolesDto updateRolesDto)
     {
         try
@@ -468,7 +468,7 @@ public class UserManagementController : ControllerBase
     // validate role update before applying changes
     
     [HttpPost("{userId}/roles/validate")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<RoleUpdateValidationDto>> ValidateRoleUpdate(Guid userId, [FromBody] UpdateUserRolesDto updateRolesDto)
     {
         try
@@ -491,7 +491,7 @@ public class UserManagementController : ControllerBase
     // get available roles for filtering
     
     [HttpGet("roles")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<ActionResult<List<string>>> GetAvailableRoles()
     {
         try
@@ -529,7 +529,7 @@ public class UserManagementController : ControllerBase
     /// Export users data in various formats
     
     [HttpPost("export")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> ExportUsers([FromBody] UserExportRequestDto exportRequest)
     {
         try
