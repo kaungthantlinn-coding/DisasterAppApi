@@ -15,8 +15,7 @@ public static class DataSeeder
 
         try
         {
-            // Ensure 2FA tables exist - COMMENTED OUT: Tables are now created via EF migrations
-            // await EnsureTwoFactorTablesExistAsync(context, logger);
+            
 
             // Seed roles
             await SeedRolesAsync(context, logger);
@@ -66,6 +65,11 @@ public static class DataSeeder
             {
                 RoleId = Guid.NewGuid(),
                 Name = "admin"
+            },
+            new Role
+            {
+                RoleId = Guid.NewGuid(),
+                Name = "superadmin"
             }
         };
 

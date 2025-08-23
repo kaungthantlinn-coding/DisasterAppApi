@@ -33,6 +33,113 @@ public class RoleServiceTests : IDisposable
         _context.Dispose();
     }
 
+    #region Super Admin Tests
+
+    [Fact]
+    public async Task GetSuperAdminRoleAsync_RoleExists_ReturnsRole()
+    {
+        // Arrange
+        var superAdminRole = new Role { RoleId = Guid.NewGuid(), Name = "superadmin" };
+        await _context.Roles.AddAsync(superAdminRole);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.GetSuperAdminRoleAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("superadmin", result.Name);
+        Assert.Equal(superAdminRole.RoleId, result.RoleId);
+    }
+
+    [Fact]
+    public async Task IsSuperAdminAsync_UserHasSuperAdminRole_ReturnsTrue()
+    {
+        // Arrange
+        var superAdminRole = new Role { RoleId = Guid.NewGuid(), Name = "superadmin" };
+        var user = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "superadmin@example.com",
+            Name = "Super Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { superAdminRole }
+        };
+
+        await _context.Roles.AddAsync(superAdminRole);
+        await _context.Users.AddAsync(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.IsSuperAdminAsync(user.UserId);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task IsSuperAdminAsync_UserDoesNotHaveSuperAdminRole_ReturnsFalse()
+    {
+        // Arrange
+        var adminRole = new Role { RoleId = Guid.NewGuid(), Name = "admin" };
+        var user = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "admin@example.com",
+            Name = "Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { adminRole }
+        };
+
+        await _context.Roles.AddAsync(adminRole);
+        await _context.Users.AddAsync(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.IsSuperAdminAsync(user.UserId);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task GetSuperAdminCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        var superAdminRole = new Role { RoleId = Guid.NewGuid(), Name = "superadmin" };
+        var adminRole = new Role { RoleId = Guid.NewGuid(), Name = "admin" };
+        
+        var superAdminUser = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "superadmin@example.com",
+            Name = "Super Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { superAdminRole }
+        };
+        
+        var adminUser = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "admin@example.com",
+            Name = "Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { adminRole }
+        };
+
+        await _context.Roles.AddRangeAsync(superAdminRole, adminRole);
+        await _context.Users.AddRangeAsync(superAdminUser, adminUser);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.GetSuperAdminCountAsync();
+
+        // Assert
+        Assert.Equal(1, result);
+    }
+
+    #endregion
+
     #region CleanupDuplicateUserRolesAsync Tests
 
     [Fact]

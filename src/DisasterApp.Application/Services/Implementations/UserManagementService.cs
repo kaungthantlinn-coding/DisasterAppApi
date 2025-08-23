@@ -172,6 +172,7 @@ public class UserManagementService : IUserManagementService
             var createdUser = await _userRepository.CreateAsync(user);
 
             // Assign roles
+            var assignedRoles = new List<string>();
             if (createUserDto.Roles.Any())
             {
                 foreach (var roleName in createUserDto.Roles)
@@ -179,6 +180,7 @@ public class UserManagementService : IUserManagementService
                     try
                     {
                         await _roleService.AssignRoleToUserAsync(createdUser.UserId, roleName);
+                        assignedRoles.Add(roleName);
                     }
                     catch (ArgumentException ex)
                     {
@@ -191,9 +193,35 @@ public class UserManagementService : IUserManagementService
             {
                 // Assign default role if no roles specified
                 await _roleService.AssignDefaultRoleToUserAsync(createdUser.UserId);
+                assignedRoles.Add("user"); // Assuming default role is "user"
             }
 
-            _logger.LogInformation("Created user {UserId} with email {Email}", createdUser.UserId, createdUser.Email);
+            // Add audit logging for user creation
+            try
+            {
+                await _auditService.LogUserActionAsync(
+                    action: "CREATE_USER",
+                    severity: "Info",
+                    userId: null, // Will be set by audit service from current context
+                    details: $"Created user '{createdUser.Name}' with email '{createdUser.Email}' and roles: {string.Join(", ", assignedRoles)}",
+                    resource: "UserManagement",
+                    metadata: new Dictionary<string, object>
+                    {
+                        ["targetUserId"] = createdUser.UserId.ToString(),
+                        ["userEmail"] = createdUser.Email,
+                        ["userName"] = createdUser.Name,
+                        ["assignedRoles"] = assignedRoles,
+                        ["authProvider"] = "Email"
+                    }
+                );
+            }
+            catch (Exception auditEx)
+            {
+                _logger.LogWarning(auditEx, "Failed to log user creation audit for user {UserId}", createdUser.UserId);
+            }
+
+            _logger.LogInformation("Created user {UserId} with email {Email} and roles {Roles}", 
+                createdUser.UserId, createdUser.Email, string.Join(", ", assignedRoles));
 
             // Return created user details
             return await GetUserByIdAsync(createdUser.UserId)

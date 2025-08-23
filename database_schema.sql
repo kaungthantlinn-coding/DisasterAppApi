@@ -324,7 +324,8 @@ CREATE INDEX [IX_AuditLog_Resource] ON [AuditLog] ([resource]);
 INSERT INTO [Role] ([role_id], [name]) VALUES
     (NEWID(), 'user'),
     (NEWID(), 'cj'),
-    (NEWID(), 'admin');
+    (NEWID(), 'admin'),
+    (NEWID(), 'superadmin');
 
 -- Insert default disaster categories
 INSERT INTO [DisasterType] ([name], [category]) VALUES

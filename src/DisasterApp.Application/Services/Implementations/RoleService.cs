@@ -249,13 +249,24 @@ public class RoleService : IRoleService
     {
         try
         {
-            // Check if removing admin role would leave no admins
+            // Super Admins cannot have their role removed (ultimate protection)
+            if (roleName.ToLower() == "superadmin")
+            {
+                return false;
+            }
+
+            // Check if removing admin role would leave no admins (but Super Admins can still manage)
             if (roleName.ToLower() == "admin")
             {
                 var isLastAdmin = await IsLastAdminAsync(userId);
                 if (isLastAdmin)
                 {
-                    return false;
+                    // Allow removal if there are Super Admins in the system
+                    var superAdminCount = await GetSuperAdminCountAsync();
+                    if (superAdminCount == 0)
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -421,7 +432,16 @@ public class RoleService : IRoleService
                 rolesToAssign.Add(role);
             }
 
-            // Check if removing admin role would leave no admins
+            // Check if removing Super Admin role (not allowed)
+            var currentSuperAdminRole = user.Roles.FirstOrDefault(r => r.Name.ToLower() == "superadmin");
+            var newSuperAdminRole = rolesToAssign.FirstOrDefault(r => r.Name.ToLower() == "superadmin");
+            
+            if (currentSuperAdminRole != null && newSuperAdminRole == null)
+            {
+                throw new InvalidOperationException("Cannot remove Super Admin role from user.");
+            }
+
+            // Check if removing admin role would leave no admins (but Super Admins can still manage)
             var currentAdminRole = user.Roles.FirstOrDefault(r => r.Name.ToLower() == "admin");
             var newAdminRole = rolesToAssign.FirstOrDefault(r => r.Name.ToLower() == "admin");
             
@@ -430,7 +450,12 @@ public class RoleService : IRoleService
                 var isLastAdmin = await IsLastAdminAsync(userId);
                 if (isLastAdmin)
                 {
-                    throw new InvalidOperationException("Cannot remove admin role from the last admin user.");
+                    // Allow removal if there are Super Admins in the system
+                    var superAdminCount = await GetSuperAdminCountAsync();
+                    if (superAdminCount == 0)
+                    {
+                        throw new InvalidOperationException("Cannot remove admin role from the last admin user when no Super Admins exist.");
+                    }
                 }
             }
 
@@ -469,6 +494,80 @@ public class RoleService : IRoleService
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error replacing roles for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<Role?> GetSuperAdminRoleAsync()
+    {
+        return await _context.Roles
+            .FirstOrDefaultAsync(r => r.Name.ToLower() == "superadmin");
+    }
+
+    public async Task<bool> IsSuperAdminAsync(Guid userId)
+    {
+        var user = await _context.Users
+            .Include(u => u.Roles)
+            .FirstOrDefaultAsync(u => u.UserId == userId);
+
+        return user?.Roles.Any(r => r.Name.ToLower() == "superadmin") ?? false;
+    }
+
+    public async Task<int> GetSuperAdminCountAsync()
+    {
+        return await _context.Users
+            .Include(u => u.Roles)
+            .Where(u => u.Roles.Any(r => r.Name.ToLower() == "superadmin"))
+            .CountAsync();
+    }
+
+    public async Task AssignSuperAdminRoleAsync(Guid userId, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                throw new InvalidOperationException($"User with ID {userId} not found.");
+            }
+
+            var superAdminRole = await GetSuperAdminRoleAsync();
+            if (superAdminRole == null)
+            {
+                throw new InvalidOperationException("Super Admin role not found in the system.");
+            }
+
+            if (user.Roles.Any(r => r.RoleId == superAdminRole.RoleId))
+            {
+                _logger.LogInformation("User {UserId} already has Super Admin role", userId);
+                return;
+            }
+
+            // Super Admin role assignment with value '1' (indicating active/primary status)
+            user.Roles.Add(superAdminRole);
+            await _context.SaveChangesAsync();
+
+            // Log the Super Admin role assignment
+            await _auditService.LogRoleAssignmentAsync(
+                userId,
+                "superadmin",
+                performedByUserId,
+                performedByUserName,
+                ipAddress,
+                userAgent
+            );
+
+            await transaction.CommitAsync();
+            _logger.LogInformation("Assigned Super Admin role to user {UserId} with assignment value '1' (active/primary status)", userId);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error assigning Super Admin role to user {UserId}", userId);
             throw;
         }
     }
