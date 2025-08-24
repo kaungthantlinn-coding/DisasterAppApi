@@ -31,7 +31,7 @@ public class AuditLogsController : ControllerBase
     }
 
     [HttpGet]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> GetAuditLogs(
         [FromQuery] int page = 1,
         [FromQuery] int limit = 10,
@@ -112,7 +112,7 @@ public class AuditLogsController : ControllerBase
     }
 
     [HttpGet("stats")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> GetAuditLogStatistics()
     {
         try
@@ -384,7 +384,7 @@ public class AuditLogsController : ControllerBase
     }
 
     [HttpGet("filter-options")]
-    [AdminOnly]
+    [SuperAdminOrAdmin]
     public async Task<IActionResult> GetFilterOptions()
     {
         try

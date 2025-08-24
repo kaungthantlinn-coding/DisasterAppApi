@@ -123,7 +123,7 @@ public class UserManagementService : IUserManagementService
                 AuthProvider = user.AuthProvider,
                 IsBlacklisted = user.IsBlacklisted ?? false,
                 CreatedAt = user.CreatedAt,
-                Roles = user.Roles.Select(r => new RoleDto { RoleId = r.RoleId, Name = r.Name }).ToList(),
+                Roles = user.Roles.Select(r => new RoleDto { Id = r.RoleId, Name = r.Name }).ToList(),
                 Statistics = new UserStatisticsDto
                 {
                     DisasterReportsCount = disasterReports,

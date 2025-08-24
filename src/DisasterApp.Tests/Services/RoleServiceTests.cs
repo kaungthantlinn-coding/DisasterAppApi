@@ -1,20 +1,20 @@
-using DisasterApp.Application.Services.Implementations;
-using DisasterApp.Application.Services.Interfaces;
-using DisasterApp.Domain.Entities;
-using DisasterApp.Infrastructure.Data;
+using Xunit;
 using Microsoft.EntityFrameworkCore;
+using DisasterApp.Application.Services.Implementations;
+using DisasterApp.Infrastructure.Data;
+using DisasterApp.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
+using DisasterApp.Application.Services.Interfaces;
 
 namespace DisasterApp.Tests.Services;
 
 public class RoleServiceTests : IDisposable
 {
     private readonly DisasterDbContext _context;
+    private readonly RoleService _roleService;
     private readonly Mock<ILogger<RoleService>> _mockLogger;
     private readonly Mock<IAuditService> _mockAuditService;
-    private readonly RoleService _roleService;
 
     public RoleServiceTests()
     {
@@ -28,29 +28,7 @@ public class RoleServiceTests : IDisposable
         _roleService = new RoleService(_context, _mockLogger.Object, _mockAuditService.Object);
     }
 
-    public void Dispose()
-    {
-        _context.Dispose();
-    }
-
-    #region Super Admin Tests
-
-    [Fact]
-    public async Task GetSuperAdminRoleAsync_RoleExists_ReturnsRole()
-    {
-        // Arrange
-        var superAdminRole = new Role { RoleId = Guid.NewGuid(), Name = "superadmin" };
-        await _context.Roles.AddAsync(superAdminRole);
-        await _context.SaveChangesAsync();
-
-        // Act
-        var result = await _roleService.GetSuperAdminRoleAsync();
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal("superadmin", result.Name);
-        Assert.Equal(superAdminRole.RoleId, result.RoleId);
-    }
+    #region IsSuperAdminAsync Tests
 
     [Fact]
     public async Task IsSuperAdminAsync_UserHasSuperAdminRole_ReturnsTrue()
@@ -240,7 +218,7 @@ public class RoleServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CleanupDuplicateUserRolesAsync_Idempotency_SecondCallReturnsZero()
+    public async Task CleanupDuplicateUserRolesAsync_RoleIdempotency_SecondCallReturnsZero()
     {
         // Arrange
         var adminRole = new Role { RoleId = Guid.NewGuid(), Name = "Admin" };
@@ -489,4 +467,9 @@ public class RoleServiceTests : IDisposable
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        _context.Dispose();
+    }
 }

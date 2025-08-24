@@ -537,18 +537,51 @@ public partial class DisasterDbContext : DbContext
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.RoleId).HasName("PK__Role__760965CCCEA47220");
+            entity.HasKey(e => e.RoleId).HasName("PK_Role");
 
             entity.ToTable("Role");
 
-            entity.HasIndex(e => e.Name, "UQ__Role__72E12F1B6DD5B5D7").IsUnique();
+            entity.HasIndex(e => e.Name, "IX_Role_Name").IsUnique();
 
             entity.Property(e => e.RoleId)
-                .HasDefaultValueSql("(newid())")
-                .HasColumnName("role_id");
+                .HasColumnName("role_id")
+                .HasDefaultValueSql("(newid())");
+            
             entity.Property(e => e.Name)
-                .HasMaxLength(50)
-                .HasColumnName("name");
+                .HasMaxLength(100)
+                .HasColumnName("name")
+                .IsRequired();
+                
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("Description")
+                .IsRequired();
+                
+            entity.Property(e => e.IsActive)
+                .HasColumnName("IsActive")
+                .HasDefaultValue(true);
+                
+            entity.Property(e => e.IsSystem)
+                .HasColumnName("IsSystem")
+                .HasDefaultValue(false);
+                
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("CreatedAt")
+                .HasDefaultValueSql("(sysutcdatetime())");
+                
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnName("UpdatedAt")
+                .HasDefaultValueSql("(sysutcdatetime())");
+                
+            entity.Property(e => e.CreatedBy)
+                .HasMaxLength(100)
+                .HasColumnName("CreatedBy")
+                .HasDefaultValue("System");
+                
+            entity.Property(e => e.UpdatedBy)
+                .HasMaxLength(100)
+                .HasColumnName("UpdatedBy")
+                .HasDefaultValue("System");
         });
 
         modelBuilder.Entity<SupportRequest>(entity =>

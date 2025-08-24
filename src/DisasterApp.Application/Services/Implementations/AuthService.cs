@@ -359,7 +359,19 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }
 
-        var user = refreshToken.User;
+        var user = refreshToken.User ?? await _userRepository.GetByIdAsync(refreshToken.UserId);
+        if (user == null)
+        {
+            _logger.LogWarning("❌ RefreshTokenAsync - User not found for refresh token. UserId: {UserId}", refreshToken.UserId);
+            throw new UnauthorizedAccessException("Invalid or expired refresh token");
+        }
+        
+        // Check if user is blacklisted
+        if (user.IsBlacklisted == true)
+        {
+            _logger.LogWarning("❌ RefreshTokenAsync - User is blacklisted. UserId: {UserId}", user.UserId);
+            throw new UnauthorizedAccessException("User account is disabled");
+        }
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         
         // Ensure user has at least the default role (fix for users created before role assignment was implemented)

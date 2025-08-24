@@ -233,4 +233,20 @@ public class UserRepository : IUserRepository
             user.Organizations.Count
         );
     }
+
+    // Role management methods
+    public async Task<int> GetUserCountByRoleAsync(Guid roleId)
+    {
+        return await _context.Users
+            .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+            .CountAsync();
+    }
+
+    public async Task<List<User>> GetUsersByRoleAsync(Guid roleId)
+    {
+        return await _context.Users
+            .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+            .OrderBy(u => u.Name)
+            .ToListAsync();
+    }
 }

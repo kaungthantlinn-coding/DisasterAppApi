@@ -2,6 +2,7 @@ using DisasterApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using BCrypt.Net;
 
 namespace DisasterApp.Infrastructure.Data;
 
@@ -19,6 +20,9 @@ public static class DataSeeder
 
             // Seed roles
             await SeedRolesAsync(context, logger);
+
+            // Seed default users
+            await SeedDefaultUsersAsync(context, logger);
 
             // Seed disaster types
             await SeedDisasterTypesAsync(context, logger);
@@ -53,23 +57,47 @@ public static class DataSeeder
         {
             new Role
             {
-                RoleId = Guid.NewGuid(),
-                Name = "user"
+                Name = "User",
+                Description = "Standard user with basic system access and reporting capabilities",
+                IsActive = true,
+                IsSystem = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                CreatedBy = "System",
+                UpdatedBy = "System"
             },
             new Role
             {
-                RoleId = Guid.NewGuid(),
-                Name = "cj"
+                Name = "CJ",
+                Description = "CJ with team oversight and reporting capabilities",
+                IsActive = true,
+                IsSystem = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                CreatedBy = "System",
+                UpdatedBy = "System"
             },
             new Role
             {
-                RoleId = Guid.NewGuid(),
-                Name = "admin"
+                Name = "Admin",
+                Description = "System administrator with user management and operational oversight capabilities",
+                IsActive = true,
+                IsSystem = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                CreatedBy = "System",
+                UpdatedBy = "System"
             },
             new Role
             {
-                RoleId = Guid.NewGuid(),
-                Name = "superadmin"
+                Name = "SuperAdmin",
+                Description = "Full system administrator with complete access to all features and settings",
+                IsActive = true,
+                IsSystem = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                CreatedBy = "System",
+                UpdatedBy = "System"
             }
         };
 
@@ -77,7 +105,45 @@ public static class DataSeeder
         logger.LogInformation("Successfully seeded {Count} roles", roles.Count);
     }
 
+    private static async Task SeedDefaultUsersAsync(DisasterDbContext context, ILogger logger)
+    {
+        // Check if users already exist
+        if (await context.Users.AnyAsync())
+        {
+            logger.LogInformation("Users already exist, skipping user seeding");
+            return;
+        }
 
+        logger.LogInformation("Seeding default users...");
+
+        // Get the SuperAdmin role
+        var superAdminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "SuperAdmin");
+        if (superAdminRole == null)
+        {
+            logger.LogWarning("SuperAdmin role not found, skipping user seeding");
+            return;
+        }
+
+        // Create default SuperAdmin user
+        var superAdminUser = new User
+        {
+            UserId = Guid.NewGuid(),
+            Name = "Super Administrator",
+            Email = "superadmin@disasterapp.com",
+            AuthId = BCrypt.Net.BCrypt.HashPassword("SuperAdmin123!"), // Default password stored in AuthId
+            AuthProvider = "Email", // Changed from "local" to "Email"
+            CreatedAt = DateTime.UtcNow,
+            TwoFactorEnabled = false,
+            BackupCodesRemaining = 0
+        };
+
+        // Assign SuperAdmin role using navigation property
+        superAdminUser.Roles.Add(superAdminRole);
+
+        await context.Users.AddAsync(superAdminUser);
+
+        logger.LogInformation("Successfully seeded default SuperAdmin user: {Email}", superAdminUser.Email);
+    }
 
     private static async Task SeedDisasterTypesAsync(DisasterDbContext context, ILogger logger)
     {

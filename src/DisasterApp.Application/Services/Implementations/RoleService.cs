@@ -321,7 +321,7 @@ public class RoleService : IRoleService
             
             foreach (var user in users)
             {
-                // Group roles by RoleId to find duplicates
+                // Group roles by Id to find duplicates
                 var roleGroups = user.Roles.GroupBy(r => r.RoleId).ToList();
                 
                 foreach (var roleGroup in roleGroups)

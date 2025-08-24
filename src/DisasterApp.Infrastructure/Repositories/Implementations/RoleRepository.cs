@@ -16,9 +16,18 @@ public class RoleRepository : IRoleRepository
 
     public async Task<Role?> GetByIdAsync(Guid roleId)
     {
+        // Legacy method - convert Guid to string and try to match by name for backward compatibility
         return await _context.Roles
             .Include(r => r.Users)
-            .FirstOrDefaultAsync(r => r.RoleId == roleId);
+            .FirstOrDefaultAsync(r => r.Name == roleId.ToString());
+    }
+
+    // New simplified role management methods
+    public async Task<Role?> GetRoleByIdAsync(Guid id)
+    {
+        return await _context.Roles
+            .Include(r => r.Users)
+            .FirstOrDefaultAsync(r => r.RoleId == id);
     }
 
     public async Task<Role?> GetByNameAsync(string name)
@@ -51,17 +60,14 @@ public class RoleRepository : IRoleRepository
             query = query.Where(r => r.Name.Contains(searchTerm));
         }
 
-        // Note: isSystem and isActive filters removed as these properties don't exist on Role entity
-        // The Role entity only has RoleId, Name, and Users collection
-
-        // Get total count before pagination
+ 
         var totalCount = await query.CountAsync();
 
         // Apply sorting
         query = sortBy.ToLower() switch
         {
             "name" => sortDirection.ToLower() == "desc" ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
-            // Note: createdat and lastmodified sorting removed as these properties don't exist on Role entity
+            // createdat and lastmodified sorting removed as these properties don't exist on Role entity
             _ => query.OrderBy(r => r.Name)
         };
 
@@ -83,7 +89,7 @@ public class RoleRepository : IRoleRepository
 
     public async Task<Role> UpdateAsync(Role role)
     {
-        // Note: LastModified property removed as it doesn't exist on Role entity
+        //LastModified property removed as it doesn't exist on Role entity
         _context.Roles.Update(role);
         await _context.SaveChangesAsync();
         return role;
@@ -91,7 +97,8 @@ public class RoleRepository : IRoleRepository
 
     public async Task<bool> DeleteAsync(Guid roleId)
     {
-        var role = await _context.Roles.FindAsync(roleId);
+        // Legacy method - find by name for backward compatibility
+        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == roleId.ToString());
         if (role == null)
             return false;
 
@@ -107,17 +114,17 @@ public class RoleRepository : IRoleRepository
 
     public async Task<bool> ExistsAsync(Guid roleId)
     {
-        return await _context.Roles.AnyAsync(r => r.RoleId == roleId);
+        return await _context.Roles.AnyAsync(r => r.Name == roleId.ToString());
     }
 
     public async Task<bool> ExistsAsync(string name, Guid excludeRoleId)
     {
-        return await _context.Roles.AnyAsync(r => r.Name.ToLower() == name.ToLower() && r.RoleId != excludeRoleId);
+        return await _context.Roles.AnyAsync(r => r.Name.ToLower() == name.ToLower() && r.Name != excludeRoleId.ToString());
     }
 
     public async Task<bool> IsRoleAssignedToUsersAsync(Guid roleId)
     {
-        return await _context.Users.AnyAsync(u => u.Roles.Any(r => r.RoleId == roleId));
+        return await _context.Users.AnyAsync(u => u.Roles.Any(r => r.Name == roleId.ToString()));
     }
 
     public async Task<int> GetTotalRolesCountAsync()
@@ -132,8 +139,9 @@ public class RoleRepository : IRoleRepository
 
     public async Task<List<Role>> GetRolesByIdsAsync(List<Guid> roleIds)
     {
+        var roleNames = roleIds.Select(id => id.ToString()).ToList();
         return await _context.Roles
-            .Where(r => roleIds.Contains(r.RoleId))
+            .Where(r => roleNames.Contains(r.Name))
             .ToListAsync();
     }
 
@@ -143,5 +151,53 @@ public class RoleRepository : IRoleRepository
         return await _context.Roles
             .Where(r => lowerNames.Contains(r.Name.ToLower()))
             .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Role>> GetAllRolesAsync()
+    {
+        return await _context.Roles
+            .Include(r => r.Users)
+            .OrderBy(r => r.Name)
+            .ToListAsync();
+    }
+
+    public async Task<Role> CreateRoleAsync(Role role)
+    {
+        role.CreatedAt = DateTime.UtcNow;
+        role.UpdatedAt = DateTime.UtcNow;
+        _context.Roles.Add(role);
+        await _context.SaveChangesAsync();
+        return role;
+    }
+
+    public async Task<Role> UpdateRoleAsync(Role role)
+    {
+        role.UpdatedAt = DateTime.UtcNow;
+        _context.Roles.Update(role);
+        await _context.SaveChangesAsync();
+        return role;
+    }
+
+    public async Task<bool> DeleteRoleAsync(Guid id)
+    {
+        var role = await _context.Roles.FindAsync(id);
+        if (role == null)
+            return false;
+
+        _context.Roles.Remove(role);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RoleExistsAsync(string name, Guid? excludeId = null)
+    {
+        var query = _context.Roles.Where(r => r.Name.ToLower() == name.ToLower());
+        
+        if (excludeId.HasValue)
+        {
+            query = query.Where(r => r.RoleId != excludeId.Value);
+        }
+        
+        return await query.AnyAsync();
     }
 }
