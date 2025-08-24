@@ -231,6 +231,49 @@ public class AuditServiceTests
     }
 
     [Fact]
+    public async Task GetLogsAsync_WithCommaSeparatedFilters_ReturnsCorrectlyFilteredLogs()
+    {
+        // Arrange
+        var auditLogs = new List<AuditLog>
+        {
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "LOGIN_SUCCESS", EntityType = "Security", Timestamp = DateTime.UtcNow },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "LOGIN_FAILED", EntityType = "Security", Timestamp = DateTime.UtcNow },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "USER_CREATE", EntityType = "User", Timestamp = DateTime.UtcNow },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "ROLE_UPDATE", EntityType = "UserRole", Timestamp = DateTime.UtcNow },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "DB_BACKUP", EntityType = "System", Timestamp = DateTime.UtcNow }
+        }.AsQueryable();
+
+        var mockSet = new Mock<DbSet<AuditLog>>();
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.Provider).Returns(new TestAsyncQueryProvider<AuditLog>(auditLogs.Provider));
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.Expression).Returns(auditLogs.Expression);
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.ElementType).Returns(auditLogs.ElementType);
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.GetEnumerator()).Returns(auditLogs.GetEnumerator());
+        mockSet.As<IAsyncEnumerable<AuditLog>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(new TestAsyncEnumerator<AuditLog>(auditLogs.GetEnumerator()));
+
+        _mockContext.Setup(x => x.AuditLogs).Returns(mockSet.Object);
+
+        var filters = new AuditLogFiltersDto
+        {
+            Action = "LOGIN_SUCCESS,USER_CREATE",
+            TargetType = "Security,User",
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _auditService.GetLogsAsync(filters);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Collection(result.Logs,
+            log => Assert.Equal("LOGIN_SUCCESS", log.Action),
+            log => Assert.Equal("USER_CREATE", log.Action)
+        );
+    }
+
+    [Fact]
     public async Task ExportAuditLogsAsync_ValidData_ReturnsExcelFile()
     {
         // Arrange

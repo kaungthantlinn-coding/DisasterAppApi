@@ -88,6 +88,13 @@ namespace DisasterApp
             // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
 
+            // Add Enhanced Audit System services
+            builder.Services.AddScoped<IAuditTargetValidator, AuditTargetValidator>();
+            builder.Services.AddScoped<IAuditDataSanitizer, AuditDataSanitizer>();
+            builder.Services.AddScoped<IExportService, ExportService>();
+            builder.Services.AddScoped<IDonationAuditService, DonationAuditService>();
+            builder.Services.AddScoped<IOrganizationAuditService, OrganizationAuditService>();
+            builder.Services.AddScoped<IAuditRetentionService, AuditRetentionService>();
 
             // Add authorization
             builder.Services.AddAuthorization(options =>

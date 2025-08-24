@@ -343,6 +343,29 @@ public class UserManagementService : IUserManagementService
             user.IsBlacklisted = true;
             await _userRepository.UpdateAsync(user);
 
+            // Add audit logging for user suspension
+            try
+            {
+                await _auditService.LogUserActionAsync(
+                    action: "USER_SUSPENDED",
+                    severity: "medium",
+                    userId: null, // Will be set by audit service from current context
+                    details: $"User '{user.Name}' (ID: {user.UserId}) has been suspended/blacklisted",
+                    resource: "UserManagement",
+                    metadata: new Dictionary<string, object>
+                    {
+                        ["targetUserId"] = user.UserId.ToString(),
+                        ["userEmail"] = user.Email,
+                        ["userName"] = user.Name,
+                        ["action"] = "blacklist"
+                    }
+                );
+            }
+            catch (Exception auditEx)
+            {
+                _logger.LogWarning(auditEx, "Failed to log user suspension audit for user {UserId}", userId);
+            }
+
             _logger.LogInformation("Blacklisted user {UserId}", userId);
             return true;
         }
@@ -362,6 +385,29 @@ public class UserManagementService : IUserManagementService
 
             user.IsBlacklisted = false;
             await _userRepository.UpdateAsync(user);
+
+            // Add audit logging for user reactivation
+            try
+            {
+                await _auditService.LogUserActionAsync(
+                    action: "USER_REACTIVATED",
+                    severity: "medium",
+                    userId: null, // Will be set by audit service from current context
+                    details: $"User '{user.Name}' (ID: {user.UserId}) has been reactivated/unblacklisted",
+                    resource: "UserManagement",
+                    metadata: new Dictionary<string, object>
+                    {
+                        ["targetUserId"] = user.UserId.ToString(),
+                        ["userEmail"] = user.Email,
+                        ["userName"] = user.Name,
+                        ["action"] = "unblacklist"
+                    }
+                );
+            }
+            catch (Exception auditEx)
+            {
+                _logger.LogWarning(auditEx, "Failed to log user reactivation audit for user {UserId}", userId);
+            }
 
             _logger.LogInformation("Unblacklisted user {UserId}", userId);
             return true;
@@ -422,6 +468,30 @@ public class UserManagementService : IUserManagementService
                         }
                         user.IsBlacklisted = true;
                         affectedCount++;
+
+                        // Add audit logging for bulk user suspension
+                        try
+                        {
+                            await _auditService.LogUserActionAsync(
+                                action: "USER_SUSPENDED",
+                                severity: "medium",
+                                userId: adminUserId,
+                                details: $"User '{user.Name}' (ID: {user.UserId}) has been suspended via bulk operation",
+                                resource: "UserManagement",
+                                metadata: new Dictionary<string, object>
+                                {
+                                    ["targetUserId"] = user.UserId.ToString(),
+                                    ["userEmail"] = user.Email,
+                                    ["userName"] = user.Name,
+                                    ["action"] = "bulk_blacklist",
+                                    ["operationType"] = "bulk"
+                                }
+                            );
+                        }
+                        catch (Exception auditEx)
+                        {
+                            _logger.LogWarning(auditEx, "Failed to log bulk user suspension audit for user {UserId}", user.UserId);
+                        }
                     }
                     break;
 
@@ -430,6 +500,30 @@ public class UserManagementService : IUserManagementService
                     {
                         user.IsBlacklisted = false;
                         affectedCount++;
+
+                        // Add audit logging for bulk user reactivation
+                        try
+                        {
+                            await _auditService.LogUserActionAsync(
+                                action: "USER_REACTIVATED",
+                                severity: "medium",
+                                userId: adminUserId,
+                                details: $"User '{user.Name}' (ID: {user.UserId}) has been reactivated via bulk operation",
+                                resource: "UserManagement",
+                                metadata: new Dictionary<string, object>
+                                {
+                                    ["targetUserId"] = user.UserId.ToString(),
+                                    ["userEmail"] = user.Email,
+                                    ["userName"] = user.Name,
+                                    ["action"] = "bulk_unblacklist",
+                                    ["operationType"] = "bulk"
+                                }
+                            );
+                        }
+                        catch (Exception auditEx)
+                        {
+                            _logger.LogWarning(auditEx, "Failed to log bulk user reactivation audit for user {UserId}", user.UserId);
+                        }
                     }
                     break;
 

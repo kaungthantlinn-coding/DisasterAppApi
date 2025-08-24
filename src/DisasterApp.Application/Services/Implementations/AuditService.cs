@@ -14,11 +14,19 @@ public class AuditService : IAuditService
 {
     private readonly DisasterDbContext _context;
     private readonly ILogger<AuditService> _logger;
+    private readonly IAuditDataSanitizer _dataSanitizer;
+    private readonly IExportService _exportService;
 
-    public AuditService(DisasterDbContext context, ILogger<AuditService> logger)
+    public AuditService(
+        DisasterDbContext context, 
+        ILogger<AuditService> logger,
+        IAuditDataSanitizer dataSanitizer,
+        IExportService exportService)
     {
         _context = context;
         _logger = logger;
+        _dataSanitizer = dataSanitizer;
+        _exportService = exportService;
     }
 
     public async Task LogRoleAssignmentAsync(Guid userId, string roleName, Guid? performedByUserId, string? performedByUserName, string? ipAddress, string? userAgent)
@@ -223,38 +231,68 @@ public class AuditService : IAuditService
     {
         try
         {
+            _logger.LogInformation("GetLogsAsync called with filters: {Filters}", System.Text.Json.JsonSerializer.Serialize(filters));
+            
             // Use AsNoTracking for better performance on read-only queries
-            var query = _context.AuditLogs.AsNoTracking().AsQueryable();
+            var query = _context.AuditLogs.AsNoTracking()
+                .Include(a => a.User)
+                .AsQueryable();
+
+            var originalCount = await query.CountAsync();
+            _logger.LogInformation("Total audit logs in database: {Count}", originalCount);
 
             // Apply filters in order of selectivity (most selective first)
             if (!string.IsNullOrEmpty(filters.UserId) && Guid.TryParse(filters.UserId, out var userId))
             {
                 query = query.Where(a => a.UserId == userId);
+                var countAfterUserId = await query.CountAsync();
+                _logger.LogInformation("Records after UserId filter: {Count}", countAfterUserId);
             }
 
             if (filters.DateFrom.HasValue)
             {
                 query = query.Where(a => a.Timestamp >= filters.DateFrom.Value);
+                var countAfterDateFrom = await query.CountAsync();
+                _logger.LogInformation("Records after DateFrom filter: {Count}", countAfterDateFrom);
             }
 
             if (filters.DateTo.HasValue)
             {
                 query = query.Where(a => a.Timestamp <= filters.DateTo.Value);
+                var countAfterDateTo = await query.CountAsync();
+                _logger.LogInformation("Records after DateTo filter: {Count}", countAfterDateTo);
             }
 
             if (!string.IsNullOrEmpty(filters.Severity))
             {
                 query = query.Where(a => a.Severity == filters.Severity);
+                var countAfterSeverity = await query.CountAsync();
+                _logger.LogInformation("Records after Severity filter: {Count}", countAfterSeverity);
             }
 
             if (!string.IsNullOrEmpty(filters.Action))
             {
-                query = query.Where(a => a.Action == filters.Action);
+                var actions = filters.Action.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(a => a.Trim().ToUpperInvariant()).ToList();
+                query = query.Where(a => actions.Contains(a.Action.ToUpper()));
+            }
+
+            if (!string.IsNullOrEmpty(filters.TargetType))
+            {
+                var targetTypes = filters.TargetType.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim().ToLower()).ToList();
+
+                if (targetTypes.Any())
+                {
+                    query = query.Where(a => a.EntityType != null && targetTypes.Contains(a.EntityType.ToLower()));
+                }
             }
 
             if (!string.IsNullOrEmpty(filters.Resource))
             {
                 query = query.Where(a => a.Resource == filters.Resource);
+                var countAfterResource = await query.CountAsync();
+                _logger.LogInformation("Records after Resource filter: {Count}", countAfterResource);
             }
 
             // Apply text search last as it's the most expensive
@@ -379,6 +417,8 @@ public class AuditService : IAuditService
     {
         try
         {
+            _logger.LogInformation("Starting export with filters: {Filters}", System.Text.Json.JsonSerializer.Serialize(filters));
+            
             var logsResult = await GetLogsAsync(new AuditLogFiltersDto
             {
                 Page = 1,
@@ -386,11 +426,14 @@ public class AuditService : IAuditService
                 Search = filters.Search,
                 Severity = filters.Severity,
                 Action = filters.Action,
+                TargetType = filters.TargetType, // Fix: Include TargetType filter
                 DateFrom = filters.DateFrom,
                 DateTo = filters.DateTo,
                 UserId = filters.UserId,
                 Resource = filters.Resource
             });
+            
+            _logger.LogInformation("Export retrieved {LogCount} logs for format {Format}", logsResult.Logs.Count, format);
 
             if (format.ToLower() == "csv")
             {
@@ -414,6 +457,9 @@ public class AuditService : IAuditService
 
     public async Task LogUserActionAsync(string action, string severity, Guid? userId, string details, string resource, string? ipAddress = null, string? userAgent = null, Dictionary<string, object>? metadata = null)
     {
+        // Determine EntityType based on resource and action
+        var entityType = DetermineEntityType(resource, action, metadata);
+        
         await CreateLogAsync(new CreateAuditLogDto
         {
             Action = action,
@@ -421,6 +467,7 @@ public class AuditService : IAuditService
             UserId = userId,
             Details = details,
             Resource = resource,
+            EntityType = entityType,
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Metadata = metadata
@@ -542,6 +589,149 @@ public class AuditService : IAuditService
         return stream.ToArray();
     }
 
+    public async Task<ExportResult> ExportAuditLogsAsync(ExportAuditLogsRequest request, string? userRole = null)
+    {
+        try
+        {
+            _logger.LogInformation("Starting export with format: {Format}, Fields: {Fields}", 
+                request.Format, request.Fields?.Count ?? 0);
+
+            // Handle null filters
+            var requestFilters = request.Filters ?? new ExportAuditLogFilters();
+
+            // Convert request filters to internal DTO
+            var filters = new AuditLogFiltersDto
+            {
+                Page = 1,
+                PageSize = requestFilters.MaxRecords,
+                Search = requestFilters.Search,
+                Severity = requestFilters.Severity,
+                Action = requestFilters.Action,
+                TargetType = requestFilters.TargetType,
+                UserId = requestFilters.UserId,
+                Resource = requestFilters.Resource,
+                DateFrom = requestFilters.StartDate,
+                DateTo = requestFilters.EndDate,
+                StartDate = requestFilters.StartDate,
+                EndDate = requestFilters.EndDate
+            };
+
+            // Only use fallback if NO filters are specified at all
+            bool hasAnyFilters = !string.IsNullOrEmpty(filters.Search) || 
+                                !string.IsNullOrEmpty(filters.Severity) || 
+                                !string.IsNullOrEmpty(filters.Action) || 
+                                !string.IsNullOrEmpty(filters.TargetType) ||
+                                !string.IsNullOrEmpty(filters.UserId) || 
+                                !string.IsNullOrEmpty(filters.Resource) ||
+                                filters.DateFrom.HasValue || 
+                                filters.DateTo.HasValue;
+
+            if (!hasAnyFilters)
+            {
+                // Only apply fallback when no filters are specified
+                _logger.LogInformation("No filters specified, using default date range for export");
+                filters.DateFrom = DateTime.UtcNow.AddDays(-30);
+            }
+
+            // Get filtered audit logs
+            var result = await GetLogsAsync(filters);
+            var logs = result.Logs;
+            
+            _logger.LogInformation("Export retrieved {LogCount} logs with filters: {Filters}", 
+                logs.Count, System.Text.Json.JsonSerializer.Serialize(filters));
+
+            // Apply data sanitization if requested
+            if (request.Filters.SanitizeData && !string.IsNullOrEmpty(userRole))
+            {
+                logs = logs.Select(log => SanitizeAuditLogForRole(log, userRole)).ToList();
+            }
+
+            // Use default fields if none specified
+            var fieldsToExport = request.Fields?.Any() == true ? request.Fields : GetDefaultExportFields();
+
+            // Validate fields
+            if (!_exportService.ValidateFields(fieldsToExport))
+            {
+                throw new ArgumentException("Invalid export fields specified");
+            }
+
+            // Generate export based on format
+            byte[] exportData = request.Format.ToLowerInvariant() switch
+            {
+                "csv" => await _exportService.ExportToCsvAsync(logs, fieldsToExport),
+                "excel" => await _exportService.ExportToExcelAsync(logs, fieldsToExport),
+                "pdf" => await _exportService.ExportToPdfAsync(logs, fieldsToExport),
+                _ => throw new ArgumentException($"Unsupported export format: {request.Format}")
+            };
+
+            var fileName = GenerateExportFileName(request.Format, request.Filters);
+            var contentType = _exportService.GetMimeType(request.Format);
+
+            return new ExportResult
+            {
+                Data = exportData,
+                FileName = fileName,
+                ContentType = contentType,
+                RecordCount = logs.Count,
+                GeneratedAt = DateTime.UtcNow,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["format"] = request.Format,
+                    ["fields"] = fieldsToExport,
+                    ["filters"] = request.Filters,
+                    ["sanitized"] = request.Filters.SanitizeData,
+                    ["userRole"] = userRole ?? "Unknown"
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export audit logs with format {Format}", request.Format);
+            throw;
+        }
+    }
+
+    private AuditLogDto SanitizeAuditLogForRole(AuditLogDto log, string userRole)
+    {
+        return new AuditLogDto
+        {
+            Id = log.Id,
+            Timestamp = log.Timestamp,
+            Action = log.Action,
+            Severity = log.Severity,
+            User = log.User,
+            Details = _dataSanitizer.SanitizeForRole(log.Details, userRole),
+            IpAddress = _dataSanitizer.RedactIpAddresses(log.IpAddress ?? "", userRole),
+            UserAgent = _dataSanitizer.HasSensitiveDataAccess(userRole) ? log.UserAgent : "[REDACTED]",
+            Resource = log.Resource,
+            Metadata = _dataSanitizer.SanitizeMetadata(log.Metadata, userRole)
+        };
+    }
+
+    private List<string> GetDefaultExportFields()
+    {
+        return new List<string>
+        {
+            "Timestamp", "Action", "Severity", "UserName", "Details", "IpAddress", "Resource"
+        };
+    }
+
+    private string GenerateExportFileName(string format, ExportAuditLogFilters filters)
+    {
+        var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd-HH-mm-ss");
+        var dateRange = "";
+        
+        if (filters.StartDate.HasValue || filters.EndDate.HasValue)
+        {
+            var start = filters.StartDate?.ToString("yyyy-MM-dd") ?? "start";
+            var end = filters.EndDate?.ToString("yyyy-MM-dd") ?? "end";
+            dateRange = $"-{start}-to-{end}";
+        }
+
+        var extension = _exportService.GetFileExtension(format);
+        return $"audit-logs{dateRange}-{timestamp}.{extension}";
+    }
+
     private string EscapeCsvField(string field)
     {
         if (string.IsNullOrEmpty(field)) return "";
@@ -550,5 +740,68 @@ public class AuditService : IAuditService
             return $"\"{field.Replace("\"", "\"\"")}\"";
         }
         return field;
+    }
+
+    private string DetermineEntityType(string resource, string action, Dictionary<string, object>? metadata)
+    {
+        // Check metadata first for explicit targetType
+        if (metadata?.ContainsKey("targetType") == true)
+        {
+            var targetType = metadata["targetType"]?.ToString();
+            if (!string.IsNullOrEmpty(targetType))
+            {
+                return targetType;
+            }
+        }
+
+        // Determine by resource
+        return resource?.ToLowerInvariant() switch
+        {
+            "donations" => "Donation",
+            "organizations" => "Organization", 
+            "reports" => "Report",
+            "users" => "User",
+            "user_management" => "User",
+            "security" => "Security",
+            "system" => "System",
+            "audit" => "Audit",
+            _ when action?.Contains("ROLE") == true => "UserRole",
+            _ when action?.Contains("USER") == true => "User",
+            _ when action?.Contains("ORGANIZATION") == true => "Organization",
+            _ when action?.Contains("DONATION") == true => "Donation",
+            _ when action?.Contains("REPORT") == true => "Report",
+            _ => "General"
+        };
+    }
+
+    public async Task<FilterOptionsDto> GetFilterOptionsAsync()
+    {
+        try
+        {
+            var actions = await _context.AuditLogs
+                .Where(a => !string.IsNullOrEmpty(a.Action))
+                .Select(a => a.Action)
+                .Distinct()
+                .OrderBy(a => a)
+                .ToListAsync();
+
+            var targetTypes = await _context.AuditLogs
+                .Where(a => !string.IsNullOrEmpty(a.EntityType))
+                .Select(a => a.EntityType)
+                .Distinct()
+                .OrderBy(t => t)
+                .ToListAsync();
+
+            return new FilterOptionsDto
+            {
+                Actions = actions,
+                TargetTypes = targetTypes
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving filter options");
+            return new FilterOptionsDto();
+        }
     }
 }
