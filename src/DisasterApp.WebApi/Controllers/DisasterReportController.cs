@@ -7,10 +7,10 @@ using System.Security.Claims;
 
 namespace DisasterApp.Controllers
 {
-    [Route("api/reports")]
+    [Route("api/[controller]")]
     [ApiController]
     [Authorize]
-    
+
     public class DisasterReportController : ControllerBase
     {
         private readonly IDisasterReportService _service;
@@ -18,7 +18,7 @@ namespace DisasterApp.Controllers
         {
             _service = service;
         }
-        
+
         [HttpGet]
         public async Task<IActionResult> GetAll() => Ok(await _service.GetAllAsync());
 
@@ -29,6 +29,82 @@ namespace DisasterApp.Controllers
             var report = await _service.GetByIdAsync(id);
             if (report == null) return NotFound();
             return Ok(report);
+        }
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetReportsByUserId(Guid userId)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+            
+            var reports = await _service.GetReportsByUserIdAsync(userId);
+            return Ok(reports);
+        }
+        [HttpGet("pending")]
+        public async Task<IActionResult> GetPendingReports()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+            var adminId = Guid.Parse(userIdClaim);
+            var reports = await _service.GetPendingReportsForAdminAsync(adminId);
+            return Ok(reports);
+
+        }
+
+        [HttpGet("accepted")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAcceptedReports()
+        {
+            var reports = await _service.GetAcceptedReportsAsync();
+            return Ok(reports);
+        }
+
+        [HttpGet("rejected")]
+        public async Task<IActionResult> GetRejectedReports()
+        {
+            var reports = await _service.GetRejectedReportsAsync();
+            return Ok(reports);
+        }
+        [HttpPut("{id}/accept")]
+        public async Task<IActionResult> Accept(Guid id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+
+            var result = await _service.ApproveDisasterReportAsync(id, adminId);
+            if (!result) return NotFound();
+            return Ok(new { Message = "Report accepted successfully" });
+        }
+
+        [HttpPut("{id}/reject")]
+        public async Task<IActionResult> Reject(Guid id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+
+            var result = await _service.RejectDisasterReportAsync(id, adminId);
+            if (!result) return NotFound();
+            return Ok(new { Message = "Report rejected successfully" });
+        }
+
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateStatusDto dto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+            var result = await _service.ApproveOrRejectReportAsync(id, dto.Status, adminId);
+            if (!result) return NotFound();
+            return Ok(new { Message = $"Report {dto.Status}" });
         }
 
         [Authorize]
@@ -80,6 +156,7 @@ namespace DisasterApp.Controllers
 
             return NoContent();
         }
+<<<<<<< HEAD
 
         /// <summary>
         /// Get disaster reports statistics
@@ -131,5 +208,7 @@ namespace DisasterApp.Controllers
                 return StatusCode(500, new { message = "Failed to retrieve accepted reports", error = ex.Message });
             }
         }
+=======
+>>>>>>> f375436 (DisasterReport Service and Notification Work Flow and Relation with User)
     }
 }

@@ -501,6 +501,32 @@ CREATE INDEX [IX_BackupCode_UserId] ON [BackupCode] ([user_id]);
 CREATE INDEX [IX_BackupCode_CodeHash] ON [BackupCode] ([code_hash]);
 CREATE INDEX [IX_BackupCode_UsedAt] ON [BackupCode] ([used_at]);
 
+
+-- 13. Notification table with proper syntax
+CREATE TABLE [dbo].[Notifications] (
+    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Title] NVARCHAR(200) NOT NULL,
+    [Message] NVARCHAR(1000) NOT NULL,
+    [Type] INT NOT NULL,
+    [CreatedAt] DATETIME2 NULL DEFAULT (GETUTCDATE()),
+    [ReadAt] DATETIME2 NULL,
+    [UserId] UNIQUEIDENTIFIER NOT NULL,
+    [DisasterReportId] UNIQUEIDENTIFIER NOT NULL,
+    CONSTRAINT [PK_Notifications] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Notifications_Users] FOREIGN KEY ([UserId]) 
+        REFERENCES [dbo].[User] ([user_id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_Notifications_DisasterReports] FOREIGN KEY ([DisasterReportId]) 
+        REFERENCES [dbo].[DisasterReports] ([Id]) ON DELETE CASCADE
+);
+
+
+-- Create indexes for performance
+CREATE INDEX [IX_Notifications_UserId] ON [dbo].[Notifications] ([UserId]);
+CREATE INDEX [IX_Notifications_DisasterReportId] ON [dbo].[Notifications] ([DisasterReportId]);
+
+ALTER TABLE [DisasterReport] 
+ADD [notification_sent] BIT NOT NULL DEFAULT 0;
+
 -- =====================================================
 -- END OF SCHEMA CREATION
 -- =====================================================

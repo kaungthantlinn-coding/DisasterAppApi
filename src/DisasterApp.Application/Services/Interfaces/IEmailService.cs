@@ -1,4 +1,4 @@
-namespace DisasterApp.Application.Services.Interfaces;
+﻿namespace DisasterApp.Application.Services.Interfaces;
 
 public interface IEmailService
 {

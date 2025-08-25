@@ -3,13 +3,14 @@ using DisasterApp.Application.Services;
 using DisasterApp.Application.Services.Implementations;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Application.Settings;
+using DisasterApp.Hubs;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
-using DisasterApp.WebApi.Middleware;
 using DisasterApp.WebApi.Hubs;
+using DisasterApp.WebApi.Middleware;
 using DisasterApp.WebApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -21,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace DisasterApp
 {
@@ -33,7 +35,7 @@ namespace DisasterApp
             // Add Entity Framework
             builder.Services.AddDbContext<DisasterDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
-                    sqlOptions => 
+                    sqlOptions =>
                     {
                         sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                         sqlOptions.CommandTimeout(60); // Increase timeout to 60 seconds for large audit queries
@@ -60,6 +62,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IDisasterReportRepository, DisasterReportRepository>();
             builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
             builder.Services.AddScoped<IImpactTypeRepository, ImpactTypeRepository>();
+            builder.Services.AddScoped<IImpactDetailRepository, ImpactDetailRepository>();
             builder.Services.AddScoped<ISupportRequestRepository, SupportRequestRepository>();
             builder.Services.AddScoped<IUserBlacklistRepository, UserBlacklistRepository>();
 
@@ -77,8 +80,10 @@ namespace DisasterApp
             builder.Services.AddScoped<IPhotoService, PhotoService>();
             builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
             builder.Services.AddScoped<IImpactTypeService, ImpactTypeService>();
+            builder.Services.AddScoped<IImpactDetailService, ImpactDetailService>();
             builder.Services.AddScoped<ISupportRequestService, SupportRequestService>();
             builder.Services.AddScoped<IBlacklistService, BlacklistService>();
+            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
             // Add Two-Factor Authentication services
             builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
@@ -86,6 +91,8 @@ namespace DisasterApp
             builder.Services.AddScoped<IBackupCodeService, BackupCodeService>();
             builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 
             // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
@@ -123,7 +130,7 @@ namespace DisasterApp
             {
                 options.RequireHttpsMetadata = false;
                 options.SaveToken = true;
-                 options.TokenValidationParameters = new TokenValidationParameters
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
@@ -158,10 +165,14 @@ namespace DisasterApp
             });
 
             // Add services to the container.
-            builder.Services.AddControllers();
-            
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
+
             // Add SignalR
             builder.Services.AddSignalR();
+
             builder.Services.AddScoped<IUserStatsHubService, UserStatsHubService>();
             builder.Services.AddHttpClient("Nominatim", client =>
             {
@@ -277,6 +288,7 @@ namespace DisasterApp
                 await next();
             });
 
+
             app.UseCors("AllowAll");
             app.UseCookiePolicy();
 
@@ -292,6 +304,9 @@ namespace DisasterApp
 
             app.MapControllers();
             app.MapHub<UserStatsHub>("/userStatsHub");
+            app.MapHub<NotificationHub>("/notificationHub");
+
+
 
             app.Run();
         }

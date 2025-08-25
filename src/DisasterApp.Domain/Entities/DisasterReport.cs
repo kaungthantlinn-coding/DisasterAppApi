@@ -52,4 +52,5 @@ public partial class DisasterReport
     public virtual User User { get; set; } = null!;
 
     public virtual User? VerifiedByNavigation { get; set; }
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
