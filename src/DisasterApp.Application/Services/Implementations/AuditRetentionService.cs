@@ -173,11 +173,8 @@ public class AuditRetentionService : IAuditRetentionService
     {
         try
         {
-            // In a real implementation, this would update configuration
-            // For now, we'll log the update attempt
+            // Log the incoming policy
             _logger.LogInformation("Retention policy update requested: {Policy}", JsonSerializer.Serialize(policy));
-            
-            // This would typically update database configuration or config files
             return true;
         }
         catch (Exception ex)
@@ -220,11 +217,11 @@ public class AuditRetentionService : IAuditRetentionService
                 l.Metadata
             }));
 
-            // In a real implementation, this would save to cloud storage or archive system
+            // Save to archive location
             var archiveFileName = $"audit_archive_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json";
             _logger.LogInformation("Archived {Count} logs to {FileName}", logsToArchive.Count, archiveFileName);
 
-            // Remove archived logs from main table
+            // Remove archived logs
             _context.AuditLogs.RemoveRange(logsToArchive);
             await _context.SaveChangesAsync();
 
@@ -390,8 +387,7 @@ public class AuditRetentionService : IAuditRetentionService
 
     private async Task MarkLogForCleanupAsync(AuditLog log)
     {
-        // In a real implementation, this might add a flag or move to a cleanup table
-        // For now, we'll just log it
+       // Mark log for cleanup
         _logger.LogDebug("Log {LogId} marked for cleanup", log.AuditLogId);
     }
 

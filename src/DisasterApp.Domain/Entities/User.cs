@@ -31,20 +31,14 @@ public partial class User
     public bool? IsBlacklisted { get; set; }
 
     public DateTime? CreatedAt { get; set; }
-
-    /// <summary>
-    /// Whether two-factor authentication is enabled for this user
-    /// </summary>
+   
+    // Two-factor authentication fields
     public bool TwoFactorEnabled { get; set; } = false;
 
-    /// <summary>
-    /// Number of unused backup codes remaining for this user
-    /// </summary>
+    // Number of unused backup codes remaining for this user
     public int BackupCodesRemaining { get; set; } = 0;
 
-    /// <summary>
-    /// When two-factor authentication was last used by this user
-    /// </summary>
+    // Last time two-factor was used
     public DateTime? TwoFactorLastUsed { get; set; }
 
 

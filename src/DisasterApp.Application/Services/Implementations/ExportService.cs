@@ -20,8 +20,6 @@ public class ExportService : IExportService
     {
         _availableFields = InitializeAvailableFields();
         _fieldDisplayNames = InitializeFieldDisplayNames();
-        
-        // ClosedXML doesn't require license configuration
     }
 
     public async Task<byte[]> ExportToCsvAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null)

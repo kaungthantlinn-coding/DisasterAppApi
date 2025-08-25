@@ -620,5 +620,46 @@ namespace DisasterApp.Application.Services.Implementations
                 LastUpdated = DateTime.UtcNow
             };
         }
+
+        public async Task<IEnumerable<DisasterReportDto>> GetAcceptedReportsAsync()
+        {
+            var reports = await _repository.GetAllAsync();
+            
+            return reports
+                .Where(r => r.Status == ReportStatus.Verified && (r.IsDeleted == null || !r.IsDeleted.Value))
+                .Select(r => new DisasterReportDto
+                {
+                    Id = r.Id,
+                    Title = r.Title,
+                    Description = r.Description,
+                    Timestamp = r.Timestamp,
+                    Severity = r.Severity,
+                    Status = r.Status,
+                    DisasterEventId = r.DisasterEventId,
+                    DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
+                    DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
+                    UserId = r.UserId,
+                    Latitude = r.Location?.Latitude ?? 0,
+                    Longitude = r.Location?.Longitude ?? 0,
+                    Address = r.Location?.Address ?? string.Empty,
+                    CoordinatePrecision = r.Location?.CoordinatePrecision,
+                    ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
+                    {
+                        Id = i.Id,
+                        Description = i.Description,
+                        Severity = i.Severity,
+                        IsResolved = i.IsResolved,
+                        ResolvedAt = i.ResolvedAt,
+                        ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
+                        {
+                            Id = t.Id,
+                            Name = t.Name
+                        }).ToList()
+                    }).ToList(),
+                    PhotoUrls = r.Photos.Select(p => p.Url).ToList()
+                })
+                .OrderByDescending(r => r.Timestamp)
+                .ToList();
+        }
     }
 }

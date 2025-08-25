@@ -97,5 +97,39 @@ namespace DisasterApp.Controllers
                 return StatusCode(500, new { message = "Failed to retrieve statistics", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Get verified disaster reports
+        /// </summary>
+        [HttpGet("verified")]
+        public async Task<IActionResult> GetVerifiedReports()
+        {
+            try
+            {
+                var reports = await _service.GetAcceptedReportsAsync();
+                return Ok(reports);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to retrieve verified reports", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get verified disaster reports (alias for backwards compatibility)
+        /// </summary>
+        [HttpGet("accepted")]
+        public async Task<IActionResult> GetAcceptedReports()
+        {
+            try
+            {
+                var reports = await _service.GetAcceptedReportsAsync();
+                return Ok(reports);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to retrieve accepted reports", error = ex.Message });
+            }
+        }
     }
 }

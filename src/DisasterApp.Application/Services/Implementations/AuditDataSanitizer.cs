@@ -25,7 +25,7 @@ public class AuditDataSanitizer : IAuditDataSanitizer
             return data;
 
         if (HasSensitiveDataAccess(userRole))
-            return data; // SuperAdmin and Admin see all data
+            return data;      // No sanitization for SuperAdmin and Admin roles
 
         // Apply sanitization for other roles
         var sanitized = data;

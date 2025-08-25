@@ -19,7 +19,7 @@ public class AuditTargetValidator : IAuditTargetValidator
         if (string.IsNullOrWhiteSpace(action))
             return false;
 
-        // All target types are valid, but some actions might be more appropriate for certain types
+        // Check for valid target type
         return Enum.IsDefined(typeof(AuditTargetType), targetType);
     }
 
