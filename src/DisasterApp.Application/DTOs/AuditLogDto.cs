@@ -78,6 +78,8 @@ public class CreateAuditLogDto
     
     public Guid? UserId { get; set; }
     
+    public string? UserName { get; set; }
+    
     [Required]
     public string Details { get; set; } = null!;
     

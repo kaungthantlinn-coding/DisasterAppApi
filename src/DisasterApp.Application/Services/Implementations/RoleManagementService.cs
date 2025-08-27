@@ -263,7 +263,7 @@ public class RoleManagementService : IRoleManagementService
         }
     }
 
-    public async Task<bool> DeleteRoleAsync(Guid id)
+    public async Task<bool> DeleteRoleAsync(Guid id, string deletedBy = "System", Guid? userId = null)
     {
         try
         {
@@ -288,20 +288,21 @@ public class RoleManagementService : IRoleManagementService
 
             if (deleted)
             {
-                // Log audit event
+                // Log audit event with proper username information
                 await _auditService.LogUserActionAsync(
                     action: "ROLE_DELETED",
                     severity: "Warning",
-                    userId: null,
-                    details: $"Role '{role.Name}' deleted",
+                    userId: userId,
+                    details: $"Role '{role.Name}' deleted by {deletedBy}",
                     resource: "Role",
                     metadata: new Dictionary<string, object> { 
                         { "RoleName", role.Name },
-                        { "RoleId", id }
+                        { "RoleId", id },
+                        { "DeletedBy", deletedBy }
                     }
                 );
 
-                _logger.LogInformation("Role deleted: {RoleName}", role.Name);
+                _logger.LogInformation("Role deleted: {RoleName} by {DeletedBy}", role.Name, deletedBy);
             }
 
             return deleted;

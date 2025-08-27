@@ -121,6 +121,7 @@ namespace DisasterApp.WebApi.Middleware
                     Action = action,
                     Severity = severity,
                     UserId = userId != null ? Guid.Parse(userId) : null,
+                    UserName = userName,
                     Details = details,
                     IpAddress = GetClientIpAddress(context),
                     UserAgent = context.Request.Headers.UserAgent.ToString(),
@@ -147,15 +148,66 @@ namespace DisasterApp.WebApi.Middleware
             if (path.Contains("/auth/login")) return "USER_LOGIN";
             if (path.Contains("/auth/logout")) return "USER_LOGOUT";
             if (path.Contains("/auth/register")) return "USER_REGISTER";
-            if (path.Contains("/users") && method == "POST") return "USER_CREATE";
-            if (path.Contains("/users") && method == "PUT") return "USER_UPDATE";
-            if (path.Contains("/users") && method == "DELETE") return "USER_DELETE";
-            if (path.Contains("/roles")) return $"ROLE_{method}";
+            
+            // User Management endpoints
+            if (path.Contains("/UserManagement") || path.Contains("/users"))
+            {
+                return method switch
+                {
+                    "POST" => "USER_CREATE",
+                    "PUT" => path.Contains("/roles") ? "USER_ROLES_UPDATE" : "USER_UPDATE",
+                    "DELETE" => "USER_DELETE",
+                    "GET" => "USER_ACCESS",
+                    _ => $"USER_{method}"
+                };
+            }
+            
+            // Role Management endpoints
+            if (path.Contains("/RoleManagement") || (path.Contains("/api/Role") && !path.Contains("/api/RoleUser")))
+            {
+                return method switch
+                {
+                    "POST" => "ROLE_CREATE",
+                    "PUT" => "ROLE_UPDATE",
+                    "DELETE" => "ROLE_DELETE",
+                    "GET" => "ROLE_ACCESS",
+                    _ => $"ROLE_{method}"
+                };
+            }
+            
+            // Role assignment endpoints
+            if (path.Contains("/Role/assign")) return "ROLE_ASSIGN";
+            if (path.Contains("/Role/remove")) return "ROLE_REMOVE";
+            if (path.Contains("/roles/assign")) return "ROLE_ASSIGN";
+            if (path.Contains("/roles/remove")) return "ROLE_REMOVE";
+            
+            // Generic patterns
             if (path.Contains("/reports")) return $"REPORT_{method}";
             if (path.Contains("/admin/settings")) return "SYSTEM_SETTINGS_UPDATE";
             if (path.Contains("/admin")) return $"ADMIN_{method}";
+            if (path.Contains("/audit-logs")) return $"AUDIT_{method}";
+            if (path.Contains("/diagnostics")) return $"DIAGNOSTICS_{method}";
 
-            return $"{method}_{path.Split('/').LastOrDefault()?.ToUpper() ?? "UNKNOWN"}";
+            // Extract controller name for better action names
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 2 && segments[0] == "api")
+            {
+                var controller = segments[1].ToUpperInvariant();
+                // Special handling for DELETE methods to make them more descriptive
+                if (method == "DELETE")
+                {
+                    return $"{controller}_DELETE";
+                }
+                return $"{method}_{controller}";
+            }
+
+            // Default to method + generic for DELETE operations
+            if (method == "DELETE")
+            {
+                return "RESOURCE_DELETED";
+            }
+
+            return $"{method}_UNKNOWN";
         }
 
         private string GetActionDetails(HttpContext context, string requestBody, Exception? exception)

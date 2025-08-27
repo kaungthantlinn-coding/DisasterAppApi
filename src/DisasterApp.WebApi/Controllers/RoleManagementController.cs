@@ -134,7 +134,12 @@ public class RoleManagementController : ControllerBase
     {
         try
         {
-            var deleted = await _roleManagementService.DeleteRoleAsync(id);
+            // Get current user information for audit log
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
+            Guid? adminUserId = currentUserId != null ? Guid.Parse(currentUserId) : null;
+            
+            var deleted = await _roleManagementService.DeleteRoleAsync(id, userName, adminUserId);
             if (!deleted)
             {
                 return NotFound(new { message = $"Role with ID {id} not found", type = "NotFound" });

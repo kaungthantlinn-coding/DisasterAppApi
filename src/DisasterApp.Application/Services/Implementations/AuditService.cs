@@ -193,6 +193,9 @@ public class AuditService : IAuditService
     {
         try
         {
+            // Ensure UserName is properly set - prioritize provided username, fallback to database lookup
+            var userName = data.UserName ?? (data.UserId.HasValue ? await GetUserNameAsync(data.UserId.Value) : null);
+            
             var auditLog = new AuditLog
             {
                 AuditLogId = Guid.NewGuid(),
@@ -204,7 +207,7 @@ public class AuditService : IAuditService
                 OldValues = data.OldValues,
                 NewValues = data.NewValues,
                 UserId = data.UserId,
-                UserName = data.UserId.HasValue ? await GetUserNameAsync(data.UserId.Value) : null,
+                UserName = userName, // Use the properly resolved username
                 Timestamp = DateTime.UtcNow,
                 IpAddress = data.IpAddress,
                 UserAgent = data.UserAgent,
@@ -217,7 +220,8 @@ public class AuditService : IAuditService
             await _context.AuditLogs.AddAsync(auditLog);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Created audit log: {Action} for resource {Resource}", data.Action, data.Resource);
+            _logger.LogInformation("Created audit log: {Action} for resource {Resource} by user {UserName}", 
+                data.Action, data.Resource, userName ?? "System");
             return auditLog;
         }
         catch (Exception ex)
