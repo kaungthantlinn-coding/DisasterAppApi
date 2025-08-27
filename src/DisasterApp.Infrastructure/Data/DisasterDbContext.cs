@@ -187,7 +187,7 @@ public partial class DisasterDbContext : DbContext
        .HasDefaultValue(false);
 
             entity.Property(n => n.CreatedAt)
-                  .HasDefaultValueSql("GETUTCDATE()"); // Auto set when created
+                  .HasDefaultValueSql("GETUTCDATE()");
 
             entity.Property(n => n.ReadAt)
                   .IsRequired(false);
@@ -582,18 +582,51 @@ public partial class DisasterDbContext : DbContext
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.RoleId).HasName("PK__Role__760965CCCEA47220");
+            entity.HasKey(e => e.RoleId).HasName("PK_Role");
 
             entity.ToTable("Role");
 
-            entity.HasIndex(e => e.Name, "UQ__Role__72E12F1B6DD5B5D7").IsUnique();
+            entity.HasIndex(e => e.Name, "IX_Role_Name").IsUnique();
 
             entity.Property(e => e.RoleId)
-                .HasDefaultValueSql("(newid())")
-                .HasColumnName("role_id");
+                .HasColumnName("role_id")
+                .HasDefaultValueSql("(newid())");
+            
             entity.Property(e => e.Name)
-                .HasMaxLength(50)
-                .HasColumnName("name");
+                .HasMaxLength(100)
+                .HasColumnName("name")
+                .IsRequired();
+                
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("Description")
+                .IsRequired();
+                
+            entity.Property(e => e.IsActive)
+                .HasColumnName("IsActive")
+                .HasDefaultValue(true);
+                
+            entity.Property(e => e.IsSystem)
+                .HasColumnName("IsSystem")
+                .HasDefaultValue(false);
+                
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("CreatedAt")
+                .HasDefaultValueSql("(sysutcdatetime())");
+                
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnName("UpdatedAt")
+                .HasDefaultValueSql("(sysutcdatetime())");
+                
+            entity.Property(e => e.CreatedBy)
+                .HasMaxLength(100)
+                .HasColumnName("CreatedBy")
+                .HasDefaultValue("System");
+                
+            entity.Property(e => e.UpdatedBy)
+                .HasMaxLength(100)
+                .HasColumnName("UpdatedBy")
+                .HasDefaultValue("System");
         });
 
         modelBuilder.Entity<SupportRequest>(entity =>
@@ -615,32 +648,27 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.Urgency).HasColumnName("urgency");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
-            entity.HasOne(d => d.Report).WithMany(p => p.SupportRequests)
-                .HasForeignKey(d => d.ReportId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_SupportRequest_Report");
-
-            entity.HasOne(d => d.User).WithMany(p => p.SupportRequests)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_SupportRequest_User");
-
-            entity.HasMany(d => d.SupportTypes).WithMany(p => p.SupportRequests)
-                .UsingEntity<SupportRequestSupportType>(
-                    "SupportRequestSupportType",
-                    l => l.HasOne<SupportType>().WithMany().HasForeignKey("SupportTypeId")
-                        .OnDelete(DeleteBehavior.ClientSetNull),
-                    r => r.HasOne<SupportRequest>().WithMany().HasForeignKey("SupportRequestId")
-                        .OnDelete(DeleteBehavior.ClientSetNull),
-                    j =>
-                    {
-                        j.HasKey("SupportRequestId", "SupportTypeId");
-                        j.ToTable("SupportRequestSupportType");
-                        j.HasIndex(new[] { "SupportRequestId" }, "IX_SupportRequestSupportType_SupportRequestId");
-                        j.HasIndex(new[] { "SupportTypeId" }, "IX_SupportRequestSupportType_SupportTypeId");
-                    });
+            modelBuilder.Entity<SupportRequest>()
+               .HasMany(sr => sr.SupportTypes)
+               .WithMany(st => st.SupportRequests)
+               .UsingEntity<Dictionary<string, object>>(
+                   "SupportRequestSupportType",  // join table name
+                   r => r.HasOne<SupportType>()
+                         .WithMany()
+                         .HasForeignKey("SupportTypeId")
+                         .HasConstraintName("FK_SupportRequestSupportType_SupportType")
+                         .OnDelete(DeleteBehavior.Cascade),
+                   l => l.HasOne<SupportRequest>()
+                         .WithMany()
+                         .HasForeignKey("SupportRequestId")
+                         .HasConstraintName("FK_SupportRequestSupportType_SupportRequest")
+                         .OnDelete(DeleteBehavior.Cascade),
+                   je =>
+                   {
+                       je.HasKey("SupportRequestId", "SupportTypeId");
+                       je.ToTable("SupportRequestSupportType");
+                   });
         });
-
         modelBuilder.Entity<SupportType>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__SupportT__3213E83FC38913DF");

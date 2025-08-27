@@ -58,11 +58,11 @@ public class EmailOtpService : IEmailOtpService
                 throw new InvalidOperationException("Too many requests. Please wait before requesting another code.");
             }
 
-            // Find or create a temporary user for email-based OTP
+            // Check rate limiting for IP
             var user = await _userRepository.GetByEmailAsync(request.email);
             if (user == null)
             {
-                // Create a temporary user for email OTP
+                // Create a new user
                 user = new User
                 {
                     UserId = Guid.NewGuid(),
@@ -102,7 +102,7 @@ public class EmailOtpService : IEmailOtpService
             if (!emailSent)
             {
                 _logger.LogError("Failed to send OTP email to {Email}", request.email);
-                // Clean up the OTP code if email failed
+                // Rollback
                 await _otpCodeRepository.DeleteAsync(otpEntity.Id);
                 throw new InvalidOperationException("Failed to send verification code. Please try again.");
             }
@@ -143,7 +143,7 @@ public class EmailOtpService : IEmailOtpService
                 throw new UnauthorizedAccessException("Invalid or expired verification code");
             }
 
-            // Find the OTP code using the existing repository method
+            // Find OTP code
             var otpCode = await _otpCodeRepository.GetByUserAndCodeAsync(user.UserId, request.otp, request.purpose);
 
             if (otpCode == null)
@@ -153,7 +153,7 @@ public class EmailOtpService : IEmailOtpService
                 throw new UnauthorizedAccessException("Invalid or expired verification code");
             }
 
-            // Check if code is still valid (not expired and not used)
+            // Check validity
             if (!otpCode.IsValid)
             {
                 _logger.LogWarning("Invalid OTP code for {Email} - expired or already used", request.email);
@@ -170,18 +170,19 @@ public class EmailOtpService : IEmailOtpService
                 throw new UnauthorizedAccessException("Too many failed attempts. Please request a new code.");
             }
 
-            // Increment attempt count but don't mark as used yet
+            // Increment attempt count
             otpCode.AttemptCount++;
             await _otpCodeRepository.UpdateAsync(otpCode);
 
             // Record successful attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "verify_otp", true);
 
-            // Check if this is a new user (just created for email OTP)
-            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
-                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
+           
 
-            // Generate authentication tokens directly
+             // Check if this is a new user (just created for email OTP)
+             var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
+                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
+            // Generate tokens
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
             var accessToken = GenerateAccessToken(user, roles);

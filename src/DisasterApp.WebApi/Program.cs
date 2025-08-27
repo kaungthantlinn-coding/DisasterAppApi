@@ -51,6 +51,7 @@ namespace DisasterApp
 
             // Add repositories
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IRoleRepository, RoleRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
             builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
@@ -68,6 +69,7 @@ namespace DisasterApp
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
+            builder.Services.AddScoped<IRoleManagementService, RoleManagementService>();
             builder.Services.AddScoped<IUserManagementService, UserManagementService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
@@ -95,6 +97,13 @@ namespace DisasterApp
             // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
 
+            // Add Enhanced Audit System services
+            builder.Services.AddScoped<IAuditTargetValidator, AuditTargetValidator>();
+            builder.Services.AddScoped<IAuditDataSanitizer, AuditDataSanitizer>();
+            builder.Services.AddScoped<IExportService, ExportService>();
+            builder.Services.AddScoped<IDonationAuditService, DonationAuditService>();
+            builder.Services.AddScoped<IOrganizationAuditService, OrganizationAuditService>();
+            builder.Services.AddScoped<IAuditRetentionService, AuditRetentionService>();
 
             // Add authorization
             builder.Services.AddAuthorization(options =>
@@ -159,6 +168,7 @@ namespace DisasterApp
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
             });
 
             // Add SignalR

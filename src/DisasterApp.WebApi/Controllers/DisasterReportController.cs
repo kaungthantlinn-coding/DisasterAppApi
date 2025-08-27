@@ -30,6 +30,7 @@ namespace DisasterApp.Controllers
             if (report == null) return NotFound();
             return Ok(report);
         }
+
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetReportsByUserId(Guid userId)
         {
@@ -40,6 +41,7 @@ namespace DisasterApp.Controllers
             var reports = await _service.GetReportsByUserIdAsync(userId);
             return Ok(reports);
         }
+
         [HttpGet("pending")]
         public async Task<IActionResult> GetPendingReports()
         {

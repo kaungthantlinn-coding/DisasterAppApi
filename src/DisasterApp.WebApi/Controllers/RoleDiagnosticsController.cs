@@ -107,7 +107,7 @@ public class RoleDiagnosticsController : ControllerBase
             {
                 if (string.IsNullOrEmpty(role.Name))
                 {
-                    // Try to determine role name based on common role IDs or patterns
+                    // Assign default role name
                     role.Name = role.RoleId.ToString().ToLower().Contains("admin") ? "admin" :
                                role.RoleId.ToString().ToLower().Contains("user") ? "user" :
                                role.RoleId.ToString().ToLower().Contains("cj") ? "cj" :

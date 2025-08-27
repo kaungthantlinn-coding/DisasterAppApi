@@ -19,4 +19,8 @@ public interface IRoleService
     Task<int> CleanupDuplicateUserRolesAsync();
     Task<bool> FixRoleNamesAsync();
     Task ReplaceUserRolesAsync(Guid userId, IEnumerable<string> roleNames, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null);
+    Task<Role?> GetSuperAdminRoleAsync();
+    Task<bool> IsSuperAdminAsync(Guid userId);
+    Task<int> GetSuperAdminCountAsync();
+    Task AssignSuperAdminRoleAsync(Guid userId, Guid? performedByUserId = null, string? performedByUserName = null, string? ipAddress = null, string? userAgent = null);
 }

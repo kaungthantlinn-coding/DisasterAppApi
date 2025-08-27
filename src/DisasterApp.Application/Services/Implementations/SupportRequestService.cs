@@ -1,32 +1,100 @@
+using CloudinaryDotNet.Core;
 using DisasterApp.Application.DTOs;
-using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
+using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
-using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using static DisasterApp.Application.DTOs.SupportRequestDto;
 
-namespace DisasterApp.Application.Services.Implementations;
-
-public class SupportRequestService : ISupportRequestService
+namespace DisasterApp.Application.Services
 {
-    private readonly ISupportRequestRepository _supportRequestRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ILogger<SupportRequestService> _logger;
-
-    public SupportRequestService(
-        ISupportRequestRepository supportRequestRepository,
-        IUserRepository userRepository,
-        ILogger<SupportRequestService> logger)
+    public class SupportRequestService : ISupportRequestService
     {
-        _supportRequestRepository = supportRequestRepository;
-        _userRepository = userRepository;
-        _logger = logger;
-    }
-
-    public async Task<SupportRequestDto> CreateAsync(SupportRequestCreateDto dto, Guid userId)
-    {
-        try
+        private readonly ISupportRequestRepository _supportRepo;
+        private readonly IUserRepository _userRepo;
+        public SupportRequestService(ISupportRequestRepository supportRepo, IUserRepository userRepo)
         {
+            _supportRepo = supportRepo;
+            _userRepo = userRepo;
+        }
+
+        public async Task<IEnumerable<SupportRequestsDto>> GetAllAsync()
+        {
+            var data = await _supportRepo.GetAllAsync();
+            var supportRequests = data.Select(sr => new SupportRequestsDto
+            {
+                Id = sr.Id,
+
+                ReportId = sr.ReportId,
+                Description = sr.Description,
+                FullName = sr.User.Name,
+                Email = sr.User.Email,
+                Location = sr.Report.Location.Address,
+                UrgencyLevel = ((UrgencyLevel)sr.Urgency).ToString(),
+
+                AdminRemarks = "No remarks",
+
+                DateReported = sr.CreatedAt,
+                Status = sr.Status.ToString(),
+                SupportTypeNames = sr.SupportTypes
+                             .Select(st => st.Name)
+                             .ToList() ?? new List<string>(),
+            });
+            return supportRequests;
+        }
+
+        public async Task<SupportRequestsDto?> GetByIdAsync(int id)
+        {
+            var data = await _supportRepo.GetByIdAsync(id);
+            if (data == null) return null;
+
+            return new SupportRequestsDto
+            {
+
+
+                ReportId = data.ReportId,
+                Description = data.Description,
+                FullName = data.User.Name,
+                Email = data.User.Email,
+                Location = data.Report.Location.Address,
+                UrgencyLevel = ((UrgencyLevel)data.Urgency).ToString(),
+
+                AdminRemarks = "No remarks",
+
+                DateReported = data.CreatedAt,
+                SupportTypeNames = data.SupportTypes
+                             .Select(st => st.Name)
+                             .ToList() ?? new List<string>(),
+
+            };
+        }
+        public async Task CreateAsync(Guid userId, SupportRequestCreateDto dto)
+        {
+            // Step 1: Get existing types
+            var existingTypes = await _supportRepo.GetSupportTypesByNamesAsync(dto.SupportTypeNames);
+            var existingTypeNames = existingTypes.Select(st => st.Name).ToList();
+
+            // Step 2: Find new types that don't exist yet
+            var newTypeNames = dto.SupportTypeNames
+                .Except(existingTypeNames, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var newTypes = newTypeNames
+                .Select(name => new SupportType { Name = name })
+                .ToList();
+
+            if (newTypes.Any())
+                await _supportRepo.AddSupportTypesAsync(newTypes);
+
+            // Step 3: Combine existing + new
+            var allTypes = existingTypes.Concat(newTypes).ToList();
+
+            // Step 4: Create SupportRequest
             var supportRequest = new SupportRequest
             {
                 ReportId = dto.ReportId,
@@ -35,160 +103,205 @@ public class SupportRequestService : ISupportRequestService
                 Status = SupportRequestStatus.Pending,
                 UserId = userId,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                SupportTypes = allTypes
             };
 
-            var createdRequest = await _supportRequestRepository.CreateAsync(supportRequest);
-            
-            // Load the created request with navigation properties
-            var result = await _supportRequestRepository.GetByIdAsync(createdRequest.Id);
-            return MapToDto(result!);
+            await _supportRepo.AddAsync(supportRequest);
+            await _supportRepo.SaveChangesAsync();
         }
-        catch (Exception ex)
+        public async Task UpdateAsync(int id, SupportRequestUpdateDto dto)
         {
-            _logger.LogError(ex, "Error creating support request for user {UserId}", userId);
-            throw;
-        }
-    }
+            var request = await _supportRepo.GetByIdAsync(id);
+            if (request == null) return;
+            //var supportType = await _supportRepo.GetSupportTypeByNameAsync(dto.SupportTypeName);
 
-    public async Task<IEnumerable<SupportRequestDto>> GetAllAsync()
-    {
-        try
-        {
-            var supportRequests = await _supportRequestRepository.GetAllAsync();
-            return supportRequests.Select(MapToDto);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving all support requests");
-            throw;
-        }
-    }
+            request.Description = dto.Description;
+            request.Urgency = dto.Urgency;
+            //request.SupportTypeId = supportType.Id;
+            request.UpdatedAt = DateTime.UtcNow;
 
-    public async Task<SupportRequestDto?> GetByIdAsync(int id)
-    {
-        try
-        {
-            var supportRequest = await _supportRequestRepository.GetByIdAsync(id);
-            return supportRequest != null ? MapToDto(supportRequest) : null;
+            _supportRepo.UpdateAsync(request);
+            await _supportRepo.SaveChangesAsync();
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving support request {Id}", id);
-            throw;
-        }
-    }
 
-    public async Task<IEnumerable<SupportRequestDto>> GetByUserIdAsync(Guid userId)
-    {
-        try
+        public async Task<bool> DeleteAsync(int id)
         {
-            var supportRequests = await _supportRequestRepository.GetByUserIdAsync(userId);
-            return supportRequests.Select(MapToDto);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving support requests for user {UserId}", userId);
-            throw;
-        }
-    }
+            var request = await _supportRepo.GetByIdAsync(id);
+            if (request == null) return false;
+            _supportRepo.DeleteAsync(request);
+            await _supportRepo.SaveChangesAsync();
+            return true;
 
-    public async Task<IEnumerable<SupportRequestDto>> GetByReportIdAsync(Guid reportId)
-    {
-        try
-        {
-            var supportRequests = await _supportRequestRepository.GetByReportIdAsync(reportId);
-            return supportRequests.Select(MapToDto);
         }
-        catch (Exception ex)
+
+        public async Task<IEnumerable<string>> GetSupportTypeNamesAsync()
         {
-            _logger.LogError(ex, "Error retrieving support requests for report {ReportId}", reportId);
-            throw;
+            var supportTypes = await _supportRepo.GetSupportTypeAsync();
+            return supportTypes.Select(st => st.Name).ToList();
         }
-    }
 
-    public async Task<SupportRequestDto?> UpdateAsync(int id, SupportRequestUpdateDto dto, Guid userId)
-    {
-        try
+        public async Task<SupportRequestResponseDto?> ApproveSupportRequestAsync(int id, Guid adminUserId)
         {
-            var existingRequest = await _supportRequestRepository.GetByIdAsync(id);
-            if (existingRequest == null)
-                return null;
-
-            // Update only provided fields
-            if (!string.IsNullOrEmpty(dto.Description))
-                existingRequest.Description = dto.Description;
-            
-            if (dto.Urgency.HasValue)
-                existingRequest.Urgency = dto.Urgency.Value;
-            
-            if (dto.Status.HasValue)
-                existingRequest.Status = dto.Status.Value;
-
-            existingRequest.UpdatedAt = DateTime.UtcNow;
-
-            var updatedRequest = await _supportRequestRepository.UpdateAsync(existingRequest);
-            return MapToDto(updatedRequest);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating support request {Id}", id);
-            throw;
-        }
-    }
-
-    public async Task<bool> DeleteAsync(int id, Guid userId)
-    {
-        try
-        {
-            var existingRequest = await _supportRequestRepository.GetByIdAsync(id);
-            if (existingRequest == null)
-                return false;
-
-            return await _supportRequestRepository.DeleteAsync(id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting support request {Id}", id);
-            throw;
-        }
-    }
-
-    public async Task<IEnumerable<SupportTypeDto>> GetSupportTypesAsync()
-    {
-        try
-        {
-            // This would typically come from a SupportTypeRepository
-            // For now, returning empty list - implement when SupportTypeRepository is available
-            return new List<SupportTypeDto>();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving support types");
-            throw;
-        }
-    }
-
-    private static SupportRequestDto MapToDto(SupportRequest supportRequest)
-    {
-        return new SupportRequestDto
-        {
-            Id = supportRequest.Id,
-            ReportId = supportRequest.ReportId,
-            Description = supportRequest.Description,
-            Urgency = supportRequest.Urgency,
-            Status = supportRequest.Status,
-            UserId = supportRequest.UserId,
-            CreatedAt = supportRequest.CreatedAt,
-            UpdatedAt = supportRequest.UpdatedAt,
-            UserName = supportRequest.User?.Name,
-            UserEmail = supportRequest.User?.Email,
-            ReportTitle = supportRequest.Report?.Title,
-            SupportTypes = supportRequest.SupportTypes?.Select(st => new SupportTypeDto
+            var adminUser = await _userRepo.GetByIdAsync(adminUserId);
+            if (adminUser == null ||  adminUser.Roles == null || !adminUser.Roles.Any(r => r.Name == "admin"))
             {
-                Id = st.Id,
-                Name = st.Name
-            }).ToList() ?? new List<SupportTypeDto>()
-        };
+                throw new UnauthorizedAccessException("Only Admins can approve support requests.");
+            }
+
+
+            var request = await _supportRepo.GetByIdAsync(id);
+            if (request == null) return null;
+
+
+            request.Status = SupportRequestStatus.Verified;
+
+
+            request.UpdatedAt = DateTime.UtcNow;
+
+            await _supportRepo.UpdateAsync(request);
+            var dto = new SupportRequestResponseDto
+            {
+                Id = request.Id,
+
+                Description = request.Description,
+                Urgency = request.Urgency,
+                Status = SupportRequestStatus.Rejected,
+                SupportTypeNames = request.SupportTypes?.Select(st => st.Name).ToList() ?? new List<string>(),
+                CreatedAt = request.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = request.UpdatedAt
+            };
+
+            return dto;
+
+        }
+
+        public async Task<SupportRequestResponseDto?> RejectSupportRequestAsync(int id, Guid adminUserId)
+        {
+            var adminUser = await _userRepo.GetByIdAsync(adminUserId);
+            if (adminUser == null || adminUser.Roles == null || !adminUser.Roles.Any(r => r.Name == "admin"))
+            {
+                throw new UnauthorizedAccessException("Only Admins can approve support requests.");
+            }
+
+
+            var request = await _supportRepo.GetByIdAsync(id);
+            if (request == null) return null;
+
+
+            request.Status = SupportRequestStatus.Rejected;
+
+
+            request.UpdatedAt = DateTime.UtcNow;
+
+            await _supportRepo.UpdateAsync(request);
+            var dto = new SupportRequestResponseDto
+            {
+                Id = request.Id,
+
+                Description = request.Description,
+                Urgency = request.Urgency,
+                Status = SupportRequestStatus.Rejected,
+                SupportTypeNames = request.SupportTypes?.Select(st => st.Name).ToList() ?? new List<string>(),
+                CreatedAt = request.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = request.UpdatedAt
+            };
+
+            return dto;
+
+        }
+
+        public Task<bool> ApproveOrRejectSupportRequestAsync(Guid id, ReportStatus status, Guid adminUserId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<IEnumerable<SupportRequestsDto>> GetPendingRequestsAsync()
+        {
+            var requests = await _supportRepo.GetPendingSupportRequestsAsync();
+            return requests.Select(r => new SupportRequestsDto
+            {
+                ReportId = r.ReportId,
+                FullName = r.User.Name,
+                Email = r.User.Email,
+
+
+                UrgencyLevel = ((UrgencyLevel)r.Urgency).ToString(),
+                Description = r.Description,
+                AdminRemarks = "No remarks",
+
+                DateReported = r.CreatedAt,
+                Status = SupportRequestStatus.Pending.ToString(),
+                SupportTypeNames = r.SupportTypes
+                             .Select(st => st.Name)
+                             .ToList() ?? new List<string>(),
+            }).ToList();
+        }
+
+        public async Task<IEnumerable<SupportRequestResponseDto>> GetAcceptedRequestsAsync()
+        {
+            var requests = await _supportRepo.GetAcceptedSupportRequestsAsync();
+            return requests.Select(r => new SupportRequestResponseDto
+            {
+                Id = r.Id,
+                ReportId = r.ReportId,
+                Description = r.Description,
+                Urgency = r.Urgency,
+                Status = r.Status,
+                UserId = r.UserId,
+                SupportTypeNames = r.SupportTypes.Select(st => st.Name).ToList(),
+                CreatedAt = r.CreatedAt
+            }).ToList();
+        }
+
+        public async Task<IEnumerable<SupportRequestResponseDto>> GetRejectedRequestsAsync()
+        {
+            var requests = await _supportRepo.GetRejectedSupportRequestsAsync();
+            return requests.Select(r => new SupportRequestResponseDto
+            {
+                Id = r.Id,
+                ReportId = r.ReportId,
+                Description = r.Description,
+                Urgency = r.Urgency,
+                Status = r.Status,
+                UserId = r.UserId,
+                SupportTypeNames = r.SupportTypes.Select(st => st.Name).ToList(),
+                CreatedAt = r.CreatedAt
+            }).ToList();
+        }
+
+        public Task<bool> ApproveOrRejectSupportRequestAsync(int id, ReportStatus status, Guid adminUserId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<IEnumerable<SupportRequestResponseDto>> GetAcceptedReportIdAsync(Guid ReportId)
+        {
+            var requests = await _supportRepo.GetAcceptedForReportIdAsync(ReportId);
+            return requests.Select(r => new SupportRequestResponseDto
+            {
+                Id = r.Id,
+                ReportId = r.ReportId,
+                UserName = r.User.Name,
+                email = r.User.Email,
+                Description = r.Description,
+                Urgency = r.Urgency,
+                Status = r.Status,
+                UserId = r.UserId,
+                SupportTypeNames = r.SupportTypes.Select(st => st.Name).ToList(),
+                CreatedAt = r.CreatedAt
+            }).ToList();
+        }
+
+        public async Task<SupportRequestMetricsDto> GetMetricsAsync()
+        {
+            var metrics = await _supportRepo.GetMetricsAsync();
+            return new SupportRequestMetricsDto
+            {
+                TotalRequests = metrics.TotalRequests,
+                PendingRequests = metrics.PendingRequests,
+                VerifiedRequests = metrics.VerifiedRequests,
+                RejectedRequests = metrics.RejectedRequests
+            };
+        }
     }
 }

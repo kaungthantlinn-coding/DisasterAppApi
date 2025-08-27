@@ -18,9 +18,15 @@ public interface IAuditService
     Task<AuditLogStatsDto> GetStatisticsAsync();
     Task<byte[]> ExportLogsAsync(string format, AuditLogFiltersDto filters);
     
+    // Enhanced export method with field selection and advanced filtering
+    Task<ExportResult> ExportAuditLogsAsync(ExportAuditLogsRequest request, string? userRole = null);
+    
     // General logging methods for different actions
     Task LogUserActionAsync(string action, string severity, Guid? userId, string details, string resource, string? ipAddress = null, string? userAgent = null, Dictionary<string, object>? metadata = null);
     Task LogSystemEventAsync(string action, string severity, string details, string resource, Dictionary<string, object>? metadata = null);
     Task LogSecurityEventAsync(string action, string details, Guid? userId = null, string? ipAddress = null, string? userAgent = null, Dictionary<string, object>? metadata = null);
     Task LogErrorAsync(string action, string details, Exception? exception = null, Guid? userId = null, string? resource = null);
+    
+    // Filter options for frontend
+    Task<FilterOptionsDto> GetFilterOptionsAsync();
 }

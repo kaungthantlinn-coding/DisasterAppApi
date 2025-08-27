@@ -141,6 +141,25 @@ namespace DisasterApp.Application.Services
                     report.ImpactDetails.Add(impactDetail);
                 }
 
+                foreach (var impactDto in dto.ImpactDetails)
+                {
+                    var impactDetail = new ImpactDetail
+                    {
+                        //Id= Guid.NewGuid(), // Ensure a new ID is generated
+                        Description = impactDto.Description,
+                        Severity = impactDto.Severity,
+                        ImpactTypes = new List<ImpactType>()
+                    };
+
+                    foreach (var impactTypeId in impactDto.ImpactTypeIds)
+                    {
+                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
+                        impactDetail.ImpactTypes.Add(impactType);
+                    }
+
+                    report.ImpactDetails.Add(impactDetail);
+                }
+
 
                 var location = new Location
                 {
@@ -156,9 +175,6 @@ namespace DisasterApp.Application.Services
                 };
 
                 await _repository.CreateAsync(report, location);
-
-           
-                
 
                 await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
 
@@ -381,7 +397,7 @@ namespace DisasterApp.Application.Services
             return dto;
         }
 
-        public async Task <IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
+        public async Task<IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
         {
             var reports = await _repository.GetReportsByUserIdAsync(userId);
             var activeReports = reports.Where(r => r.IsDeleted != true);

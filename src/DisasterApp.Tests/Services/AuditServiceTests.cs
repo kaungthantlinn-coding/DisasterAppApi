@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.InMemory;
 using Microsoft.EntityFrameworkCore.Query;
 using DisasterApp.Application.Services.Implementations;
+using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Application.DTOs;
@@ -17,6 +18,8 @@ public class AuditServiceTests
     private readonly Mock<DisasterDbContext> _mockContext;
     private readonly Mock<DbSet<AuditLog>> _mockAuditLogSet;
     private readonly Mock<ILogger<AuditService>> _mockLogger;
+    private readonly Mock<IAuditDataSanitizer> _mockDataSanitizer;
+    private readonly Mock<IExportService> _mockExportService;
     private readonly AuditService _auditService;
 
     public AuditServiceTests()
@@ -28,10 +31,12 @@ public class AuditServiceTests
         _mockContext = new Mock<DisasterDbContext>(options);
         _mockAuditLogSet = new Mock<DbSet<AuditLog>>();
         _mockLogger = new Mock<ILogger<AuditService>>();
+        _mockDataSanitizer = new Mock<IAuditDataSanitizer>();
+        _mockExportService = new Mock<IExportService>();
 
         _mockContext.Setup(x => x.AuditLogs).Returns(_mockAuditLogSet.Object);
         
-        _auditService = new AuditService(_mockContext.Object, _mockLogger.Object);
+        _auditService = new AuditService(_mockContext.Object, _mockLogger.Object, _mockDataSanitizer.Object, _mockExportService.Object);
     }
 
     [Fact]
@@ -228,6 +233,49 @@ public class AuditServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.NotNull(result.Logs);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithCommaSeparatedFilters_ReturnsCorrectlyFilteredLogs()
+    {
+        // Arrange
+        var auditLogs = new List<AuditLog>
+        {
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "USER_CREATE", EntityType = "User", Timestamp = DateTime.UtcNow.AddMinutes(-1) },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "LOGIN_SUCCESS", EntityType = "Security", Timestamp = DateTime.UtcNow.AddMinutes(-2) },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "LOGIN_FAILED", EntityType = "Security", Timestamp = DateTime.UtcNow.AddMinutes(-3) },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "ROLE_UPDATE", EntityType = "UserRole", Timestamp = DateTime.UtcNow.AddMinutes(-4) },
+            new AuditLog { AuditLogId = Guid.NewGuid(), Action = "DB_BACKUP", EntityType = "System", Timestamp = DateTime.UtcNow.AddMinutes(-5) }
+        }.AsQueryable();
+
+        var mockSet = new Mock<DbSet<AuditLog>>();
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.Provider).Returns(new TestAsyncQueryProvider<AuditLog>(auditLogs.Provider));
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.Expression).Returns(auditLogs.Expression);
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.ElementType).Returns(auditLogs.ElementType);
+        mockSet.As<IQueryable<AuditLog>>().Setup(m => m.GetEnumerator()).Returns(auditLogs.GetEnumerator());
+        mockSet.As<IAsyncEnumerable<AuditLog>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(new TestAsyncEnumerator<AuditLog>(auditLogs.GetEnumerator()));
+
+        _mockContext.Setup(x => x.AuditLogs).Returns(mockSet.Object);
+
+        var filters = new AuditLogFiltersDto
+        {
+            Action = "LOGIN_SUCCESS,USER_CREATE",
+            TargetType = "Security,User",
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _auditService.GetLogsAsync(filters);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Collection(result.Logs,
+            log => Assert.Equal("USER_CREATE", log.Action),
+            log => Assert.Equal("LOGIN_SUCCESS", log.Action)
+        );
     }
 
     [Fact]
