@@ -92,7 +92,7 @@ namespace DisasterApp.WebApi.Middleware
             {
                 request.EnableBuffering();
                 var buffer = new byte[Convert.ToInt32(request.ContentLength)];
-                await request.Body.ReadAsync(buffer, 0, buffer.Length);
+                await request.Body.ReadAtLeastAsync(buffer, buffer.Length);
                 request.Body.Position = 0;
                 return Encoding.UTF8.GetString(buffer);
             }

@@ -114,10 +114,17 @@ public class AuthController : ControllerBase
         
         try
         {
+            if (request == null)
+            {
+                return BadRequest(new { message = "Invalid request" });
+            }
             var response = await _authService.GoogleLoginAsync(request);
             
             // Set refresh token as HTTP-only secure cookie
-            SetRefreshTokenCookie(response.RefreshToken);
+            if (!string.IsNullOrEmpty(response.RefreshToken))
+            {
+                SetRefreshTokenCookie(response.RefreshToken);
+            }
             
             // Return response without refresh token (stored in cookie)
             var cookieResponse = new CookieAuthResponseDto
@@ -443,7 +450,7 @@ public class AuthController : ControllerBase
             {
                 var errors = ModelState
                     .Where(x => x.Value?.Errors.Count > 0)
-                    .SelectMany(x => x.Value!.Errors)
+                    .SelectMany(x => x.Value?.Errors)
                     .Select(x => x.ErrorMessage)
                     .ToList();
 
@@ -876,7 +883,7 @@ public class AuthController : ControllerBase
         };
 
         _logger.LogInformation("🍪 SetRefreshTokenCookie - Setting cookie: Length={Length}, IsHttps={IsHttps}, Secure={Secure}, SameSite={SameSite}", 
-            refreshToken?.Length ?? 0, isHttps, cookieOptions.Secure, cookieOptions.SameSite);
+            refreshToken.Length, isHttps, cookieOptions.Secure, cookieOptions.SameSite);
         
         Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
     }

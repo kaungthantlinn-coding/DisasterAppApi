@@ -84,7 +84,7 @@ public class AdminController : ControllerBase
 
     [HttpGet("audit-logs/export")]
     [AdminOnly]
-    public async Task<IActionResult> ExportAuditLogs([FromQuery] string format = "csv", [FromQuery] AuditLogFiltersDto filters = null)
+    public async Task<IActionResult> ExportAuditLogs([FromQuery] string format = "csv", [FromQuery] AuditLogFiltersDto? filters = null)
     {
         try
         {

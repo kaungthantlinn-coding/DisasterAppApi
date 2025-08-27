@@ -232,12 +232,12 @@ public class AuditLogsController : ControllerBase
                 {
                     if (actionProp.ValueKind == JsonValueKind.Array)
                     {
-                        var actions = actionProp.EnumerateArray().Select(x => MapActionToDatabase(x.GetString())).Where(x => !string.IsNullOrEmpty(x));
+                        var actions = actionProp.EnumerateArray().Select(x => MapActionToDatabase(x.GetString() ?? string.Empty)).Where(x => !string.IsNullOrEmpty(x));
                         filters.Action = string.Join(",", actions);
                     }
                     else if (actionProp.ValueKind == JsonValueKind.String)
                     {
-                        filters.Action = MapActionToDatabase(actionProp.GetString());
+                        filters.Action = MapActionToDatabase(actionProp.GetString() ?? string.Empty);
                     }
                 }
 
@@ -320,13 +320,13 @@ public class AuditLogsController : ControllerBase
             }
             
             // Set response headers for immediate download
-            Response.Headers.Add("Content-Disposition", $"attachment; filename=\"{exportResult.FileName}\"");
-            Response.Headers.Add("X-Export-Record-Count", exportResult.RecordCount.ToString());
-            Response.Headers.Add("X-Export-Generated-At", exportResult.GeneratedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"));
-            Response.Headers.Add("Access-Control-Expose-Headers", "Content-Disposition, X-Export-Record-Count, X-Export-Generated-At");
-            Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
-            Response.Headers.Add("Pragma", "no-cache");
-            Response.Headers.Add("Expires", "0");
+            Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{exportResult.FileName}\"");
+            Response.Headers.Append("X-Export-Record-Count", exportResult.RecordCount.ToString());
+            Response.Headers.Append("X-Export-Generated-At", exportResult.GeneratedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            Response.Headers.Append("Access-Control-Expose-Headers", "Content-Disposition, X-Export-Record-Count, X-Export-Generated-At");
+            Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+            Response.Headers.Append("Pragma", "no-cache");
+            Response.Headers.Append("Expires", "0");
             
             return File(exportResult.Data, exportResult.ContentType, exportResult.FileName, enableRangeProcessing: false);
         }
