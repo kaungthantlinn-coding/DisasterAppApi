@@ -187,19 +187,19 @@ public partial class DisasterDbContext : DbContext
        .HasDefaultValue(false);
 
             entity.Property(n => n.CreatedAt)
-                  .HasDefaultValueSql("GETUTCDATE()"); // Auto set when created
+                  .HasDefaultValueSql("GETUTCDATE()"); 
 
             entity.Property(n => n.ReadAt)
                   .IsRequired(false);
 
             // Relationships
             entity.HasOne(n => n.User)
-                  .WithMany(u => u.Notifications)   // assumes User entity has ICollection<Notification>
+                  .WithMany(u => u.Notifications)   
                   .HasForeignKey(n => n.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(n => n.DisasterReport)
-                  .WithMany(dr => dr.Notifications) // your DisasterReport entity already has ICollection<Notification>
+                  .WithMany(dr => dr.Notifications) 
                   .HasForeignKey(n => n.DisasterReportId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
@@ -648,32 +648,27 @@ public partial class DisasterDbContext : DbContext
             entity.Property(e => e.Urgency).HasColumnName("urgency");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
-            entity.HasOne(d => d.Report).WithMany(p => p.SupportRequests)
-                .HasForeignKey(d => d.ReportId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_SupportRequest_Report");
-
-            entity.HasOne(d => d.User).WithMany(p => p.SupportRequests)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_SupportRequest_User");
-
-            entity.HasMany(d => d.SupportTypes).WithMany(p => p.SupportRequests)
-                .UsingEntity<SupportRequestSupportType>(
-                    "SupportRequestSupportType",
-                    l => l.HasOne<SupportType>().WithMany().HasForeignKey("SupportTypeId")
-                        .OnDelete(DeleteBehavior.ClientSetNull),
-                    r => r.HasOne<SupportRequest>().WithMany().HasForeignKey("SupportRequestId")
-                        .OnDelete(DeleteBehavior.ClientSetNull),
-                    j =>
-                    {
-                        j.HasKey("SupportRequestId", "SupportTypeId");
-                        j.ToTable("SupportRequestSupportType");
-                        j.HasIndex(new[] { "SupportRequestId" }, "IX_SupportRequestSupportType_SupportRequestId");
-                        j.HasIndex(new[] { "SupportTypeId" }, "IX_SupportRequestSupportType_SupportTypeId");
-                    });
+            modelBuilder.Entity<SupportRequest>()
+               .HasMany(sr => sr.SupportTypes)
+               .WithMany(st => st.SupportRequests)
+               .UsingEntity<Dictionary<string, object>>(
+                   "SupportRequestSupportType",  // join table name
+                   r => r.HasOne<SupportType>()
+                         .WithMany()
+                         .HasForeignKey("SupportTypeId")
+                         .HasConstraintName("FK_SupportRequestSupportType_SupportType")
+                         .OnDelete(DeleteBehavior.Cascade),
+                   l => l.HasOne<SupportRequest>()
+                         .WithMany()
+                         .HasForeignKey("SupportRequestId")
+                         .HasConstraintName("FK_SupportRequestSupportType_SupportRequest")
+                         .OnDelete(DeleteBehavior.Cascade),
+                   je =>
+                   {
+                       je.HasKey("SupportRequestId", "SupportTypeId");
+                       je.ToTable("SupportRequestSupportType");
+                   });
         });
-
         modelBuilder.Entity<SupportType>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__SupportT__3213E83FC38913DF");

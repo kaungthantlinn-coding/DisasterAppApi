@@ -165,9 +165,11 @@ namespace DisasterApp
             });
 
             // Add services to the container.
-            builder.Services.AddControllers().AddJsonOptions(options =>
+            builder.Services.AddControllers().
+                AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
             });
 
             // Add SignalR

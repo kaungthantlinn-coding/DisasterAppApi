@@ -26,10 +26,6 @@ namespace DisasterApp.Application.Services
 
         Task<DisasterReportDto?> UpdateAsync(Guid id, DisasterReportUpdateDto dto, Guid userId);
         Task<bool> DeleteAsync(Guid id);
-<<<<<<< HEAD
-        Task<object> GetStatisticsAsync();
-        Task<IEnumerable<DisasterReportDto>> GetAcceptedReportsAsync();
-=======
->>>>>>> f375436 (DisasterReport Service and Notification Work Flow and Relation with User)
     }
+
 }

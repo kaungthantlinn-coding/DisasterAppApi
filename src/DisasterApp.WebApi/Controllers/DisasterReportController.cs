@@ -30,16 +30,6 @@ namespace DisasterApp.Controllers
             if (report == null) return NotFound();
             return Ok(report);
         }
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetReportsByUserId(Guid userId)
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-            
-            var reports = await _service.GetReportsByUserIdAsync(userId);
-            return Ok(reports);
-        }
         [HttpGet("pending")]
         public async Task<IActionResult> GetPendingReports()
         {
@@ -156,59 +146,5 @@ namespace DisasterApp.Controllers
 
             return NoContent();
         }
-<<<<<<< HEAD
-
-        /// <summary>
-        /// Get disaster reports statistics
-        /// </summary>
-        [HttpGet("statistics")]
-        public async Task<IActionResult> GetStatistics()
-        {
-            try
-            {
-                var stats = await _service.GetStatisticsAsync();
-                return Ok(stats);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Failed to retrieve statistics", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Get verified disaster reports
-        /// </summary>
-        [HttpGet("verified")]
-        public async Task<IActionResult> GetVerifiedReports()
-        {
-            try
-            {
-                var reports = await _service.GetAcceptedReportsAsync();
-                return Ok(reports);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Failed to retrieve verified reports", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Get verified disaster reports (alias for backwards compatibility)
-        /// </summary>
-        [HttpGet("accepted")]
-        public async Task<IActionResult> GetAcceptedReports()
-        {
-            try
-            {
-                var reports = await _service.GetAcceptedReportsAsync();
-                return Ok(reports);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Failed to retrieve accepted reports", error = ex.Message });
-            }
-        }
-=======
->>>>>>> f375436 (DisasterReport Service and Notification Work Flow and Relation with User)
     }
 }

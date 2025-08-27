@@ -177,15 +177,11 @@ public class EmailOtpService : IEmailOtpService
             // Record successful attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "verify_otp", true);
 
-<<<<<<< HEAD
-            // Check if user is new
-            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue && 
-=======
-            // Check if this is a new user (just created for email OTP)
-            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
->>>>>>> f375436 (DisasterReport Service and Notification Work Flow and Relation with User)
-                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
+           
 
+             // Check if this is a new user (just created for email OTP)
+             var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
+                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
             // Generate tokens
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();

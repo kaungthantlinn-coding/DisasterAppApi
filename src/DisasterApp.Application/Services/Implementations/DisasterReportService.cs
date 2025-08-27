@@ -121,7 +121,7 @@ namespace DisasterApp.Application.Services
 
 
                 };
-                
+
                 foreach (var impactDto in dto.ImpactDetails)
                 {
                     var impactDetail = new ImpactDetail
@@ -157,8 +157,8 @@ namespace DisasterApp.Application.Services
 
                 await _repository.CreateAsync(report, location);
 
-           
-                
+
+
 
                 await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
 
@@ -192,7 +192,7 @@ namespace DisasterApp.Application.Services
 
                     ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                     {
-                        Id = i.Id,                       
+                        Id = i.Id,
                         Severity = i.Severity,
                         IsResolved = i.IsResolved,
                         ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
@@ -381,7 +381,7 @@ namespace DisasterApp.Application.Services
             return dto;
         }
 
-        public async Task <IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
+        public async Task<IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
         {
             var reports = await _repository.GetReportsByUserIdAsync(userId);
             var activeReports = reports.Where(r => r.IsDeleted != true);
@@ -599,48 +599,6 @@ namespace DisasterApp.Application.Services
             };
         }
 
-<<<<<<< HEAD
-        public async Task<IEnumerable<DisasterReportDto>> GetAcceptedReportsAsync()
-        {
-            var reports = await _repository.GetAllAsync();
-            
-            return reports
-                .Where(r => r.Status == ReportStatus.Verified && (r.IsDeleted == null || !r.IsDeleted.Value))
-                .Select(r => new DisasterReportDto
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    Description = r.Description,
-                    Timestamp = r.Timestamp,
-                    Severity = r.Severity,
-                    Status = r.Status,
-                    DisasterEventId = r.DisasterEventId,
-                    DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
-                    DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
-                    UserId = r.UserId,
-                    Latitude = r.Location?.Latitude ?? 0,
-                    Longitude = r.Location?.Longitude ?? 0,
-                    Address = r.Location?.Address ?? string.Empty,
-                    CoordinatePrecision = r.Location?.CoordinatePrecision,
-                    ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
-                    {
-                        Id = i.Id,
-                        Description = i.Description,
-                        Severity = i.Severity,
-                        IsResolved = i.IsResolved,
-                        ResolvedAt = i.ResolvedAt,
-                        ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
-                        {
-                            Id = t.Id,
-                            Name = t.Name
-                        }).ToList()
-                    }).ToList(),
-                    PhotoUrls = r.Photos.Select(p => p.Url).ToList()
-                })
-                .OrderByDescending(r => r.Timestamp)
-                .ToList();
-        }
-=======
         public async Task<bool> DeleteAsync(Guid id)
         {
             var report = await _repository.GetByIdAsync(id);
@@ -674,6 +632,5 @@ namespace DisasterApp.Application.Services
             return address;
         }
 
->>>>>>> f375436 (DisasterReport Service and Notification Work Flow and Relation with User)
     }
 }
