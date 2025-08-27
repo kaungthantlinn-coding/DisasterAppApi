@@ -10,7 +10,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 
-namespace DisasterApp.Application.Services.Implementations; 
+namespace DisasterApp.Application.Services.Implementations;
 public class EmailOtpService : IEmailOtpService
 {
     private readonly IUserRepository _userRepository;
@@ -51,7 +51,7 @@ public class EmailOtpService : IEmailOtpService
         {
             // Check rate limiting for email
             var canSend = await _rateLimitingService.CanSendOtpAsync(request.email, ipAddress);
-            
+
             if (!canSend)
             {
                 _logger.LogWarning("Rate limit exceeded for sending OTP to {Email} from IP {IP}", request.email, ipAddress);
@@ -98,7 +98,7 @@ public class EmailOtpService : IEmailOtpService
 
             // Send email
             var emailSent = await SendOtpEmail(request.email, otpCode);
-            
+
             if (!emailSent)
             {
                 _logger.LogError("Failed to send OTP email to {Email}", request.email);
@@ -110,7 +110,7 @@ public class EmailOtpService : IEmailOtpService
             // Record attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "send_otp", true);
 
-            _logger.LogInformation("OTP sent successfully to {Email} for purpose {Purpose}. Code: {Code}, UserId: {UserId}", 
+            _logger.LogInformation("OTP sent successfully to {Email} for purpose {Purpose}. Code: {Code}, UserId: {UserId}",
                 request.email, request.purpose, otpCode, user.UserId);
 
             return new SendEmailOtpResponseDto
@@ -145,7 +145,7 @@ public class EmailOtpService : IEmailOtpService
 
             // Find OTP code
             var otpCode = await _otpCodeRepository.GetByUserAndCodeAsync(user.UserId, request.otp, request.purpose);
-            
+
             if (otpCode == null)
             {
                 _logger.LogWarning("OTP not found for {Email} with code {Code} and purpose {Purpose}", request.email, request.otp, request.purpose);
@@ -177,22 +177,23 @@ public class EmailOtpService : IEmailOtpService
             // Record successful attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "verify_otp", true);
 
-            // Check if user is new
-            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue && 
-                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
+           
 
+             // Check if this is a new user (just created for email OTP)
+             var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
+                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
             // Generate tokens
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
             var accessToken = GenerateAccessToken(user, roles);
             var refreshToken = await GenerateRefreshTokenAsync(user.UserId);
-            
+
             var accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
-            
+
             // Mark OTP as used after successful authentication
             otpCode.UsedAt = DateTime.UtcNow;
             await _otpCodeRepository.UpdateAsync(otpCode);
-                
+
             _logger.LogInformation("Email OTP verification successful for {Email}", request.email);
 
             return new VerifyEmailOtpResponseDto

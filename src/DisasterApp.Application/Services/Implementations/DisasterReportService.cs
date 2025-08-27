@@ -3,30 +3,38 @@ using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories;
+using DisasterApp.Infrastructure.Repositories.Implementations;
+using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace DisasterApp.Application.Services.Implementations
+namespace DisasterApp.Application.Services
 {
     public class DisasterReportService(
         IDisasterReportRepository repository,
         IPhotoService photoService,
         IHttpClientFactory httpClientFactory,
         IDisasterTypeRepository disasterTypeRepository,
-        IImpactTypeRepository impactTypeRepository) : IDisasterReportService
+        IImpactTypeRepository impactTypeRepository,
+        IUserRepository userRepository,
+        INotificationService notificationService) : IDisasterReportService
     {
         private readonly IDisasterReportRepository _repository = repository;
         private readonly IDisasterTypeRepository _disasterTypeRepository = disasterTypeRepository;
         private readonly IImpactTypeRepository _impactTypeReository = impactTypeRepository;
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Nominatim");
         private readonly IPhotoService _photoService = photoService;
+        private readonly IUserRepository _userRepository = userRepository;
+        private readonly INotificationService _notificationService = notificationService;
         private static readonly ConcurrentDictionary<(decimal, decimal), string> GeocodeCache = new();
         private static DateTime _lastGeocode = DateTime.MinValue;
         private static readonly System.Threading.Lock ThrottleLock = new();
@@ -43,11 +51,11 @@ namespace DisasterApp.Application.Services.Implementations
                 await Task.Delay(delay);
         }
         public async Task<DisasterReportDto> CreateAsync(DisasterReportCreateDto dto, Guid userId)
-        {      
-
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
             try
             {
-                
+
                 int disasterTypeId = dto.DisasterTypeId;
                 if (disasterTypeId == 0 && !string.IsNullOrWhiteSpace(dto.NewDisasterTypeName))
                 {
@@ -79,8 +87,6 @@ namespace DisasterApp.Application.Services.Implementations
 
                 }
 
-                //if (!await _context.DisasterTypes.AnyAsync(t => t.Id == disasterTypeId))
-                //    throw new Exception($"DisasterType with Id {disasterTypeId} not found.");
 
                 if (string.IsNullOrWhiteSpace(dto.DisasterEventName))
                     throw new Exception("DisasterEventName is required");
@@ -92,7 +98,7 @@ namespace DisasterApp.Application.Services.Implementations
                     DisasterTypeId = disasterTypeId
                 };
 
-                
+
                 var address = string.IsNullOrWhiteSpace(dto.Address)
               ? await ReverseGeocodeAsync(dto.Latitude, dto.Longitude)
               : dto.Address;
@@ -105,14 +111,54 @@ namespace DisasterApp.Application.Services.Implementations
                     Severity = dto.Severity,
                     Status = ReportStatus.Pending,
                     UserId = userId,
+
                     DisasterEventId = disasterEvent.Id,
                     DisasterEvent = disasterEvent,
                     CreatedAt = DateTime.UtcNow,
-                    ImpactDetails = [],
-                Photos = [],
+                    ImpactDetails = new List<ImpactDetail>(),
+                    Photos = new List<Photo>()
+
 
 
                 };
+                
+                foreach (var impactDto in dto.ImpactDetails)
+                {
+                    var impactDetail = new ImpactDetail
+                    {
+                        //Id= Guid.NewGuid(), // Ensure a new ID is generated
+                        Description = impactDto.Description,
+                        Severity = impactDto.Severity,
+                        ImpactTypes = new List<ImpactType>()
+                    };
+
+                    foreach (var impactTypeId in impactDto.ImpactTypeIds)
+                    {
+                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
+                        impactDetail.ImpactTypes.Add(impactType);
+                    }
+
+                    report.ImpactDetails.Add(impactDetail);
+                }
+
+                foreach (var impactDto in dto.ImpactDetails)
+                {
+                    var impactDetail = new ImpactDetail
+                    {
+                        //Id= Guid.NewGuid(), // Ensure a new ID is generated
+                        Description = impactDto.Description,
+                        Severity = impactDto.Severity,
+                        ImpactTypes = new List<ImpactType>()
+                    };
+
+                    foreach (var impactTypeId in impactDto.ImpactTypeIds)
+                    {
+                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
+                        impactDetail.ImpactTypes.Add(impactType);
+                    }
+
+                    report.ImpactDetails.Add(impactDetail);
+                }
 
 
                 var location = new Location
@@ -127,27 +173,11 @@ namespace DisasterApp.Application.Services.Implementations
                     CoordinatePrecision = dto.CoordinatePrecision,
                     Report = report
                 };
-                               
 
-                foreach (var impactDto in dto.ImpactDetails)
-                {
-                    var impactDetail = new ImpactDetail
-                    {
-                        Description = impactDto.Description,
-                        Severity = impactDto.Severity,
-                        ImpactTypes = []
-                    };
-
-                    foreach (var impactTypeId in impactDto.ImpactTypeIds)
-                    {
-                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
-                        impactDetail.ImpactTypes.Add(impactType);
-                    }
-
-                    report.ImpactDetails.Add(impactDetail);
-                }
                 await _repository.CreateAsync(report, location);
-              
+
+                await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
+
                 if (dto.Photos != null && dto.Photos.Any())
                 {
                     foreach (var file in dto.Photos)
@@ -173,10 +203,12 @@ namespace DisasterApp.Application.Services.Implementations
                     DisasterEventId = report.DisasterEventId,
                     DisasterEventName = report.DisasterEvent?.Name,
                     DisasterTypeId = disasterTypeId,
+                    UserId = userId,
+                    UserName = user.Name,
 
                     ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                     {
-                        Id = i.Id,
+                        Id = i.Id,                       
                         Severity = i.Severity,
                         IsResolved = i.IsResolved,
                         ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
@@ -184,6 +216,7 @@ namespace DisasterApp.Application.Services.Implementations
                             Id = t.Id,
                             Name = t.Name
                         }).ToList(),
+                        Description = i.Description
                     }).ToList(),
                     PhotoUrls = report.Photos.Select(p => p.Url).ToList(),
                 };
@@ -216,14 +249,10 @@ namespace DisasterApp.Application.Services.Implementations
                 DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = r.UserId,
-                //Location = r.Location != null ? new LocationDto
-                //{
-                //    Latitude = r.Location.Latitude,
-                //    Longitude = r.Location.Longitude,
-                //    Address = r.Location.Address,
-                //    FormattedAddress = r.Location.FormattedAddress,
-                //    CoordinatePrecision = r.Location.CoordinatePrecision
-                //} : null,
+                UserName = r.User.Name,
+                Latitude = r.Location?.Latitude ?? 0,
+                Longitude = r.Location?.Longitude ?? 0,
+                Address = r.Location?.Address ?? string.Empty,
 
                 ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
                 {
@@ -236,12 +265,97 @@ namespace DisasterApp.Application.Services.Implementations
                         Id = t.Id,
                         Name = t.Name
                     }).ToList()
-               
-            }).ToList(),
+
+                }).ToList(),
                 PhotoUrls = r.Photos.Select(p => p.Url).ToList()
             }).ToList();
             return result;
         }
+
+        public async Task<IEnumerable<DisasterReportDto>> GetAcceptedReportsAsync()
+        {
+            var reports = await _repository.GetAllAsync();
+
+            // Only include reports that are not deleted and have Status = Verified
+            var acceptedReports = reports
+                .Where(r => r.IsDeleted != true && r.Status == ReportStatus.Verified)
+                .Select(r => new DisasterReportDto
+                {
+                    Id = r.Id,
+                    Title = r.Title,
+                    Description = r.Description,
+                    Timestamp = r.Timestamp,
+                    Severity = r.Severity,
+                    Status = r.Status,
+                    DisasterEventId = r.DisasterEventId,
+                    DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
+                    DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
+                    UserId = r.UserId,
+                    UserName = r.User.Name ?? string.Empty,
+                    Longitude = r.Location?.Longitude ?? 0,
+                    Latitude = r.Location?.Latitude ?? 0,
+                    Address = r.Location?.Address ?? string.Empty,
+                    ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
+                    {
+                        Id = i.Id,
+                        Description = i.Description,
+                        Severity = i.Severity,
+                        IsResolved = i.IsResolved,
+                        ResolvedAt = i.ResolvedAt,
+                        ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
+                        {
+                            Id = t.Id,
+                            Name = t.Name
+                        }).ToList()
+                    }).ToList(),
+                    PhotoUrls = r.Photos.Select(p => p.Url).ToList()
+                }).ToList();
+
+            return acceptedReports;
+        }
+
+        public async Task<IEnumerable<DisasterReportDto>> GetRejectedReportsAsync()
+        {
+            var reports = await _repository.GetAllAsync();
+
+            // Only include reports that are not deleted and have Status = Rejected
+            var rejectedReports = reports
+                .Where(r => r.IsDeleted != true && r.Status == ReportStatus.Rejected)
+                .Select(r => new DisasterReportDto
+                {
+                    Id = r.Id,
+                    Title = r.Title,
+                    Description = r.Description,
+                    Timestamp = r.Timestamp,
+                    Severity = r.Severity,
+                    Status = r.Status,
+                    DisasterEventId = r.DisasterEventId,
+                    DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
+                    DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
+                    UserId = r.UserId,
+                    UserName = r.User.Name ?? string.Empty,
+                    Longitude = r.Location?.Longitude ?? 0,
+                    Latitude = r.Location?.Latitude ?? 0,
+                    Address = r.Location?.Address ?? string.Empty,
+                    ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
+                    {
+                        Id = i.Id,
+                        Description = i.Description,
+                        Severity = i.Severity,
+                        IsResolved = i.IsResolved,
+                        ResolvedAt = i.ResolvedAt,
+                        ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
+                        {
+                            Id = t.Id,
+                            Name = t.Name
+                        }).ToList()
+                    }).ToList(),
+                    PhotoUrls = r.Photos.Select(p => p.Url).ToList()
+                }).ToList();
+
+            return rejectedReports;
+        }
+
 
         public async Task<DisasterReportDto?> GetByIdAsync(Guid id)
         {
@@ -260,8 +374,10 @@ namespace DisasterApp.Application.Services.Implementations
                 DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = report.UserId,
-                // Latitude = report.Location?.Latitude,
-                // Longitude = report.Location?.Longitude,
+                UserName = report.User.Name ?? string.Empty,
+                Longitude = report.Location?.Longitude ?? 0,
+                Latitude = report.Location?.Latitude ?? 0,
+                Address = report.Location?.Address ?? string.Empty,
                 ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                 {
                     Id = i.Id,
@@ -281,222 +397,122 @@ namespace DisasterApp.Application.Services.Implementations
             return dto;
         }
 
-        //     public async Task<DisasterReportDto?> UpdateAsync(Guid id, DisasterReportUpdateDto dto, Guid userId)
-        //     {
-        //        using var transaction = await _context.Database.BeginTransactionAsync();
-
-        //        try
-        //        {
-        //            var report = await _context.DisasterReports
-        //                .Include(r => r.ImpactDetails)
-        //                .Include(r => r.Photos)
-        //                .Include(r=>r.DisasterEvent)
-        //                .ThenInclude(e=>e.DisasterType)
-        //                .FirstOrDefaultAsync(r => r.Id == id && r.IsDeleted !=true);
-
-        //            if (report == null)
-        //                throw new Exception($"Report with Id {id} not found.");
-
-        //            // Validate user
-        //            if (report.UserId != userId)
-        //                throw new Exception("You are not authorized to update this report.");
-
-        //            // Update main fields
-        //            report.Title = dto.Title ?? report.Title;
-        //            report.Description = dto.Description ?? report.Description;
-        //            report.Severity = dto.Severity ?? report.Severity;
-        //            report.Timestamp = dto.Timestamp ?? report.Timestamp;
-        //            report.Severity=dto.Severity ?? report.Severity;
-        //            report.Status = dto.Status ?? report.Status;
-        //            report.UpdatedAt = DateTime.UtcNow;
-
-        //            if (report.Location != null)
-        //            {
-        //                report.Location.Latitude = dto.Latitude;
-        //                report.Location.Longitude = dto.Longitude;
-
-        //                var address = string.IsNullOrWhiteSpace(dto.Address)
-        //                    ? await ReverseGeocodeAsync(dto.Latitude, dto.Longitude)
-        //                    : dto.Address;
-
-        //                report.Location.Address = address;
-        //            }
-        //            // Update DisasterEventName if provided
-        //            if (!string.IsNullOrWhiteSpace(dto.DisasterEventName))
-        //            {
-        //                int disasterTypeId = dto.DisasterTypeId ?? report.DisasterEvent!.DisasterTypeId;
-        //                if (disasterTypeId == 0 && !string.IsNullOrWhiteSpace(dto.NewDisasterTypeName))
-        //                    {
-        //                    var newType = new DisasterType
-        //                    {
-        //                        Name = dto.NewDisasterTypeName,
-        //                        Category = dto.DisasterCategory!.Value
-        //                    };
-        //                    _context.DisasterTypes.Add(newType);
-        //                    await _context.SaveChangesAsync();
-        //                    disasterTypeId = newType.Id;
-        //                }
-
-        //                report.DisasterEvent!.Name = dto.DisasterEventName;
-        //                report.DisasterEvent.DisasterTypeId = disasterTypeId;
-        //            }
-
-        //                // Update ImpactDetails
-        //                if (dto.ImpactDetails != null)
-        //            {
-
-        //                _context.ImpactDetails.RemoveRange(report.ImpactDetails);                    
-        //                report.ImpactDetails.Clear();
-
-        //                foreach (var impactDto in dto.ImpactDetails)
-        //                {
-        //                    int impactTypeId = impactDto.ImpactTypeId.GetValueOrDefault();
-        //                    if (impactTypeId == 0 && !string.IsNullOrWhiteSpace(impactDto.ImpactTypeName))
-        //                    {
-        //                        var existingImpact = await _context.ImpactTypes
-        //                            .FirstOrDefaultAsync(t => t.Name == impactDto.ImpactTypeName);
-
-        //                        if (existingImpact != null)
-        //                            impactTypeId = existingImpact.Id;
-        //                        else
-        //                        {
-        //                            var newImpactType = new ImpactType
-        //                            {
-        //                                Name = impactDto.ImpactTypeName
-        //                            };
-        //                            _context.ImpactTypes.Add(newImpactType);
-        //                            await _context.SaveChangesAsync();
-        //                            impactTypeId = newImpactType.Id;
-        //                        }
-        //                    }
-
-        //                    report.ImpactDetails.Add(new ImpactDetail
-        //                    {
-        //                        ReportId = report.Id,
-        //                        ImpactTypeId = impactTypeId,
-        //                        Description = impactDto.Description,
-        //                        Severity = impactDto.Severity,
-        //                        IsResolved = impactDto.IsResolved
-        //                    });
-        //                }
-        //            }
-        //            if (dto.NewPhotos != null && dto.NewPhotos.Any())
-        //            {
-        //                foreach (var file in dto.NewPhotos)
-        //                {
-        //                    var photo = await _photoService.UploadPhotoAsync(new CreatePhotoDto
-        //                    {
-        //                        File = file,
-        //                        ReportId = report.Id
-        //                    });
-        //                    report.Photos.Add(photo);
-        //                }
-        //            }
-
-        //            // 5️⃣ Handle Photo Deletions
-        //            if (dto.RemovePhotoIds != null && dto.RemovePhotoIds.Any())
-        //            {
-        //                foreach (var photoId in dto.RemovePhotoIds)
-        //                {
-        //                    var photo = report.Photos.FirstOrDefault(p => p.Id == photoId);
-        //                    if (photo != null)
-        //                    {
-        //                        await _photoService.DeletePhotoAsync(photoId);
-        //                        report.Photos.Remove(photo);
-        //                    }
-        //                }
-        //            }
-
-        //            await _context.SaveChangesAsync();
-        //            await transaction.CommitAsync();
-
-        //            return new DisasterReportDto
-        //            {
-        //                Id = report.Id,
-        //                Title = report.Title,
-        //                Description = report.Description,
-        //                Timestamp = report.Timestamp,
-        //                Severity = report.Severity,
-        //                Status = report.Status,
-        //                DisasterEventId = report.DisasterEventId,
-        //                DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
-        //                DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
-
-        //                UserId = report.UserId,
-        //                ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
-        //                {
-        //                    ImpactTypeNames = i.ImpactType != null ? new List<string> { i.ImpactType.Name } : new List<string>(),
-        //                    Description = i.Description,
-        //                    Severity = i.Severity,
-        //                    IsResolved = i.IsResolved
-        //                }).ToList(),
-        //                PhotoUrls = report.Photos.Select(p => p.Url).ToList()
-        //            };
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            await transaction.RollbackAsync();
-        //            Console.WriteLine($"[ERROR] UpdateAsync failed: {ex}");
-        //            throw;
-        //        }
-        //     }
-
-        //public async Task<bool> DeleteAsync(Guid id)
-        //{
-        //    var report = await _context.DisasterReports
-        //        .Include(r => r.ImpactDetails)
-        //        .Include(r => r.Location)
-        //        .Include(r => r.Photos)
-        //        .FirstOrDefaultAsync(r => r.Id == id);
-
-        //    if (report == null) return false;
-        //    // 1️⃣ Delete related photos from Cloudinary and DB
-        //    foreach (var photo in report.Photos.ToList())
-        //    {
-        //        await _photoService.DeletePhotoAsync(photo.Id);
-        //        _context.Photos.Remove(photo);
-        //    }
-
-
-        //    _context.ImpactDetails.RemoveRange(report.ImpactDetails);
-        //    if (report.Location != null)
-        //        _context.Locations.Remove(report.Location);
-
-        //    _context.DisasterReports.Remove(report);
-        //    await _context.SaveChangesAsync();
-
-        //    return true;
-        //}
-        private async Task<string> ReverseGeocodeAsync(decimal lat, decimal lng)
+        public async Task<IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
         {
-            if (GeocodeCache.TryGetValue((lat, lng), out var cachedAddress))
-                return cachedAddress;
+            var reports = await _repository.GetReportsByUserIdAsync(userId);
+            var activeReports = reports.Where(r => r.IsDeleted != true);
+            return activeReports.Select(r => new DisasterReportDto
+            {
+                Id = r.Id,
+                Title = r.Title,
+                Description = r.Description,
+                Timestamp = r.Timestamp,
+                Severity = r.Severity,
+                Status = r.Status,
+                DisasterEventId = r.DisasterEventId,
+                DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
+                DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
+                UserId = r.UserId,
+                UserName = r.User.Name ?? string.Empty,
+                Latitude = r.Location?.Latitude ?? 0,
+                Longitude = r.Location?.Longitude ?? 0,
+                Address = r.Location?.Address ?? string.Empty,
+                ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
+                {
+                    Id = i.Id,
+                    Description = i.Description,
+                    Severity = i.Severity,
+                    IsResolved = i.IsResolved,
+                    ResolvedAt = i.ResolvedAt,
+                    ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
+                    {
+                        Id = t.Id,
+                        Name = t.Name
+                    }).ToList()
+                }).ToList(),
+                PhotoUrls = r.Photos.Select(p => p.Url).ToList()
+            }).ToList();
+        }
+        public async Task<IEnumerable<DisasterReportDto>> GetPendingReportsForAdminAsync(Guid adminUserId)
+        {
+            var adminUser = await _userRepository.GetByIdAsync(adminUserId);
+            if (adminUser == null || !adminUser.Roles.Any(r => r.Name == "admin"))
+                throw new UnauthorizedAccessException("Only admins can view pending reports.");
 
-            await ThrottleAsync();
+            var reports = await _repository.GetPendingReportsAsync();
+            return reports.Select(r => new DisasterReportDto
+            {
+                Id = r.Id,
+                Title = r.Title,
+                Description = r.Description,
+                Severity = r.Severity,
+                Status = r.Status,
+                DisasterEventName = r.DisasterEvent.Name,
+                Timestamp = r.Timestamp,
+                Latitude = r.Location?.Latitude ?? 0,
+                Longitude = r.Location?.Longitude ?? 0,
+                Address = r.Location?.Address ?? string.Empty,
+                DisasterTypeName = r.DisasterEvent.DisasterType.Name,
+                UserId = adminUserId,
+                UserName = r.User.Name ?? string.Empty,
+                PhotoUrls = r.Photos.Select(p => p.Url).ToList(),
+                ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
+                {
+                    Id = i.Id,
+                    Description = i.Description,
+                    Severity = i.Severity,
+                    IsResolved = i.IsResolved,
+                    ResolvedAt = i.ResolvedAt,
+                    ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
+                    {
+                        Id = t.Id,
+                        Name = t.Name
+                    }).ToList()
+                }).ToList(),
 
-            var response = await _httpClient.GetAsync($"reverse?lat={lat}&lon={lng}&format=json");
-            if (!response.IsSuccessStatusCode)
-                return "Unknown Address";
+            }).ToList();
+        }
 
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            var address = doc.RootElement.GetProperty("display_name").GetString() ?? "Unknown Address";
+        public async Task<bool> ApproveDisasterReportAsync(Guid id, Guid adminUserId)
+        {
+            var adminUser = await _userRepository.GetByIdAsync(adminUserId);
+            if (adminUser == null || !adminUser.Roles.Any(r => r.Name == "admin"))
+                throw new UnauthorizedAccessException("Only admins can update report status.");
 
-            GeocodeCache[(lat, lng)] = address;
-            return address;
+            return await _repository.UpdateStatusAsync(id, ReportStatus.Verified, adminUserId);
+        }
+
+        public async Task<bool> RejectDisasterReportAsync(Guid reportId, Guid adminUserId)
+        {
+            var adminUser = await _userRepository.GetByIdAsync(adminUserId);
+            if (adminUser == null || !adminUser.Roles.Any(r => r.Name == "admin"))
+                throw new UnauthorizedAccessException("Only admins can reject reports");
+            return await _repository.UpdateStatusAsync(reportId, ReportStatus.Rejected, adminUserId);
+        }
+
+        public async Task<bool> ApproveOrRejectReportAsync(Guid id, ReportStatus status, Guid adminUserId)
+        {
+            var adminUser = await _userRepository.GetByIdAsync(adminUserId);
+            if (adminUser == null || !adminUser.Roles.Any(r => r.Name == "admin"))
+                throw new UnauthorizedAccessException("Only admins can update report status.");
+
+            if (status != ReportStatus.Verified && status != ReportStatus.Rejected)
+                throw new ArgumentException("Status must be Accepted or Rejected");
+
+            return await _repository.UpdateStatusAsync(id, status, adminUserId);
         }
 
         public async Task<DisasterReportDto?> UpdateAsync(Guid id, DisasterReportUpdateDto dto, Guid userId)
         {
             var report = await _repository.GetByIdAsync(id);
-            if(report == null || report.IsDeleted == true)
+            if (report == null || report.IsDeleted == true)
                 return null;
 
             if (report.UserId != userId)
                 throw new UnauthorizedAccessException("You are not authorized to update this report.");
 
             report.Title = dto.Title ?? report.Title;
-            report.Description = dto.Description ?? report.Description; 
+            report.Description = dto.Description ?? report.Description;
             report.Severity = dto.Severity ?? report.Severity;
             report.Timestamp = dto.Timestamp ?? report.Timestamp;
             report.Status = dto.Status ?? report.Status;
@@ -566,100 +582,71 @@ namespace DisasterApp.Application.Services.Implementations
             }
 
             await _repository.UpdateAsync(report);
-                return new DisasterReportDto
-                {
-                    Id = report.Id,
-                    Title = report.Title,
-                    Description = report.Description,
-                    Timestamp = report.Timestamp,
-                    Severity = report.Severity,
-                    Status = report.Status,
-                    DisasterEventId = report.DisasterEventId,
-                    DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
-                    DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
-                    UserId = report.UserId,
-                    ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
-                    {
-                        Id = i.Id,
-                        Description = i.Description,
-                        Severity = i.Severity,
-                        IsResolved = i.IsResolved,
-                        ResolvedAt = i.ResolvedAt,
-                        ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
-                        {
-                            Id = t.Id,
-                            Name = t.Name
-                        }).ToList()
-                    }).ToList(),
-                    PhotoUrls = report.Photos.Select(p => p.Url).ToList()
-                };
-            }
-
-        public Task<bool> DeleteAsync(Guid id)
-        {
-            throw new NotImplementedException();
-        }
-
-        public async Task<object> GetStatisticsAsync()
-        {
-            var reports = await _repository.GetAllAsync();
-            
-            var totalReports = reports.Count();
-            var reportsByStatus = reports.GroupBy(r => r.Status)
-                .ToDictionary(g => g.Key, g => g.Count());
-            var reportsBySeverity = reports.GroupBy(r => r.Severity)
-                .ToDictionary(g => g.Key, g => g.Count());
-            var recentReports = reports.Count(r => r.Timestamp >= DateTime.UtcNow.AddDays(-7));
-            
-            return new
+            return new DisasterReportDto
             {
-                TotalReports = totalReports,
-                ReportsByStatus = reportsByStatus,
-                ReportsBySeverity = reportsBySeverity,
-                RecentReports = recentReports,
-                LastUpdated = DateTime.UtcNow
+                Id = report.Id,
+                Title = report.Title,
+                Description = report.Description,
+                Timestamp = report.Timestamp,
+                Severity = report.Severity,
+                Status = report.Status,
+                DisasterEventId = report.DisasterEventId,
+                DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
+                DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
+                UserId = report.UserId,
+                UserName = report.User.Name ?? string.Empty,
+                Longitude = report.Location.Longitude,
+                Latitude = report.Location.Latitude,
+                Address = report.Location.Address,
+                ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
+                {
+                    Id = i.Id,
+                    Description = i.Description,
+                    Severity = i.Severity,
+                    IsResolved = i.IsResolved,
+                    ResolvedAt = i.ResolvedAt,
+                    ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
+                    {
+                        Id = t.Id,
+                        Name = t.Name
+                    }).ToList()
+                }).ToList(),
+                PhotoUrls = report.Photos.Select(p => p.Url).ToList()
             };
         }
 
-        public async Task<IEnumerable<DisasterReportDto>> GetAcceptedReportsAsync()
+        public async Task<bool> DeleteAsync(Guid id)
         {
-            var reports = await _repository.GetAllAsync();
-            
-            return reports
-                .Where(r => r.Status == ReportStatus.Verified && (r.IsDeleted == null || !r.IsDeleted.Value))
-                .Select(r => new DisasterReportDto
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    Description = r.Description,
-                    Timestamp = r.Timestamp,
-                    Severity = r.Severity,
-                    Status = r.Status,
-                    DisasterEventId = r.DisasterEventId,
-                    DisasterEventName = r.DisasterEvent?.Name ?? string.Empty,
-                    DisasterTypeName = r.DisasterEvent?.DisasterType?.Name ?? string.Empty,
-                    UserId = r.UserId,
-                    Latitude = r.Location?.Latitude ?? 0,
-                    Longitude = r.Location?.Longitude ?? 0,
-                    Address = r.Location?.Address ?? string.Empty,
-                    CoordinatePrecision = r.Location?.CoordinatePrecision,
-                    ImpactDetails = r.ImpactDetails.Select(i => new ImpactDetailDto
-                    {
-                        Id = i.Id,
-                        Description = i.Description,
-                        Severity = i.Severity,
-                        IsResolved = i.IsResolved,
-                        ResolvedAt = i.ResolvedAt,
-                        ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
-                        {
-                            Id = t.Id,
-                            Name = t.Name
-                        }).ToList()
-                    }).ToList(),
-                    PhotoUrls = r.Photos.Select(p => p.Url).ToList()
-                })
-                .OrderByDescending(r => r.Timestamp)
-                .ToList();
+            var report = await _repository.GetByIdAsync(id);
+            if (report == null || report.IsDeleted == true)
+                return false;
+
+            // Mark as deleted
+            report.IsDeleted = true;
+            report.UpdatedAt = DateTime.UtcNow; // optional if you track delete timestamp
+
+            await _repository.UpdateAsync(report);
+            return true;
         }
+
+        private async Task<string> ReverseGeocodeAsync(decimal lat, decimal lng)
+        {
+            if (GeocodeCache.TryGetValue((lat, lng), out var cachedAddress))
+                return cachedAddress;
+
+            await ThrottleAsync();
+
+            var response = await _httpClient.GetAsync($"reverse?lat={lat}&lon={lng}&format=json");
+            if (!response.IsSuccessStatusCode)
+                return "Unknown Address";
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var address = doc.RootElement.GetProperty("display_name").GetString() ?? "Unknown Address";
+
+            GeocodeCache[(lat, lng)] = address;
+            return address;
+        }
+
     }
 }
