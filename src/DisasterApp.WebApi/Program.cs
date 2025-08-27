@@ -46,6 +46,7 @@ namespace DisasterApp
             builder.Services.AddSingleton(x =>
             {
                 var config = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+                if (config == null) throw new InvalidOperationException("Cloudinary settings not found");
                 return new Cloudinary(new Account(config.CloudName, config.ApiKey, config.ApiSecret));
             });
 
