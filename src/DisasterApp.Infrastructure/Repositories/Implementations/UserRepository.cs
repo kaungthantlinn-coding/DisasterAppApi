@@ -25,7 +25,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+                .FirstOrDefaultAsync(u => u.UserId == userId);
         }
 
         public async Task<User?> GetByAuthProviderAsync(string authProvider, string authId)
@@ -58,7 +58,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             var user = await _context.Users
                 .Include(u => u.Roles)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+                .FirstOrDefaultAsync(u => u.UserId == userId);
             
             return user?.Roles.Select(r => r.Name).ToList() ?? new List<string>();
         }
@@ -92,7 +92,14 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
 
             if (isBlacklisted.HasValue)
             {
-                query = query.Where(u => u.IsBlacklisted == isBlacklisted.Value);
+                if (isBlacklisted.Value)
+                {
+                    query = query.Where(u => u.IsBlacklisted == true);
+                }
+                else
+                {
+                    query = query.Where(u => u.IsBlacklisted != true);
+                }
             }
 
             if (!string.IsNullOrEmpty(authProvider))
@@ -138,7 +145,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+                .FirstOrDefaultAsync(u => u.UserId == userId);
         }
 
         public async Task<bool> DeleteUserAsync(Guid userId)
@@ -153,12 +160,12 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
 
         public async Task<bool> ExistsAsync(Guid userId)
         {
-            return await _context.Users.AnyAsync(u => u.Id == userId);
+            return await _context.Users.AnyAsync(u => u.UserId == userId);
         }
 
         public async Task<bool> ExistsAsync(string email, Guid excludeUserId)
         {
-            return await _context.Users.AnyAsync(u => u.Email == email && u.Id != excludeUserId);
+            return await _context.Users.AnyAsync(u => u.Email == email && u.UserId != excludeUserId);
         }
 
         public async Task<int> GetTotalUsersCountAsync()
@@ -168,12 +175,12 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
 
         public async Task<int> GetActiveUsersCountAsync()
         {
-            return await _context.Users.CountAsync(u => !u.IsBlacklisted);
+            return await _context.Users.CountAsync(u => u.IsBlacklisted != true);
         }
 
         public async Task<int> GetSuspendedUsersCountAsync()
         {
-            return await _context.Users.CountAsync(u => u.IsBlacklisted);
+            return await _context.Users.CountAsync(u => u.IsBlacklisted == true);
         }
 
         public async Task<int> GetAdminUsersCountAsync()
@@ -187,7 +194,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .Where(u => userIds.Contains(u.Id))
+                .Where(u => userIds.Contains(u.UserId))
                 .ToListAsync();
         }
 
@@ -221,14 +228,14 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .CountAsync(u => u.Roles.Any(r => r.Id == roleId));
+                .CountAsync(u => u.Roles.Any(r => r.RoleId == roleId));
         }
 
         public async Task<List<User>> GetUsersByRoleAsync(Guid roleId)
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .Where(u => u.Roles.Any(r => r.Id == roleId))
+                .Where(u => u.Roles.Any(r => r.RoleId == roleId))
                 .ToListAsync();
         }
     }
