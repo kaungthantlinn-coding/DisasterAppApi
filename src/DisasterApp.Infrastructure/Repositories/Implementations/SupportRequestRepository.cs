@@ -50,7 +50,7 @@ namespace DisasterApp.Infrastructure.Repositories
         public async Task DeleteAsync(SupportRequest request)
         {
             _context.SupportRequests.Remove(request);
-
+            await _context.SaveChangesAsync();
         }
 
         public async Task SaveChangesAsync()
