@@ -375,7 +375,7 @@ public class AuthServiceTests
     public async Task GoogleLoginAsync_MissingGoogleClientId_ThrowsInvalidOperationException()
     {
         // Arrange
-        _mockConfiguration.Setup(x => x["GoogleAuth:ClientId"]).Returns((string)null);
+        _mockConfiguration.Setup(x => x["GoogleAuth:ClientId"]).Returns((string?)null);
         var request = new GoogleLoginRequestDto { IdToken = "valid-token" };
 
         // Act & Assert
@@ -463,7 +463,7 @@ public class AuthServiceTests
         var request = new GoogleLoginRequestDto { IdToken = "valid-google-token" };
         
         _mockUserRepository.Setup(x => x.GetByEmailAsync(It.IsAny<string>()))
-            .ReturnsAsync((User)null); // No existing user
+            .ReturnsAsync((User?)null); // No existing user
         _mockUserRepository.Setup(x => x.CreateAsync(It.IsAny<User>()))
             .ReturnsAsync((User user) => user);
         _mockRoleService.Setup(x => x.AssignDefaultRoleToUserAsync(It.IsAny<Guid>()))

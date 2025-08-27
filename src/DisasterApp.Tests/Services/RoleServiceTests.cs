@@ -363,9 +363,9 @@ public class RoleServiceTests : IDisposable
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Error during duplicate role cleanup")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error during duplicate role cleanup")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 
@@ -406,27 +406,27 @@ public class RoleServiceTests : IDisposable
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Starting cleanup of duplicate user roles")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Starting cleanup of duplicate user roles")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
             
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Removed duplicate role Admin from user")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Removed duplicate role Admin from user")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
             
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Cleanup completed. Removed 1 duplicate role assignments")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Cleanup completed. Removed 1 duplicate role assignments")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 
@@ -460,9 +460,9 @@ public class RoleServiceTests : IDisposable
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("No duplicate role assignments found")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("No duplicate role assignments found")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 

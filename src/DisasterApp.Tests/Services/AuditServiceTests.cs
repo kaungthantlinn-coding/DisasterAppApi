@@ -45,7 +45,6 @@ public class AuditServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var action = "LOGIN";
-        var entityType = "User";
         var entityId = userId.ToString();
         var details = "User logged in successfully";
         var resource = "/api/auth/login";
@@ -690,10 +689,14 @@ public class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
         {
             var taskResultType = typeof(TResult).GetGenericArguments()[0];
             var syncResult = _inner.Execute(expression);
-            var taskFromResultMethod = typeof(Task).GetMethod("FromResult").MakeGenericMethod(taskResultType);
-            return (TResult)taskFromResultMethod.Invoke(null, new object[] { syncResult });
+            var fromResultMethod = typeof(Task).GetMethod(nameof(Task.FromResult), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            var taskFromResultMethod = fromResultMethod?.MakeGenericMethod(taskResultType);
+            if (taskFromResultMethod != null && syncResult != null)
+            {
+                return (TResult)taskFromResultMethod.Invoke(null, new object[] { syncResult });
+            }
         }
-        return Execute<TResult>(expression);
+        return default!;
     }
 }
 
