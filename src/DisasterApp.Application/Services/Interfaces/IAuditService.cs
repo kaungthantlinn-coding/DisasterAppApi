@@ -29,4 +29,7 @@ public interface IAuditService
     
     // Filter options for frontend
     Task<FilterOptionsDto> GetFilterOptionsAsync();
+    
+    // Get active users count for statistics
+    Task<int> GetActiveUsersCountAsync(DateTime since);
 }

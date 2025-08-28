@@ -405,19 +405,11 @@ public class AuditLogsController : ControllerBase
         try
         {
             // Get count of unique users who have logged actions in the last 24 hours
+            // Optimized: Use direct database query instead of loading full records
             var yesterday = DateTime.UtcNow.AddDays(-1);
-            var filters = new AuditLogFiltersDto
-            {
-                DateFrom = yesterday,
-                PageSize = 1000 // Get enough to count unique users
-            };
             
-            var result = await _auditService.GetLogsAsync(filters);
-            return result.Logs
-                .Where(log => log.User != null)
-                .Select(log => log.User!.Id)
-                .Distinct()
-                .Count();
+            var activeUsersCount = await _auditService.GetActiveUsersCountAsync(yesterday);
+            return activeUsersCount;
         }
         catch (Exception ex)
         {

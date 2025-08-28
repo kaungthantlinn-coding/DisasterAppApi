@@ -391,23 +391,30 @@ public class AuditService : IAuditService
         {
             var now = DateTime.UtcNow;
             var last24Hours = now.AddHours(-24);
-            var last7Days = now.AddDays(-7);
+            
+            // Optimize with a single query using GroupBy and conditional counting
+            var stats = await _context.AuditLogs
+                .GroupBy(x => 1) // Group all records together
+                .Select(g => new AuditLogStatsDto
+                {
+                    TotalLogs = g.Count(),
+                    CriticalAlerts = g.Count(a => a.Severity == "critical"),
+                    SecurityEvents = g.Count(a => 
+                        a.Action.Contains("LOGIN") || a.Action.Contains("LOGOUT") || 
+                        a.Action.Contains("FAILED_LOGIN") || a.Action.Contains("SECURITY")),
+                    SystemErrors = g.Count(a => a.Severity == "error"),
+                    RecentActivity = g.Count(a => a.Timestamp >= last24Hours)
+                })
+                .FirstOrDefaultAsync();
 
-            var totalLogs = await _context.AuditLogs.CountAsync();
-            var criticalAlerts = await _context.AuditLogs.CountAsync(a => a.Severity == "critical");
-            var securityEvents = await _context.AuditLogs.CountAsync(a => 
-                a.Action.Contains("LOGIN") || a.Action.Contains("LOGOUT") || 
-                a.Action.Contains("FAILED_LOGIN") || a.Action.Contains("SECURITY"));
-            var systemErrors = await _context.AuditLogs.CountAsync(a => a.Severity == "error");
-            var recentActivity = await _context.AuditLogs.CountAsync(a => a.Timestamp >= last24Hours);
-
-            return new AuditLogStatsDto
+            // Return default stats if no logs exist
+            return stats ?? new AuditLogStatsDto
             {
-                TotalLogs = totalLogs,
-                CriticalAlerts = criticalAlerts,
-                SecurityEvents = securityEvents,
-                SystemErrors = systemErrors,
-                RecentActivity = recentActivity
+                TotalLogs = 0,
+                CriticalAlerts = 0,
+                SecurityEvents = 0,
+                SystemErrors = 0,
+                RecentActivity = 0
             };
         }
         catch (Exception ex)
@@ -806,6 +813,26 @@ public class AuditService : IAuditService
         {
             _logger.LogError(ex, "Error retrieving filter options");
             return new FilterOptionsDto();
+        }
+    }
+    
+    public async Task<int> GetActiveUsersCountAsync(DateTime since)
+    {
+        try
+        {
+            // Optimized query: Get distinct user IDs directly from database
+            var activeUsersCount = await _context.AuditLogs
+                .Where(a => a.Timestamp >= since && a.UserId != null)
+                .Select(a => a.UserId)
+                .Distinct()
+                .CountAsync();
+                
+            return activeUsersCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get active users count since {Since}", since);
+            return 0;
         }
     }
 }

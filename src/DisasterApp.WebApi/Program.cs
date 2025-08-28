@@ -308,7 +308,20 @@ namespace DisasterApp
             app.MapHub<UserStatsHub>("/userStatsHub");
             app.MapHub<NotificationHub>("/notificationHub");
 
-
+            // Ensure database is created and up to date
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<DisasterDbContext>();
+                try
+                {
+                    await context.Database.EnsureCreatedAsync();
+                    Console.WriteLine("Database schema ensured.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error ensuring database: {ex.Message}");
+                }
+            }
 
             app.Run();
         }
