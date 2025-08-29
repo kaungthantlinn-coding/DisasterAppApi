@@ -78,4 +78,5 @@ public partial class User
     public virtual ICollection<OtpAttempt> OtpAttempts { get; set; } = new List<OtpAttempt>();
 
     public virtual ICollection<UserBlacklist> BlacklistHistory { get; set; } = new List<UserBlacklist>();
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }

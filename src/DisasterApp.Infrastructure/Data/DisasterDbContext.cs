@@ -58,6 +58,8 @@ public partial class DisasterDbContext : DbContext
 
     public virtual DbSet<UserBlacklist> UserBlacklists { get; set; }
 
+    public virtual DbSet<Notification> Notifications { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured)
@@ -65,9 +67,9 @@ public partial class DisasterDbContext : DbContext
             // Configuration is typically done in Program.cs or Startup.cs
             // This method is left empty as configuration is handled externally
         }
-        
+
         // Suppress pending model changes warning for navigation property updates
-        optionsBuilder.ConfigureWarnings(warnings => 
+        optionsBuilder.ConfigureWarnings(warnings =>
             warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -84,23 +86,23 @@ public partial class DisasterDbContext : DbContext
             entity.HasIndex(e => e.Timestamp, "IX_AuditLog_Timestamp_DESC")
                 .IsDescending()
                 .IncludeProperties(e => new { e.AuditLogId, e.Action, e.Severity, e.Details, e.UserId, e.UserName, e.IpAddress, e.UserAgent, e.Resource, e.Metadata });
-            
+
             entity.HasIndex(e => new { e.UserId, e.Timestamp }, "IX_AuditLog_UserId_Timestamp")
                 .IsDescending(false, true)
                 .HasFilter("[user_id] IS NOT NULL");
-            
+
             entity.HasIndex(e => new { e.Severity, e.Timestamp }, "IX_AuditLog_Severity_Timestamp")
                 .IsDescending(false, true);
-            
+
             entity.HasIndex(e => new { e.Action, e.Timestamp }, "IX_AuditLog_Action_Timestamp")
                 .IsDescending(false, true);
-            
+
             entity.HasIndex(e => new { e.Resource, e.Timestamp }, "IX_AuditLog_Resource_Timestamp")
                 .IsDescending(false, true);
-            
+
             entity.HasIndex(e => new { e.EntityType, e.Timestamp }, "IX_AuditLog_EntityType_Timestamp")
                 .IsDescending(false, true);
-            
+
             entity.HasIndex(e => new { e.UserName, e.Action, e.Timestamp }, "IX_AuditLog_Search")
                 .IsDescending(false, false, true)
                 .IncludeProperties(e => e.Details);
@@ -160,6 +162,46 @@ public partial class DisasterDbContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_AuditLog_User");
+        });
+
+        // Notification
+
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("Notifications");
+
+            entity.HasKey(n => n.Id);
+
+            entity.Property(n => n.Title)
+                  .IsRequired()
+                  .HasMaxLength(200);
+
+            entity.Property(n => n.Message)
+                  .IsRequired()
+                  .HasMaxLength(1000);
+
+            entity.Property(n => n.Type)
+                  .IsRequired();
+            entity.Property(n => n.IsRead)
+       .HasDefaultValue(false);
+
+            entity.Property(n => n.CreatedAt)
+                  .HasDefaultValueSql("GETUTCDATE()"); // Auto set when created
+
+            entity.Property(n => n.ReadAt)
+                  .IsRequired(false);
+
+            // Relationships
+            entity.HasOne(n => n.User)
+                  .WithMany(u => u.Notifications)   // assumes User entity has ICollection<Notification>
+                  .HasForeignKey(n => n.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(n => n.DisasterReport)
+                  .WithMany(dr => dr.Notifications) // your DisasterReport entity already has ICollection<Notification>
+                  .HasForeignKey(n => n.DisasterReportId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Chat>(entity =>
@@ -258,6 +300,13 @@ public partial class DisasterDbContext : DbContext
             entity.HasOne(d => d.VerifiedByNavigation).WithMany(p => p.DisasterReportVerifiedByNavigations)
                 .HasForeignKey(d => d.VerifiedBy)
                 .HasConstraintName("FK_DisasterReport_VerifiedBy");
+
+            // ✅ NEW: DisasterReport → Notifications relationship
+            entity.HasMany(d => d.Notifications)
+                .WithOne(n => n.DisasterReport)
+                .HasForeignKey(n => n.DisasterReportId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_DisasterReport_Notification");
         });
 
         modelBuilder.Entity<DisasterType>(entity =>
@@ -332,7 +381,7 @@ public partial class DisasterDbContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Description).HasColumnName("description");
-           
+
             entity.Property(e => e.IsResolved)
                 .HasDefaultValue(false)
                 .HasColumnName("is_resolved");
@@ -342,28 +391,23 @@ public partial class DisasterDbContext : DbContext
                 .HasConversion<string>()
                 .HasColumnName("severity");
 
-            modelBuilder.Entity<ImpactDetail>()
-    .HasMany(d => d.ImpactTypes)
-    .WithMany(t => t.ImpactDetails)
-    .UsingEntity<Dictionary<string, object>>(
-        "ImpactDetailImpactType",  // join table name
-        r => r.HasOne<ImpactType>()
-              .WithMany()
-              .HasForeignKey("ImpactTypeId")
-              .HasConstraintName("FK_ImpactDetailImpactType_ImpactType")
-              .OnDelete(DeleteBehavior.Cascade),
-        l => l.HasOne<ImpactDetail>()
-              .WithMany()
-              .HasForeignKey("ImpactDetailId")
-              .HasConstraintName("FK_ImpactDetailImpactType_ImpactDetail")
-              .OnDelete(DeleteBehavior.Cascade),
-        je =>
-        {
-            je.HasKey("ImpactDetailId", "ImpactTypeId");
-            je.ToTable("ImpactDetailImpactType");
-        }
-    );
-
+            // Many-to-many mapping to ImpactType
+            entity.HasMany(d => d.ImpactTypes)
+                .WithMany(t => t.ImpactDetails)
+                .UsingEntity<Dictionary<string, object>>(
+                    "ImpactDetailImpactType", // join table name
+                    j => j.HasOne<ImpactType>()
+                          .WithMany()
+                          .HasForeignKey("ImpactTypeId"),
+                    j => j.HasOne<ImpactDetail>()
+                          .WithMany()
+                          .HasForeignKey("ImpactDetailId"),
+                    j =>
+                    {
+                        j.ToTable("ImpactDetailImpactType");
+                        j.Property<int>("ImpactDetailId");
+                        j.Property<int>("ImpactTypeId");
+                    });
         });
 
         modelBuilder.Entity<ImpactType>(entity =>
@@ -379,6 +423,7 @@ public partial class DisasterDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("name");
         });
+
 
         modelBuilder.Entity<Location>(entity =>
         {
@@ -678,6 +723,12 @@ public partial class DisasterDbContext : DbContext
                         j.IndexerProperty<Guid>("UserId").HasColumnName("user_id");
                         j.IndexerProperty<Guid>("RoleId").HasColumnName("role_id");
                     });
+            // ✅ NEW: User→ Notifications relationship
+            entity.HasMany(d => d.Notifications)
+      .WithOne(n => n.User)
+      .HasForeignKey(n => n.UserId)
+      .OnDelete(DeleteBehavior.Cascade)
+      .HasConstraintName("FK_User_Notification");
         });
 
         modelBuilder.Entity<OtpCode>(entity =>
