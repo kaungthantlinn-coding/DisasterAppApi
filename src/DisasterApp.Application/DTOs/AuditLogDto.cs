@@ -30,6 +30,7 @@ public class AuditLogFiltersDto
     public string? Search { get; set; }
     public string? Severity { get; set; }
     public string? Action { get; set; }
+    public string? TargetType { get; set; }
     public DateTime? DateFrom { get; set; }
     public DateTime? DateTo { get; set; }
     public string? UserId { get; set; }
@@ -76,6 +77,8 @@ public class CreateAuditLogDto
     public string Severity { get; set; } = "info";
     
     public Guid? UserId { get; set; }
+    
+    public string? UserName { get; set; }
     
     [Required]
     public string Details { get; set; } = null!;

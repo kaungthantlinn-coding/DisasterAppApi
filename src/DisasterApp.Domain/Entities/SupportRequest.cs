@@ -26,7 +26,7 @@ public partial class SupportRequest
 
     public virtual User User { get; set; } = null!;
 
-    public virtual ICollection<SupportRequestSupportType> SupportRequestSupportTypes { get; set; } = new List<SupportRequestSupportType>();
+   
 
     public virtual ICollection<SupportType> SupportTypes { get; set; } = new List<SupportType>();
 }

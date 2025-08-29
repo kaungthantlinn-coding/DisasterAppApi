@@ -138,8 +138,54 @@ namespace DisasterApp.Application.Services
                         impactDetail.ImpactTypes.Add(impactType);
                     }
 
+
+                foreach (var impactDto in dto.ImpactDetails)
+                {
+                    var impactDetail = new ImpactDetail
+                    {
+                        //Id= Guid.NewGuid(), // Ensure a new ID is generated
+                        Description = impactDto.Description,
+                        Severity = impactDto.Severity,
+                        ImpactTypes = new List<ImpactType>()
+                    };
+
+                    foreach (var impactTypeId in impactDto.ImpactTypeIds)
+                    {
+                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
+                        impactDetail.ImpactTypes.Add(impactType);
+                    }
+
                     report.ImpactDetails.Add(impactDetail);
                 }
+>>>>>>> 732968142c67b11259df3263796a8174113141d6
+
+
+                var location = new Location
+                    report.ImpactDetails.Add(impactDetail);
+                }
+
+                var location = new Location
+=======
+
+                foreach (var impactDto in dto.ImpactDetails)
+                {
+                    var impactDetail = new ImpactDetail
+                    {
+                        //Id= Guid.NewGuid(), // Ensure a new ID is generated
+                        Description = impactDto.Description,
+                        Severity = impactDto.Severity,
+                        ImpactTypes = new List<ImpactType>()
+                    };
+
+                    foreach (var impactTypeId in impactDto.ImpactTypeIds)
+                    {
+                        var impactType = await _impactTypeReository.GetByIdAsync(impactTypeId) ?? throw new Exception($"ImpactType with ID {impactTypeId} not found");
+                        impactDetail.ImpactTypes.Add(impactType);
+                    }
+
+                    report.ImpactDetails.Add(impactDetail);
+                }
+>>>>>>> 732968142c67b11259df3263796a8174113141d6
 
 
                 var location = new Location
@@ -155,11 +201,13 @@ namespace DisasterApp.Application.Services
                     Report = report
                 };
 
+>>>>>>> 732968142c67b11259df3263796a8174113141d6
+                await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
                 await _repository.CreateAsync(report, location);
 
-           
-                
-
+                await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
+=======
+>>>>>>> 732968142c67b11259df3263796a8174113141d6
                 await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
 
                 if (dto.Photos != null && dto.Photos.Any())
@@ -381,7 +429,11 @@ namespace DisasterApp.Application.Services
             return dto;
         }
 
+<<<<<<< HEAD
         public async Task <IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
+=======
+        public async Task<IEnumerable<DisasterReportDto>> GetReportsByUserIdAsync(Guid userId)
+>>>>>>> 732968142c67b11259df3263796a8174113141d6
         {
             var reports = await _repository.GetReportsByUserIdAsync(userId);
             var activeReports = reports.Where(r => r.IsDeleted != true);

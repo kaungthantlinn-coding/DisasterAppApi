@@ -417,3 +417,5 @@ src/DisasterApp.Infrastructure/Migrations/20250812083858_InitialCreate.cs
 src/DisasterApp.Infrastructure/Migrations/20250812083858_InitialCreate.Designer.cs
 src/DisasterApp.Infrastructure/Migrations/20250813080927_InitialCreate.cs
 src/DisasterApp.Infrastructure/Migrations/20250813080927_InitialCreate.Designer.cs
+test_api_health.ps1
+test_stats_endpoint.ps1

@@ -3,234 +3,240 @@ using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace DisasterApp.Infrastructure.Repositories.Implementations;
-
-public class UserRepository : IUserRepository
+namespace DisasterApp.Infrastructure.Repositories.Implementations
 {
-    private readonly DisasterDbContext _context;
-
-    public UserRepository(DisasterDbContext context)
+    public class UserRepository : IUserRepository
     {
-        _context = context;
-    }
+        private readonly DisasterDbContext _context;
 
-    public async Task<User?> GetByEmailAsync(string email)
-    {
-        return await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.Email == email);
-    }
-
-    public async Task<User?> GetByIdAsync(Guid userId)
-    {
-        return await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.UserId == userId);
-    }
-
-    public async Task<User?> GetByAuthProviderAsync(string authProvider, string authId)
-    {
-        return await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.AuthProvider == authProvider && u.AuthId == authId);
-    }
-
-    public async Task<User> CreateAsync(User user)
-    {
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-        return user;
-    }
-
-    public async Task<User> UpdateAsync(User user)
-    {
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync();
-        return user;
-    }
-
-    public async Task<bool> ExistsAsync(string email)
-    {
-        return await _context.Users.AnyAsync(u => u.Email == email);
-    }
-
-    public async Task<List<string>> GetUserRolesAsync(Guid userId)
-    {
-        return await _context.Users
-            .Where(u => u.UserId == userId)
-            .SelectMany(u => u.Roles)
-            .Select(r => r.Name)
-            .ToListAsync();
-    }
-
-    public async Task<(List<User> Users, int TotalCount)> GetUsersAsync(
-        int pageNumber,
-        int pageSize,
-        string? searchTerm = null,
-        string? role = null,
-        bool? isBlacklisted = null,
-        string? authProvider = null,
-        DateTime? createdAfter = null,
-        DateTime? createdBefore = null,
-        string sortBy = "CreatedAt",
-        string sortDirection = "desc")
-    {
-        var query = _context.Users
-            .Include(u => u.Roles)
-            .AsQueryable();
-
-        // Apply filters
-        if (!string.IsNullOrEmpty(searchTerm))
+        public UserRepository(DisasterDbContext context)
         {
-            var searchTermLower = searchTerm.ToLower();
-            query = query.Where(u => u.Name.ToLower().Contains(searchTermLower) ||
-                                   u.Email.ToLower().Contains(searchTermLower));
+            _context = context;
         }
 
-        if (!string.IsNullOrEmpty(role))
+        public async Task<User?> GetByEmailAsync(string email)
         {
-            query = query.Where(u => u.Roles.Any(r => r.Name.ToLower() == role.ToLower()));
+            return await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        if (isBlacklisted.HasValue)
+        public async Task<User?> GetByIdAsync(Guid userId)
         {
-            query = query.Where(u => u.IsBlacklisted == isBlacklisted.Value);
+            return await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
         }
 
-        if (!string.IsNullOrEmpty(authProvider))
+        public async Task<User?> GetByAuthProviderAsync(string authProvider, string authId)
         {
-            query = query.Where(u => u.AuthProvider.ToLower() == authProvider.ToLower());
+            return await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.AuthProvider == authProvider && u.AuthId == authId);
         }
 
-        if (createdAfter.HasValue)
+        public async Task<User> CreateAsync(User user)
         {
-            query = query.Where(u => u.CreatedAt >= createdAfter.Value);
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            return user;
         }
 
-        if (createdBefore.HasValue)
+        public async Task<User> UpdateAsync(User user)
         {
-            query = query.Where(u => u.CreatedAt <= createdBefore.Value);
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+            return user;
         }
 
-        // Apply sorting
-        query = sortBy.ToLower() switch
+        public async Task<bool> ExistsAsync(string email)
         {
-            "name" => sortDirection.ToLower() == "desc"
-                ? query.OrderByDescending(u => u.Name)
-                : query.OrderBy(u => u.Name),
-            "email" => sortDirection.ToLower() == "desc"
-                ? query.OrderByDescending(u => u.Email)
-                : query.OrderBy(u => u.Email),
-            "createdat" => sortDirection.ToLower() == "desc"
-                ? query.OrderByDescending(u => u.CreatedAt)
-                : query.OrderBy(u => u.CreatedAt),
-            _ => query.OrderByDescending(u => u.CreatedAt)
-        };
+            return await _context.Users.AnyAsync(u => u.Email == email);
+        }
 
-        var totalCount = await query.CountAsync();
-
-        var users = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        return (users, totalCount);
-    }
-
-    public async Task<User?> GetUserWithDetailsAsync(Guid userId)
-    {
-        return await _context.Users
-            .Include(u => u.Roles)
-            .Include(u => u.DisasterReportUsers)
-            .Include(u => u.SupportRequests)
-            .Include(u => u.DonationUsers)
-            .Include(u => u.Organizations)
-            .FirstOrDefaultAsync(u => u.UserId == userId);
-    }
-
-    public async Task<bool> DeleteUserAsync(Guid userId)
-    {
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null) return false;
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> ExistsAsync(Guid userId)
-    {
-        return await _context.Users.AnyAsync(u => u.UserId == userId);
-    }
-
-    public async Task<bool> ExistsAsync(string email, Guid excludeUserId)
-    {
-        return await _context.Users.AnyAsync(u => u.Email == email && u.UserId != excludeUserId);
-    }
-
-    public async Task<int> GetTotalUsersCountAsync()
-    {
-        return await _context.Users.CountAsync();
-    }
-
-    public async Task<int> GetActiveUsersCountAsync()
-    {
-        return await _context.Users.CountAsync(u => u.IsBlacklisted != true);
-    }
-
-    public async Task<int> GetSuspendedUsersCountAsync()
-    {
-        return await _context.Users.CountAsync(u => u.IsBlacklisted == true);
-    }
-
-    public async Task<int> GetAdminUsersCountAsync()
-    {
-        return await _context.Users
-            .Where(u => u.Roles.Any(r => r.Name.ToLower() == "admin"))
-            .CountAsync();
-    }
-
-    public async Task<List<User>> GetUsersByIdsAsync(List<Guid> userIds)
-    {
-        return await _context.Users
-            .Include(u => u.Roles)
-            .Where(u => userIds.Contains(u.UserId))
-            .ToListAsync();
-    }
-
-    public async Task<bool> BulkUpdateUsersAsync(List<User> users)
-    {
-        try
+        public async Task<List<string>> GetUserRolesAsync(Guid userId)
         {
-            _context.Users.UpdateRange(users);
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+            
+            return user?.Roles.Select(r => r.Name).ToList() ?? new List<string>();
+        }
+
+        public async Task<(List<User> Users, int TotalCount)> GetUsersAsync(
+            int pageNumber,
+            int pageSize,
+            string? searchTerm = null,
+            string? role = null,
+            bool? isBlacklisted = null,
+            string? authProvider = null,
+            DateTime? createdAfter = null,
+            DateTime? createdBefore = null,
+            string sortBy = "CreatedAt",
+            string sortDirection = "desc")
+        {
+            var query = _context.Users
+                .Include(u => u.Roles)
+                .AsQueryable();
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                query = query.Where(u => u.Name.Contains(searchTerm) || u.Email.Contains(searchTerm));
+            }
+
+            if (!string.IsNullOrEmpty(role))
+            {
+                query = query.Where(u => u.Roles.Any(r => r.Name == role));
+            }
+
+            if (isBlacklisted.HasValue)
+            {
+                if (isBlacklisted.Value)
+                {
+                    query = query.Where(u => u.IsBlacklisted == true);
+                }
+                else
+                {
+                    query = query.Where(u => u.IsBlacklisted != true);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(authProvider))
+            {
+                query = query.Where(u => u.AuthProvider == authProvider);
+            }
+
+            if (createdAfter.HasValue)
+            {
+                query = query.Where(u => u.CreatedAt >= createdAfter.Value);
+            }
+
+            if (createdBefore.HasValue)
+            {
+                query = query.Where(u => u.CreatedAt <= createdBefore.Value);
+            }
+
+            // Apply sorting
+            query = sortBy.ToLower() switch
+            {
+                "name" => sortDirection.ToLower() == "asc" 
+                    ? query.OrderBy(u => u.Name) 
+                    : query.OrderByDescending(u => u.Name),
+                "email" => sortDirection.ToLower() == "asc" 
+                    ? query.OrderBy(u => u.Email) 
+                    : query.OrderByDescending(u => u.Email),
+                "createdat" => sortDirection.ToLower() == "asc" 
+                    ? query.OrderBy(u => u.CreatedAt) 
+                    : query.OrderByDescending(u => u.CreatedAt),
+                _ => query.OrderByDescending(u => u.CreatedAt)
+            };
+
+            var totalCount = await query.CountAsync();
+            var users = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (users, totalCount);
+        }
+
+        public async Task<User?> GetUserWithDetailsAsync(Guid userId)
+        {
+            return await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+        }
+
+        public async Task<bool> DeleteUserAsync(Guid userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return false;
+
+            _context.Users.Remove(user);
             await _context.SaveChangesAsync();
             return true;
         }
-        catch
-        {
-            return false;
-        }
-    }
 
-    public async Task<(int DisasterReports, int SupportRequests, int Donations, int Organizations)> GetUserStatisticsAsync(Guid userId)
-    {
-        var user = await _context.Users
-            .Include(u => u.DisasterReportUsers)
-            .Include(u => u.SupportRequests)
-            .Include(u => u.DonationUsers)
-            .Include(u => u.Organizations)
-            .FirstOrDefaultAsync(u => u.UserId == userId);
-
-        if (user == null)
+        public async Task<bool> ExistsAsync(Guid userId)
         {
-            return (0, 0, 0, 0);
+            return await _context.Users.AnyAsync(u => u.UserId == userId);
         }
 
-        return (
-            user.DisasterReportUsers.Count,
-            user.SupportRequests.Count,
-            user.DonationUsers.Count,
-            user.Organizations.Count
-        );
+        public async Task<bool> ExistsAsync(string email, Guid excludeUserId)
+        {
+            return await _context.Users.AnyAsync(u => u.Email == email && u.UserId != excludeUserId);
+        }
+
+        public async Task<int> GetTotalUsersCountAsync()
+        {
+            return await _context.Users.CountAsync();
+        }
+
+        public async Task<int> GetActiveUsersCountAsync()
+        {
+            return await _context.Users.CountAsync(u => u.IsBlacklisted != true);
+        }
+
+        public async Task<int> GetSuspendedUsersCountAsync()
+        {
+            return await _context.Users.CountAsync(u => u.IsBlacklisted == true);
+        }
+
+        public async Task<int> GetAdminUsersCountAsync()
+        {
+            return await _context.Users
+                .Include(u => u.Roles)
+                .CountAsync(u => u.Roles.Any(r => r.Name.ToLower() == "admin" || r.Name.ToLower() == "superadmin"));
+        }
+
+        public async Task<List<User>> GetUsersByIdsAsync(List<Guid> userIds)
+        {
+            return await _context.Users
+                .Include(u => u.Roles)
+                .Where(u => userIds.Contains(u.UserId))
+                .ToListAsync();
+        }
+
+        public async Task<bool> BulkUpdateUsersAsync(List<User> users)
+        {
+            try
+            {
+                _context.Users.UpdateRange(users);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task<(int DisasterReports, int SupportRequests, int Donations, int Organizations)> GetUserStatisticsAsync(Guid userId)
+        {
+            var disasterReports = await _context.DisasterReports.CountAsync(dr => dr.UserId == userId);
+            var supportRequests = await _context.SupportRequests.CountAsync(sr => sr.UserId == userId);
+            
+            // Note: Donations and Organizations tables might not exist yet, so returning 0 for now
+            var donations = 0;
+            var organizations = 0;
+
+            return (disasterReports, supportRequests, donations, organizations);
+        }
+
+        public async Task<int> GetUserCountByRoleAsync(Guid roleId)
+        {
+            return await _context.Users
+                .Include(u => u.Roles)
+                .CountAsync(u => u.Roles.Any(r => r.RoleId == roleId));
+        }
+
+        public async Task<List<User>> GetUsersByRoleAsync(Guid roleId)
+        {
+            return await _context.Users
+                .Include(u => u.Roles)
+                .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+                .ToListAsync();
+        }
     }
 }

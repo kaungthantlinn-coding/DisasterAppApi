@@ -31,3 +31,13 @@ public class AdminOrCjAttribute : RoleRequirementAttribute
 {
     public AdminOrCjAttribute() : base("admin", "cj") { }
 }
+
+public class SuperAdminOnlyAttribute : RoleRequirementAttribute
+{
+    public SuperAdminOnlyAttribute() : base("superadmin") { }
+}
+
+public class SuperAdminOrAdminAttribute : RoleRequirementAttribute
+{
+    public SuperAdminOrAdminAttribute() : base("superadmin", "admin") { }
+}
