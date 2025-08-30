@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DisasterApp.Application.Services
 {
-    public interface IExportService
+    public interface IReportExportService
     {
         Task<byte[]> ExportDisasterReportsToExcelAsync();
         Task<byte[]> ExportDisasterReportsToPdfAsync();

@@ -14,11 +14,11 @@ using System.Threading.Tasks;
 
 namespace DisasterApp.Application.Services
 {
-    public class ExportService : IExportService
+    public class ReportExportService : IReportExportService
     {
 
         private readonly IDisasterReportRepository _repository;
-        public ExportService(IDisasterReportRepository repository)
+        public ReportExportService(IDisasterReportRepository repository)
         {
             _repository = repository;
         }

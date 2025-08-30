@@ -95,7 +95,7 @@ namespace DisasterApp
 
             // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
-            builder.Services.AddScoped<IExportService, ExportService>();
+            builder.Services.AddScoped<IReportExportService, ReportExportService>();
 
 
             // Add authorization

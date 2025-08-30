@@ -14,8 +14,8 @@ namespace DisasterApp.WebApi.Controllers
     public class DisasterReportController : ControllerBase
     {
         private readonly IDisasterReportService _service;
-        private readonly IExportService _exportService;
-        public DisasterReportController(IDisasterReportService service, IExportService exportService)
+        private readonly IReportExportService _exportService;
+        public DisasterReportController(IDisasterReportService service, IReportExportService exportService)
         {
             _service = service;
             _exportService = exportService;
