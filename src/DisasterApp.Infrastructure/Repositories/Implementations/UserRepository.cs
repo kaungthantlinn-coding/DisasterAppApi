@@ -233,4 +233,11 @@ public class UserRepository : IUserRepository
             user.Organizations.Count
         );
     }
+    public async Task<List<User>> GetAllUsersAsyn()
+    {
+        return await _context.Users
+            .Include(u => u.Roles)
+            .Where(u=> u.IsBlacklisted != true)
+            .ToListAsync();
+    }
 }

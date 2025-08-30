@@ -7,7 +7,7 @@ using System.Security.Claims;
 namespace DisasterApp.WebApi.Controllers;
 
 [ApiController]
-[Route("api/support-requests")]
+[Route("api/[controller]")]
 [Authorize]
 public class SupportRequestController : ControllerBase
 {

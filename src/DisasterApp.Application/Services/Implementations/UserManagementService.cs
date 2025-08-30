@@ -14,6 +14,7 @@ using iText.Kernel.Colors;
 using iText.Kernel.Geom;
 
 
+
 namespace DisasterApp.Application.Services.Implementations;
 
 public class UserManagementService : IUserManagementService

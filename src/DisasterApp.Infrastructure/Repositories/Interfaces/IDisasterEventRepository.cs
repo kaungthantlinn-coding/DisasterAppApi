@@ -14,5 +14,7 @@ namespace DisasterApp.Infrastructure.Repositories
         Task AddAsync(DisasterEvent entity);
         Task UpdateAsync(DisasterEvent entity);
         Task DeleteAsync(DisasterEvent entity);
+        Task<DisasterEvent> GetByNameAsync(string name);
+        
     }
 }
