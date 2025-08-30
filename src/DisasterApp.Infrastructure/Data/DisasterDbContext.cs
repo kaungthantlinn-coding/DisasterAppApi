@@ -184,15 +184,9 @@ public partial class DisasterDbContext : DbContext
             entity.Property(n => n.Type)
                   .IsRequired();
             entity.Property(n => n.IsRead)
-       .HasDefaultValue(false);
-
-                  .HasDefaultValueSql("GETUTCDATE()");
->>>>>>> 732968142c67b11259df3263796a8174113141d6
+                  .HasDefaultValue(false);
             entity.Property(n => n.CreatedAt)
                   .HasDefaultValueSql("GETUTCDATE()");
-=======
-                  .HasDefaultValueSql("GETUTCDATE()");
->>>>>>> 732968142c67b11259df3263796a8174113141d6
 
             entity.Property(n => n.ReadAt)
                   .IsRequired(false);

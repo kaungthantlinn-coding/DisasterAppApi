@@ -1,9 +1,4 @@
 using DisasterApp.Domain.Entities;
->>>>>>> 732968142c67b11259df3263796a8174113141d6
-using DisasterApp.Domain.Entities;
-=======
-using DisasterApp.Domain.Entities;
->>>>>>> 732968142c67b11259df3263796a8174113141d6
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;

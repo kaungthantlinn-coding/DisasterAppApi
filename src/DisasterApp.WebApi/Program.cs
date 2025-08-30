@@ -165,18 +165,11 @@ namespace DisasterApp
                 options.ClientSecret = builder.Configuration["GoogleAuth:ClientSecret"] ?? throw new InvalidOperationException("Google Client Secret not configured");
             });
 
-                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
->>>>>>> 732968142c67b11259df3263796a8174113141d6
-            });
             // Add services to the container.
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-            });
-=======
-                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
->>>>>>> 732968142c67b11259df3263796a8174113141d6
             });
 
             // Add SignalR
@@ -310,44 +303,9 @@ namespace DisasterApp
             app.UseAuthentication();
             app.UseAuthorization();
 
-            // Ensure database is created and up to date
-            using (var scope = app.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DisasterDbContext>();
-                try
-                {
-                    await context.Database.EnsureCreatedAsync();
-                    Console.WriteLine("Database schema ensured.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error ensuring database: {ex.Message}");
-                }
-            }
->>>>>>> 732968142c67b11259df3263796a8174113141d6
-
-            app.Run();
             app.MapControllers();
             app.MapHub<UserStatsHub>("/userStatsHub");
             app.MapHub<NotificationHub>("/notificationHub");
-
-            app.Run();
-=======
-            // Ensure database is created and up to date
-            using (var scope = app.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DisasterDbContext>();
-                try
-                {
-                    await context.Database.EnsureCreatedAsync();
-                    Console.WriteLine("Database schema ensured.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error ensuring database: {ex.Message}");
-                }
-            }
->>>>>>> 732968142c67b11259df3263796a8174113141d6
 
             app.Run();
         }

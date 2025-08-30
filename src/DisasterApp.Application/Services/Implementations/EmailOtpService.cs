@@ -174,25 +174,11 @@ public class EmailOtpService : IEmailOtpService
             otpCode.AttemptCount++;
             await _otpCodeRepository.UpdateAsync(otpCode);
 
-           
->>>>>>> 732968142c67b11259df3263796a8174113141d6
-
-             // Check if this is a new user (just created for email OTP)
-             var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
-                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
+            // Check if this is a new user (just created for email OTP)
+            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
+                          user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
             // Record successful attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "verify_otp", true);
-
-             // Check if this is a new user (just created for email OTP)
-             var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
-                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
-=======
-           
->>>>>>> 732968142c67b11259df3263796a8174113141d6
-
-             // Check if this is a new user (just created for email OTP)
-             var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
-                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
             // Generate tokens
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
