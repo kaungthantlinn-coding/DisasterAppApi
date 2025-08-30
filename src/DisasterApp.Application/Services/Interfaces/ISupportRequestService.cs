@@ -1,15 +1,31 @@
 using DisasterApp.Application.DTOs;
+using DisasterApp.Domain.Enums;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using static DisasterApp.Application.DTOs.SupportRequestDto;
 
-namespace DisasterApp.Application.Services.Interfaces;
-
-public interface ISupportRequestService
+namespace DisasterApp.Application.Services
 {
-    Task<SupportRequestDto> CreateAsync(SupportRequestCreateDto dto, Guid userId);
-    Task<IEnumerable<SupportRequestDto>> GetAllAsync();
-    Task<SupportRequestDto?> GetByIdAsync(int id);
-    Task<IEnumerable<SupportRequestDto>> GetByUserIdAsync(Guid userId);
-    Task<IEnumerable<SupportRequestDto>> GetByReportIdAsync(Guid reportId);
-    Task<SupportRequestDto?> UpdateAsync(int id, SupportRequestUpdateDto dto, Guid userId);
-    Task<bool> DeleteAsync(int id, Guid userId);
-    Task<IEnumerable<SupportTypeDto>> GetSupportTypesAsync();
+    public interface ISupportRequestService
+    {
+        Task<IEnumerable<SupportRequestsDto>> GetAllAsync();
+        Task<IEnumerable<string>> GetSupportTypeNamesAsync();
+        Task<SupportRequestsDto?> GetByIdAsync(int id);
+        Task<IEnumerable<SupportRequestsDto>> GetPendingRequestsAsync();
+        Task<IEnumerable<SupportRequestResponseDto>> GetAcceptedRequestsAsync();
+        Task<IEnumerable<SupportRequestResponseDto>> GetRejectedRequestsAsync();
+        Task<SupportRequestMetricsDto> GetMetricsAsync();
+
+        Task<IEnumerable<SupportRequestResponseDto>> GetAcceptedReportIdAsync(Guid ReportId);
+        Task<SupportRequestResponseDto?> ApproveSupportRequestAsync(int id, Guid adminUserId);
+        Task<SupportRequestResponseDto?> RejectSupportRequestAsync(int id, Guid adminUserId);
+        Task<bool> ApproveOrRejectSupportRequestAsync(int id, ReportStatus status, Guid adminUserId);
+        Task CreateAsync(Guid userId, SupportRequestCreateDto dto);
+        Task UpdateAsync(int id, SupportRequestUpdateDto dto);
+
+        Task<bool> DeleteAsync(int id);
+    }
 }

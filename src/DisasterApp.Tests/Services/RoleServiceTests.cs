@@ -1,20 +1,20 @@
-using DisasterApp.Application.Services.Implementations;
-using DisasterApp.Application.Services.Interfaces;
-using DisasterApp.Domain.Entities;
-using DisasterApp.Infrastructure.Data;
+using Xunit;
 using Microsoft.EntityFrameworkCore;
+using DisasterApp.Application.Services.Implementations;
+using DisasterApp.Infrastructure.Data;
+using DisasterApp.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
+using DisasterApp.Application.Services.Interfaces;
 
 namespace DisasterApp.Tests.Services;
 
 public class RoleServiceTests : IDisposable
 {
     private readonly DisasterDbContext _context;
+    private readonly RoleService _roleService;
     private readonly Mock<ILogger<RoleService>> _mockLogger;
     private readonly Mock<IAuditService> _mockAuditService;
-    private readonly RoleService _roleService;
 
     public RoleServiceTests()
     {
@@ -28,10 +28,95 @@ public class RoleServiceTests : IDisposable
         _roleService = new RoleService(_context, _mockLogger.Object, _mockAuditService.Object);
     }
 
-    public void Dispose()
+    #region IsSuperAdminAsync Tests
+
+    [Fact]
+    public async Task IsSuperAdminAsync_UserHasSuperAdminRole_ReturnsTrue()
     {
-        _context.Dispose();
+        // Arrange
+        var superAdminRole = new Role { RoleId = Guid.NewGuid(), Name = "superadmin" };
+        var user = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "superadmin@example.com",
+            Name = "Super Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { superAdminRole }
+        };
+
+        await _context.Roles.AddAsync(superAdminRole);
+        await _context.Users.AddAsync(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.IsSuperAdminAsync(user.UserId);
+
+        // Assert
+        Assert.True(result);
     }
+
+    [Fact]
+    public async Task IsSuperAdminAsync_UserDoesNotHaveSuperAdminRole_ReturnsFalse()
+    {
+        // Arrange
+        var adminRole = new Role { RoleId = Guid.NewGuid(), Name = "admin" };
+        var user = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "admin@example.com",
+            Name = "Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { adminRole }
+        };
+
+        await _context.Roles.AddAsync(adminRole);
+        await _context.Users.AddAsync(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.IsSuperAdminAsync(user.UserId);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task GetSuperAdminCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        var superAdminRole = new Role { RoleId = Guid.NewGuid(), Name = "superadmin" };
+        var adminRole = new Role { RoleId = Guid.NewGuid(), Name = "admin" };
+        
+        var superAdminUser = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "superadmin@example.com",
+            Name = "Super Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { superAdminRole }
+        };
+        
+        var adminUser = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "admin@example.com",
+            Name = "Admin",
+            AuthProvider = "Email",
+            Roles = new List<Role> { adminRole }
+        };
+
+        await _context.Roles.AddRangeAsync(superAdminRole, adminRole);
+        await _context.Users.AddRangeAsync(superAdminUser, adminUser);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _roleService.GetSuperAdminCountAsync();
+
+        // Assert
+        Assert.Equal(1, result);
+    }
+
+    #endregion
 
     #region CleanupDuplicateUserRolesAsync Tests
 
@@ -133,7 +218,7 @@ public class RoleServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CleanupDuplicateUserRolesAsync_Idempotency_SecondCallReturnsZero()
+    public async Task CleanupDuplicateUserRolesAsync_RoleIdempotency_SecondCallReturnsZero()
     {
         // Arrange
         var adminRole = new Role { RoleId = Guid.NewGuid(), Name = "Admin" };
@@ -278,9 +363,9 @@ public class RoleServiceTests : IDisposable
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Error during duplicate role cleanup")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error during duplicate role cleanup")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 
@@ -321,27 +406,27 @@ public class RoleServiceTests : IDisposable
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Starting cleanup of duplicate user roles")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Starting cleanup of duplicate user roles")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
             
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Removed duplicate role Admin from user")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Removed duplicate role Admin from user")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
             
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Cleanup completed. Removed 1 duplicate role assignments")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Cleanup completed. Removed 1 duplicate role assignments")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 
@@ -375,11 +460,16 @@ public class RoleServiceTests : IDisposable
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("No duplicate role assignments found")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("No duplicate role assignments found")),
                 It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        _context.Dispose();
+    }
 }

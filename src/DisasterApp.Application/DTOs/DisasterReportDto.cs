@@ -93,7 +93,7 @@ namespace DisasterApp.Application.DTOs
 
 
     public class DisasterReportExportDto
-    {      
+    {
         public string Title { get; set; } = null!;
         public string Description { get; set; } = null!;
         public DateTime Timestamp { get; set; }
@@ -116,5 +116,3 @@ namespace DisasterApp.Application.DTOs
         public List<string> PhotoUrls { get; set; } = new();
     }
 }
-
-

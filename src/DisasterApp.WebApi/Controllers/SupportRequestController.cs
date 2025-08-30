@@ -1,201 +1,143 @@
-using DisasterApp.Application.DTOs;
-using DisasterApp.Application.Services.Interfaces;
+using DisasterApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using static DisasterApp.Application.DTOs.SupportRequestDto;
 
 namespace DisasterApp.WebApi.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-[Authorize]
-public class SupportRequestController : ControllerBase
-{
-    private readonly ISupportRequestService _supportRequestService;
-    private readonly ILogger<SupportRequestController> _logger;
 
-    public SupportRequestController(
-        ISupportRequestService supportRequestService,
-        ILogger<SupportRequestController> logger)
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize]
+    public class SupportRequestController : ControllerBase
     {
-        _supportRequestService = supportRequestService;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Get all support requests
-    /// </summary>
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<SupportRequestDto>>> GetAll()
-    {
-        try
+        private readonly ISupportRequestService _service;
+        public SupportRequestController(ISupportRequestService service)
         {
-            var supportRequests = await _supportRequestService.GetAllAsync();
-            return Ok(supportRequests);
+            _service = service;
         }
-        catch (Exception ex)
+        [Authorize]
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
         {
-            _logger.LogError(ex, "Error retrieving support requests");
-            return StatusCode(500, "An error occurred while retrieving support requests");
+            var data = await _service.GetAllAsync();
+            return Ok(data);
         }
-    }
-
-    /// <summary>
-    /// Get support request by ID
-    /// </summary>
-    [HttpGet("{id}")]
-    public async Task<ActionResult<SupportRequestDto>> GetById(int id)
-    {
-        try
+        [Authorize]
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
         {
-            var supportRequest = await _supportRequestService.GetByIdAsync(id);
-            if (supportRequest == null)
-                return NotFound($"Support request with ID {id} not found");
-
-            return Ok(supportRequest);
+            var data = await _service.GetByIdAsync(id);
+            if (data == null) return NotFound();
+            return Ok(data);
         }
-        catch (Exception ex)
+        [Authorize]
+        [HttpGet("metrics")]
+        public async Task<IActionResult> GetMetrics()
         {
-            _logger.LogError(ex, "Error retrieving support request {Id}", id);
-            return StatusCode(500, "An error occurred while retrieving the support request");
+            var metrics = await _service.GetMetricsAsync();
+            return Ok(metrics);
         }
-    }
-
-    /// <summary>
-    /// Get support requests by user ID
-    /// </summary>
-    [HttpGet("user/{userId}")]
-    public async Task<ActionResult<IEnumerable<SupportRequestDto>>> GetByUserId(Guid userId)
-    {
-        try
+        [Authorize]
+        [HttpGet("pending")]
+        public async Task<IActionResult> GetPending()
         {
-            var supportRequests = await _supportRequestService.GetByUserIdAsync(userId);
-            return Ok(supportRequests);
+            var result = await _service.GetPendingRequestsAsync();
+            return Ok(result);
         }
-        catch (Exception ex)
+        [Authorize]
+
+        [HttpGet("accepted")]
+        public async Task<IActionResult> GetAccepted()
         {
-            _logger.LogError(ex, "Error retrieving support requests for user {UserId}", userId);
-            return StatusCode(500, "An error occurred while retrieving support requests");
+            var result = await _service.GetAcceptedRequestsAsync();
+            return Ok(result);
         }
-    }
 
-    /// <summary>
-    /// Get support requests by report ID
-    /// </summary>
-    [HttpGet("report/{reportId}")]
-    public async Task<ActionResult<IEnumerable<SupportRequestDto>>> GetByReportId(Guid reportId)
-    {
-        try
+        [HttpGet("rejected")]
+        public async Task<IActionResult> GetRejected()
         {
-            var supportRequests = await _supportRequestService.GetByReportIdAsync(reportId);
-            return Ok(supportRequests);
+            var result = await _service.GetRejectedRequestsAsync();
+            return Ok(result);
         }
-        catch (Exception ex)
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] SupportRequestCreateDto dto)
         {
-            _logger.LogError(ex, "Error retrieving support requests for report {ReportId}", reportId);
-            return StatusCode(500, "An error occurred while retrieving support requests");
+            if (!User.Identity?.IsAuthenticated ?? true)
+                return Unauthorized();
+
+            // ✅ Extract userId from token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var userId = Guid.Parse(userIdClaim);
+            await _service.CreateAsync(userId, dto);
+            return Ok(new { message = "Support request created." });
         }
-    }
-
-    /// <summary>
-    /// Create a new support request
-    /// </summary>
-    [HttpPost]
-    public async Task<ActionResult<SupportRequestDto>> Create([FromBody] SupportRequestCreateDto dto)
-    {
-        try
+        [Authorize]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] SupportRequestUpdateDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var userId = GetCurrentUserId();
-            if (userId == Guid.Empty)
-                return Unauthorized("User ID not found in token");
-
-            var supportRequest = await _supportRequestService.CreateAsync(dto, userId);
-            return CreatedAtAction(nameof(GetById), new { id = supportRequest.Id }, supportRequest);
+            await _service.UpdateAsync(id, dto);
+            return Ok(new { message = "Support request updated." });
         }
-        catch (Exception ex)
+        [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
         {
-            _logger.LogError(ex, "Error creating support request");
-            return StatusCode(500, "An error occurred while creating the support request");
+            var deleted = await _service.DeleteAsync(id);
+            if (!deleted) return NotFound();
+            return Ok(new { message = "Support request deleted." });
         }
-    }
-
-    /// <summary>
-    /// Update an existing support request
-    /// </summary>
-    [HttpPut("{id}")]
-    public async Task<ActionResult<SupportRequestDto>> Update(int id, [FromBody] SupportRequestUpdateDto dto)
-    {
-        try
+        [Authorize]
+        [HttpGet("support-types")]
+        public async Task<ActionResult<IEnumerable<string>>> GetSupportTypes()
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var userId = GetCurrentUserId();
-            if (userId == Guid.Empty)
-                return Unauthorized("User ID not found in token");
-
-            var updatedRequest = await _supportRequestService.UpdateAsync(id, dto, userId);
-            if (updatedRequest == null)
-                return NotFound($"Support request with ID {id} not found");
-
-            return Ok(updatedRequest);
+            var types = await _service.GetSupportTypeNamesAsync();
+            return Ok(types);
         }
-        catch (Exception ex)
+        [Authorize]
+        [HttpPut("{id}/accept")]
+        public async Task<IActionResult> Accept(int id)
         {
-            _logger.LogError(ex, "Error updating support request {Id}", id);
-            return StatusCode(500, "An error occurred while updating the support request");
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+            var updatedDto = await _service.ApproveSupportRequestAsync(id, adminId);
+            if (updatedDto == null) return NotFound();
+            return Ok(updatedDto);
+        }
+        [HttpPut("{id}/reject")]
+        public async Task<IActionResult> Reject(int id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+
+            var updatedDto = await _service.RejectSupportRequestAsync(id, adminId);
+            if (updatedDto == null) return NotFound();
+
+            return Ok(updatedDto);
+
+        }
+        [Authorize]
+        [HttpGet("accepted/{reportId}")]
+        public async Task<IActionResult> GetAcceptedRequests(Guid reportId)
+        {
+            var result = await _service.GetAcceptedReportIdAsync(reportId);
+
+            if (result == null || !result.Any())
+                return NotFound(new { Message = "No accepted support requests found for this report." });
+
+            return Ok(result);
         }
     }
-
-    /// <summary>
-    /// Delete a support request
-    /// </summary>
-    [HttpDelete("{id}")]
-    public async Task<ActionResult> Delete(int id)
-    {
-        try
-        {
-            var userId = GetCurrentUserId();
-            if (userId == Guid.Empty)
-                return Unauthorized("User ID not found in token");
-
-            var deleted = await _supportRequestService.DeleteAsync(id, userId);
-            if (!deleted)
-                return NotFound($"Support request with ID {id} not found");
-
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting support request {Id}", id);
-            return StatusCode(500, "An error occurred while deleting the support request");
-        }
-    }
-
-    /// <summary>
-    /// Get all available support types
-    /// </summary>
-    [HttpGet("support-types")]
-    public async Task<ActionResult<IEnumerable<SupportTypeDto>>> GetSupportTypes()
-    {
-        try
-        {
-            var supportTypes = await _supportRequestService.GetSupportTypesAsync();
-            return Ok(supportTypes);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving support types");
-            return StatusCode(500, "An error occurred while retrieving support types");
-        }
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
-}

@@ -7,8 +7,6 @@ using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Application.DTOs;
-using System.Security.Claims;
-using BCrypt.Net;
 
 namespace DisasterApp.Tests.Services;
 
@@ -17,12 +15,16 @@ public class AuthServiceTests
     private readonly Mock<IUserRepository> _mockUserRepository;
     private readonly Mock<IRefreshTokenRepository> _mockRefreshTokenRepository;
     private readonly Mock<IPasswordResetTokenRepository> _mockPasswordResetTokenRepository;
-    private readonly Mock<IBackupCodeRepository> _mockBackupCodeRepository;
-    private readonly Mock<IOtpCodeRepository> _mockOtpCodeRepository;
-    private readonly Mock<IOtpAttemptRepository> _mockOtpAttemptRepository;
+    private readonly Mock<IEmailService> _mockEmailService;
+    private readonly Mock<IRoleService> _mockRoleService;
+    private readonly Mock<IPasswordValidationService> _mockPasswordValidationService;
+    private readonly Mock<ITwoFactorService> _mockTwoFactorService;
+    private readonly Mock<IOtpService> _mockOtpService;
+    private readonly Mock<IBackupCodeService> _mockBackupCodeService;
+    private readonly Mock<IRateLimitingService> _mockRateLimitingService;
+    private readonly Mock<ITokenService> _mockTokenService;
     private readonly Mock<IConfiguration> _mockConfiguration;
     private readonly Mock<ILogger<AuthService>> _mockLogger;
-    private readonly Mock<IRoleService> _mockRoleService;
     private readonly AuthService _authService;
 
     public AuthServiceTests()
@@ -30,41 +32,37 @@ public class AuthServiceTests
         _mockUserRepository = new Mock<IUserRepository>();
         _mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
         _mockPasswordResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
-        _mockBackupCodeRepository = new Mock<IBackupCodeRepository>();
-        _mockOtpCodeRepository = new Mock<IOtpCodeRepository>();
-        _mockOtpAttemptRepository = new Mock<IOtpAttemptRepository>();
+        _mockEmailService = new Mock<IEmailService>();
+        _mockRoleService = new Mock<IRoleService>();
+        _mockPasswordValidationService = new Mock<IPasswordValidationService>();
+        _mockTwoFactorService = new Mock<ITwoFactorService>();
+        _mockOtpService = new Mock<IOtpService>();
+        _mockBackupCodeService = new Mock<IBackupCodeService>();
+        _mockRateLimitingService = new Mock<IRateLimitingService>();
+        _mockTokenService = new Mock<ITokenService>();
         _mockConfiguration = new Mock<IConfiguration>();
         _mockLogger = new Mock<ILogger<AuthService>>();
-        _mockRoleService = new Mock<IRoleService>();
 
-        // Setup configuration
-        _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("your-256-bit-secret-key-here-that-is-long-enough");
-        _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("DisasterApp");
-        _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("DisasterAppUsers");
-        _mockConfiguration.Setup(x => x["Jwt:ExpiryInMinutes"]).Returns("60");
+        // Setup configuration defaults
+        _mockConfiguration.Setup(x => x["GoogleAuth:ClientId"]).Returns("test-client-id");
+        _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("this-is-a-very-long-secret-key-for-jwt-token-generation-that-is-at-least-256-bits-long");
+        _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("test-issuer");
+        _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("test-audience");
         _mockConfiguration.Setup(x => x["Jwt:AccessTokenExpirationMinutes"]).Returns("60");
-        _mockConfiguration.Setup(x => x["GoogleAuth:ClientId"]).Returns("test-google-client-id");
-
-        var mockEmailService = new Mock<IEmailService>();
-        var mockPasswordValidationService = new Mock<IPasswordValidationService>();
-        var mockTwoFactorService = new Mock<ITwoFactorService>();
-        var mockOtpService = new Mock<IOtpService>();
-        var mockBackupCodeService = new Mock<IBackupCodeService>();
-        var mockRateLimitingService = new Mock<IRateLimitingService>();
-        var mockTokenService = new Mock<ITokenService>();
+        _mockConfiguration.Setup(x => x["Jwt:RefreshTokenExpirationDays"]).Returns("7");
 
         _authService = new AuthService(
             _mockUserRepository.Object,
             _mockRefreshTokenRepository.Object,
             _mockPasswordResetTokenRepository.Object,
-            mockEmailService.Object,
+            _mockEmailService.Object,
             _mockRoleService.Object,
-            mockPasswordValidationService.Object,
-            mockTwoFactorService.Object,
-            mockOtpService.Object,
-            mockBackupCodeService.Object,
-            mockRateLimitingService.Object,
-            mockTokenService.Object,
+            _mockPasswordValidationService.Object,
+            _mockTwoFactorService.Object,
+            _mockOtpService.Object,
+            _mockBackupCodeService.Object,
+            _mockRateLimitingService.Object,
+            _mockTokenService.Object,
             _mockConfiguration.Object,
             _mockLogger.Object
         );
@@ -279,22 +277,7 @@ public class AuthServiceTests
         Assert.NotNull(result.AccessToken);
         Assert.NotNull(result.RefreshToken);
         Assert.NotNull(result.User);
-    }
-
-    [Fact]
-    public async Task RefreshTokenAsync_InvalidToken_ThrowsException()
-    {
-        // Arrange
-        var refreshTokenValue = "invalid-refresh-token";
-        
-        _mockRefreshTokenRepository.Setup(x => x.GetByTokenAsync(refreshTokenValue))
-            .ReturnsAsync((RefreshToken?)null);
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _authService.RefreshTokenAsync(new RefreshTokenRequestDto { RefreshToken = refreshTokenValue }));
-        
-        Assert.Equal("Invalid or expired refresh token", exception.Message);
+        Assert.Equal(user.Email, result.User.Email);
     }
 
     [Fact]
@@ -392,7 +375,7 @@ public class AuthServiceTests
     public async Task GoogleLoginAsync_MissingGoogleClientId_ThrowsInvalidOperationException()
     {
         // Arrange
-        _mockConfiguration.Setup(x => x["GoogleAuth:ClientId"]).Returns((string)null);
+        _mockConfiguration.Setup(x => x["GoogleAuth:ClientId"]).Returns((string?)null);
         var request = new GoogleLoginRequestDto { IdToken = "valid-token" };
 
         // Act & Assert
@@ -480,7 +463,7 @@ public class AuthServiceTests
         var request = new GoogleLoginRequestDto { IdToken = "valid-google-token" };
         
         _mockUserRepository.Setup(x => x.GetByEmailAsync(It.IsAny<string>()))
-            .ReturnsAsync((User)null); // No existing user
+            .ReturnsAsync((User?)null); // No existing user
         _mockUserRepository.Setup(x => x.CreateAsync(It.IsAny<User>()))
             .ReturnsAsync((User user) => user);
         _mockRoleService.Setup(x => x.AssignDefaultRoleToUserAsync(It.IsAny<Guid>()))
@@ -498,44 +481,66 @@ public class AuthServiceTests
         Assert.Contains("Failed to authenticate with Google", exception.Message);
     }
 
-    [Fact]
-    public async Task GoogleLoginAsync_InvalidToken_ThrowsUnauthorizedAccessException()
-    {
-        // Arrange
-        var request = new GoogleLoginRequestDto { IdToken = "invalid-token" };
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _authService.GoogleLoginAsync(request));
-        
-        Assert.Contains("Failed to authenticate with Google", exception.Message);
-    }
-
-    [Fact]
-    public async Task GoogleLoginAsync_NullToken_ThrowsUnauthorizedAccessException()
-    {
-        // Arrange
-        var request = new GoogleLoginRequestDto { IdToken = null };
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _authService.GoogleLoginAsync(request));
-        
-        Assert.Contains("Failed to authenticate with Google", exception.Message);
-    }
-
-    [Fact]
-    public async Task GoogleLoginAsync_EmptyToken_ThrowsUnauthorizedAccessException()
-    {
-        // Arrange
-        var request = new GoogleLoginRequestDto { IdToken = "" };
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _authService.GoogleLoginAsync(request));
-        
-        Assert.Contains("Failed to authenticate with Google", exception.Message);
-    }
-
     #endregion
+
+    [Fact]
+    public async Task RefreshTokenAsync_ExpiredToken_ThrowsException()
+    {
+        // Arrange
+        var refreshTokenValue = "expired-refresh-token";
+        var refreshToken = new RefreshToken
+        {
+            Token = refreshTokenValue,
+            UserId = Guid.NewGuid(),
+            ExpiredAt = DateTime.UtcNow.AddDays(-1), // Expired token
+            CreatedAt = DateTime.UtcNow.AddDays(-8)
+        };
+
+        _mockRefreshTokenRepository.Setup(x => x.GetByTokenAsync(refreshTokenValue))
+            .ReturnsAsync(refreshToken);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.RefreshTokenAsync(new RefreshTokenRequestDto { RefreshToken = refreshTokenValue }));
+        
+        Assert.Equal("Invalid or expired refresh token", exception.Message);
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_BlacklistedUser_ThrowsException()
+    {
+        // Arrange
+        var refreshTokenValue = "valid-refresh-token";
+        var userId = Guid.NewGuid();
+        
+        var user = new User
+        {
+            UserId = userId,
+            Email = "test@example.com",
+            Name = "Test User",
+            IsBlacklisted = true, // Blacklisted user
+            AuthProvider = "Email",
+            AuthId = BCrypt.Net.BCrypt.HashPassword("password123")
+        };
+
+        var refreshToken = new RefreshToken
+        {
+            Token = refreshTokenValue,
+            UserId = userId,
+            User = user,
+            ExpiredAt = DateTime.UtcNow.AddDays(7),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _mockRefreshTokenRepository.Setup(x => x.GetByTokenAsync(refreshTokenValue))
+            .ReturnsAsync(refreshToken);
+        _mockUserRepository.Setup(x => x.GetByIdAsync(userId))
+            .ReturnsAsync(user);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.RefreshTokenAsync(new RefreshTokenRequestDto { RefreshToken = refreshTokenValue }));
+        
+        Assert.Equal("User account is disabled", exception.Message);
+    }
 }

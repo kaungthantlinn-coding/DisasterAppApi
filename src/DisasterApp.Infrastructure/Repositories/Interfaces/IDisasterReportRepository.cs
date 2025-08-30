@@ -1,6 +1,5 @@
 ﻿using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;

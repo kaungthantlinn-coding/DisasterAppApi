@@ -1,4 +1,4 @@
-﻿using DisasterApp.Domain.Entities;
+using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
@@ -63,7 +63,7 @@ namespace DisasterApp.Infrastructure.Repositories
             report.Location = location;
 
             _context.DisasterReports.Add(report);
-            _context.Locations.AddAsync(location);
+            await _context.Locations.AddAsync(location);
             await _context.SaveChangesAsync();
             return report;
 

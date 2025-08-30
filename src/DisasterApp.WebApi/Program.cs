@@ -46,11 +46,13 @@ namespace DisasterApp
             builder.Services.AddSingleton(x =>
             {
                 var config = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+                if (config == null) throw new InvalidOperationException("Cloudinary settings not found");
                 return new Cloudinary(new Account(config.CloudName, config.ApiKey, config.ApiSecret));
             });
 
             // Add repositories
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IRoleRepository, RoleRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
             builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
@@ -69,6 +71,7 @@ namespace DisasterApp
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
+            builder.Services.AddScoped<IRoleManagementService, RoleManagementService>();
             builder.Services.AddScoped<IUserManagementService, UserManagementService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
@@ -97,6 +100,13 @@ namespace DisasterApp
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
             builder.Services.AddScoped<IReportExportService, ReportExportService>();
 
+            // Add Enhanced Audit System services
+            builder.Services.AddScoped<IAuditTargetValidator, AuditTargetValidator>();
+            builder.Services.AddScoped<IAuditDataSanitizer, AuditDataSanitizer>();
+            builder.Services.AddScoped<IExportService, ExportService>();
+            builder.Services.AddScoped<IDonationAuditService, DonationAuditService>();
+            builder.Services.AddScoped<IOrganizationAuditService, OrganizationAuditService>();
+            builder.Services.AddScoped<IAuditRetentionService, AuditRetentionService>();
 
             // Add authorization
             builder.Services.AddAuthorization(options =>
@@ -157,10 +167,12 @@ namespace DisasterApp
                 options.ClientSecret = builder.Configuration["GoogleAuth:ClientSecret"] ?? throw new InvalidOperationException("Google Client Secret not configured");
             });
 
+               
             // Add services to the container.
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
             });
 
             // Add SignalR
@@ -292,15 +304,28 @@ namespace DisasterApp
             }
 
             app.UseAuthentication();
-            app.UseMiddleware<AuditLogMiddleware>();
             app.UseAuthorization();
 
+            // Ensure database is created and up to date
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<DisasterDbContext>();
+                try
+                {
+                    await context.Database.EnsureCreatedAsync();
+                    Console.WriteLine("Database schema ensured.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error ensuring database: {ex.Message}");
+                }
+            }
+
+
+            app.Run();
             app.MapControllers();
             app.MapHub<UserStatsHub>("/userStatsHub");
             app.MapHub<NotificationHub>("/notificationHub");
-
-
-
             app.Run();
         }
     }
