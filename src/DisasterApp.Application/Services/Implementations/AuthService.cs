@@ -66,25 +66,21 @@ public class AuthService : IAuthService
         if (user is null)
             throw new UnauthorizedAccessException("Invalid email or password");
 
-          // Log user info
         _logger.LogInformation("Retrieved user from DB: UserId={UserId}, Name={Name}, Email={Email}, PhotoUrl={PhotoUrl}, AuthProvider={AuthProvider}", 
             user.UserId, user.Name, user.Email, user.PhotoUrl, user.AuthProvider);
 
-        // Check if user is using social login
         if (user.AuthProvider != "Email")
             throw new UnauthorizedAccessException("Please use social login for this account");
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.AuthId))
             throw new UnauthorizedAccessException("Invalid email or password");
 
-        // Check if user is blacklisted
         if (user.IsBlacklisted == true)
             throw new UnauthorizedAccessException("Account has been suspended");
 
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         _logger.LogInformation("Retrieved roles for user {UserId}: {Roles}", user.UserId, string.Join(",", roles));
         
-         // If user has no roles, assign default role
         if (roles.Count == 0)
         {
             _logger.LogInformation("User {UserId} has no roles assigned, assigning default role", user.UserId);
@@ -142,7 +138,6 @@ public class AuthService : IAuthService
 
         var createdUser = await _userRepository.CreateAsync(user);
 
-        // Assign default admin role to new user
         await _roleService.AssignDefaultRoleToUserAsync(createdUser.UserId);
 
         var userRoles = await _roleService.GetUserRolesAsync(createdUser.UserId);
@@ -192,7 +187,7 @@ public class AuthService : IAuthService
             _logger.LogInformation("✅ GoogleLogin - Token validated successfully. Email: {Email}, Name: {Name}, Subject: {Subject}", 
                 payload.Email, payload.Name, payload.Subject);
 
-            // Check if user exists
+        
             var existingUser = await _userRepository.GetByEmailAsync(payload.Email);
 
             if (existingUser != null)
@@ -200,7 +195,7 @@ public class AuthService : IAuthService
                 _logger.LogInformation("👤 GoogleLogin - Existing user found: {UserId}, Name: {Name}, Email: {Email}", 
                     existingUser.UserId, existingUser.Name, existingUser.Email);
                 
-                // Check if user is blacklisted
+                
                 if (existingUser.IsBlacklisted == true)
                 {
                     _logger.LogWarning("❌ GoogleLogin - User {UserId} is blacklisted", existingUser.UserId);
@@ -221,7 +216,7 @@ public class AuthService : IAuthService
                 var roles = await _userRepository.GetUserRolesAsync(existingUser.UserId);
                 _logger.LogInformation("🔐 GoogleLogin - User roles: {Roles}", string.Join(", ", roles));
                 
-                // If user has no roles, assign default role
+                // Ensure user has at least the default role (fix for users created before role assignment was implemented)
                 if (roles.Count == 0)
                 {
                     _logger.LogInformation("🔐 GoogleLogin - User {UserId} has no roles assigned, assigning default role", existingUser.UserId);
@@ -359,22 +354,18 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }
 
-        var user = refreshToken.User ?? await _userRepository.GetByIdAsync(refreshToken.UserId);
-        if (user == null)
-        {
-            _logger.LogWarning("❌ RefreshTokenAsync - User not found for refresh token. UserId: {UserId}", refreshToken.UserId);
-            throw new UnauthorizedAccessException("Invalid or expired refresh token");
-        }
+        var user = refreshToken.User;
         
         // Check if user is blacklisted
         if (user.IsBlacklisted == true)
         {
-            _logger.LogWarning("❌ RefreshTokenAsync - User is blacklisted. UserId: {UserId}", user.UserId);
+            _logger.LogWarning("❌ RefreshTokenAsync - User is blacklisted: {UserId}", user.UserId);
             throw new UnauthorizedAccessException("User account is disabled");
         }
+        
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         
-        // If user has no roles, assign default role
+        // Ensure user has at least the default role (fix for users created before role assignment was implemented)
         if (roles.Count == 0)
         {
             _logger.LogInformation("RefreshToken - User {UserId} has no roles assigned, assigning default role", user.UserId);
@@ -386,7 +377,7 @@ public class AuthService : IAuthService
         var newAccessToken = GenerateAccessToken(user, roles);
         var newRefreshToken = await GenerateRefreshTokenAsync(user.UserId);
 
-        // Delete old refresh token
+        // Delete old refresh token (atomic operation handles concurrency)
         var deleted = await _refreshTokenRepository.DeleteAsync(request.RefreshToken);
         if (!deleted)
         {
@@ -508,7 +499,7 @@ public class AuthService : IAuthService
 
             var user = await _userRepository.GetByEmailAsync(request.Email);
 
-            // User not found
+            // Always return success to prevent email enumeration attacks
             if (user == null)
             {
                 _logger.LogInformation("Forgot password request for non-existent user: {Email}", request.Email);
@@ -544,7 +535,7 @@ public class AuthService : IAuthService
                 };
             }
 
-             // Delete existing password reset tokens
+            // Delete any existing password reset tokens for this user
             _logger.LogInformation("Deleting existing password reset tokens for user: {UserId}", user.UserId);
             await _passwordResetTokenRepository.DeleteAllUserTokensAsync(user.UserId);
 
@@ -828,7 +819,7 @@ public class AuthService : IAuthService
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
             
-            // If user has no roles, assign default role
+            // Ensure user has at least the default role (fix for users created before role assignment was implemented)
             if (roles.Count == 0)
             {
                 _logger.LogInformation("VerifyOtp - User {UserId} has no roles assigned, assigning default role", user.UserId);

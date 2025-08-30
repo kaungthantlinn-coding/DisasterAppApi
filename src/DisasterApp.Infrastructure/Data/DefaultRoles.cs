@@ -33,8 +33,8 @@ public static class DefaultRoles
         new Role 
         { 
             RoleId = Guid.NewGuid(),
-            Name = "Manager", 
-            Description = "Department manager with team oversight and reporting capabilities",
+            Name = "CJ", 
+            Description = "CJ with team oversight and reporting capabilities",
             IsActive = true,
             IsSystem = false,
             CreatedAt = DateTime.UtcNow,

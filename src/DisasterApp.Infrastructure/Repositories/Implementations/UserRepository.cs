@@ -82,7 +82,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
             // Apply filters
             if (!string.IsNullOrEmpty(searchTerm))
             {
-                query = query.Where(u => u.Name.Contains(searchTerm) || u.Email.Contains(searchTerm));
+                query = query.Where(u => u.Name.ToLower().Contains(searchTerm.ToLower()) || u.Email.ToLower().Contains(searchTerm.ToLower()));
             }
 
             if (!string.IsNullOrEmpty(role))

@@ -596,10 +596,10 @@ namespace DisasterApp.Application.Services
                 DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = report.UserId,
-                UserName = report.User.Name ?? string.Empty,
-                Longitude = report.Location.Longitude,
-                Latitude = report.Location.Latitude,
-                Address = report.Location.Address,
+                UserName = report.User?.Name ?? string.Empty,
+                Longitude = report.Location?.Longitude ?? 0,
+                Latitude = report.Location?.Latitude ?? 0,
+                Address = report.Location?.Address ?? string.Empty,
                 ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                 {
                     Id = i.Id,
