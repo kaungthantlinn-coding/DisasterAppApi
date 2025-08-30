@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
-namespace DisasterApp.Controllers
+namespace DisasterApp.WebApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -14,9 +14,26 @@ namespace DisasterApp.Controllers
     public class DisasterReportController : ControllerBase
     {
         private readonly IDisasterReportService _service;
+        
         public DisasterReportController(IDisasterReportService service)
         {
             _service = service;
+        }
+
+        /// <summary>
+        /// Test endpoint to verify API connectivity and authentication
+        /// </summary>
+        [HttpGet("test")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TestEndpoint()
+        {
+            return Ok(new 
+            { 
+                message = "DisasterReport API is working",
+                timestamp = DateTime.UtcNow,
+                isAuthenticated = User.Identity?.IsAuthenticated ?? false,
+                userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            });
         }
 
         [HttpGet]

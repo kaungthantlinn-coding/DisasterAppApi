@@ -37,6 +37,7 @@ public partial class DisasterReport
 
     public Guid DisasterEventId { get; set; } //replace int
 
+
     public virtual DisasterEvent DisasterEvent { get; set; } = null!;
 
 

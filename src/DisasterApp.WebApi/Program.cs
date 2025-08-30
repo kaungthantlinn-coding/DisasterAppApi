@@ -106,6 +106,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IOrganizationAuditService, OrganizationAuditService>();
             builder.Services.AddScoped<IAuditRetentionService, AuditRetentionService>();
 
+
             // Add authorization
             builder.Services.AddAuthorization(options =>
             {

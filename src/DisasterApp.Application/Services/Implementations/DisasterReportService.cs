@@ -1,4 +1,5 @@
 using DisasterApp.Application.DTOs;
+using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
@@ -191,6 +192,7 @@ namespace DisasterApp.Application.Services
                     }
                 }
                 await _repository.UpdateAsync(report);
+
 
                 return new DisasterReportDto
                 {

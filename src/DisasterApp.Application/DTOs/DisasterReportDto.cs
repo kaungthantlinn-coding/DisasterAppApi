@@ -61,6 +61,7 @@ namespace DisasterApp.Application.DTOs
         // Photos (return as URLs for the frontend)
         public List<string> PhotoUrls { get; set; } = new();
 
+
     }
     public class DisasterReportUpdateDto
     {
