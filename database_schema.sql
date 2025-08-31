@@ -1,9 +1,8 @@
 -- =====================================================
 -- Disaster Management System - Complete Database Schema
-
---
--- Last Updated: 2025-08-24
 -- =====================================================
+-- This script creates all the necessary tables for the Disaster Management System
+-- Based on Entity Framework Core models and DbContext configuration
 
 -- =====================================================
 -- 1. CORE TABLES (Independent tables with no foreign keys)
@@ -12,19 +11,12 @@
 -- Role Table
 CREATE TABLE [Role] (
     [role_id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    [name] NVARCHAR(100) NOT NULL,
-    [description] NVARCHAR(500) NULL,
-    [is_active] BIT NOT NULL DEFAULT 1,
-    [is_default] BIT NOT NULL DEFAULT 0,
-    [created_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    [updated_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    [created_by] NVARCHAR(255) NULL,
-    [updated_by] NVARCHAR(255) NULL,
+    [name] NVARCHAR(50) NOT NULL,
     CONSTRAINT [PK_Role_RoleId] PRIMARY KEY ([role_id])
 );
 
 -- Create unique index on role name
-CREATE UNIQUE INDEX [IX_Role_Name] ON [Role] ([name]);
+CREATE UNIQUE INDEX [UQ_Role_Name] ON [Role] ([name]);
 
 -- DisasterType Table
 CREATE TABLE [DisasterType] (
@@ -72,8 +64,6 @@ CREATE TABLE [User] (
     [phone_number] NVARCHAR(20) NULL,
     [is_blacklisted] BIT NULL DEFAULT 0,
     [created_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    [two_factor_enabled] BIT NOT NULL DEFAULT 0,
-    [backup_codes_remaining] INT NOT NULL DEFAULT 0,
     CONSTRAINT [PK_User_UserId] PRIMARY KEY ([user_id])
 );
 
@@ -83,36 +73,18 @@ CREATE UNIQUE INDEX [UQ_User_Email] ON [User] ([email]);
 CREATE UNIQUE INDEX [UQ_User_AuthProviderId] ON [User] ([auth_provider], [auth_id]);
 
 -- UserRole Junction Table (Many-to-Many relationship between User and Role)
+-- This table is automatically created by Entity Framework for the many-to-many relationship
 CREATE TABLE [UserRole] (
     [user_id] UNIQUEIDENTIFIER NOT NULL,
     [role_id] UNIQUEIDENTIFIER NOT NULL,
     CONSTRAINT [PK_UserRole] PRIMARY KEY ([user_id], [role_id]),
-    CONSTRAINT [FK_UserRole_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]) ON DELETE CASCADE,
-    CONSTRAINT [FK_UserRole_Role] FOREIGN KEY ([role_id]) REFERENCES [Role] ([role_id]) ON DELETE CASCADE
+    CONSTRAINT [FK_UserRole_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_UserRole_Role] FOREIGN KEY ([role_id]) REFERENCES [Role] ([role_id]) ON DELETE NO ACTION
 );
 
 -- Create indexes on UserRole table for performance optimization
 CREATE INDEX [IX_UserRole_role_id] ON [UserRole] ([role_id]);
 CREATE INDEX [IX_UserRole_user_id] ON [UserRole] ([user_id]);
-
--- UserBlacklist Table (for suspended/blacklisted users)
-CREATE TABLE [UserBlacklist] (
-    [id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    [user_id] UNIQUEIDENTIFIER NOT NULL,
-    [reason] NVARCHAR(MAX) NOT NULL,
-    [blacklisted_by] UNIQUEIDENTIFIER NOT NULL,
-    [blacklisted_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    [is_active] BIT NOT NULL DEFAULT 1,
-    [notes] NVARCHAR(MAX) NULL,
-    CONSTRAINT [PK_UserBlacklist_Id] PRIMARY KEY ([id]),
-    CONSTRAINT [FK_UserBlacklist_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]),
-    CONSTRAINT [FK_UserBlacklist_BlacklistedBy] FOREIGN KEY ([blacklisted_by]) REFERENCES [User] ([user_id])
-);
-
--- Create indexes on UserBlacklist table
-CREATE INDEX [IX_UserBlacklist_UserId] ON [UserBlacklist] ([user_id]);
-CREATE INDEX [IX_UserBlacklist_BlacklistedBy] ON [UserBlacklist] ([blacklisted_by]);
-CREATE INDEX [IX_UserBlacklist_IsActive] ON [UserBlacklist] ([is_active]);
 
 -- =====================================================
 -- 3. AUTHENTICATION TABLES
@@ -348,12 +320,11 @@ CREATE INDEX [IX_AuditLog_Resource] ON [AuditLog] ([resource]);
 -- 10. INITIAL DATA SEEDING
 -- =====================================================
 
--- Insert default roles with lowercase names and descriptions
-INSERT INTO [Role] ([role_id], [name], [description], [is_active], [is_default], [created_by], [updated_by]) VALUES
-    (NEWID(), 'user', 'Standard user with basic system access and reporting capabilities', 1, 1, 'System', 'System'),
-    (NEWID(), 'cj', 'CJ (Chief Judge) with team oversight and reporting capabilities', 1, 0, 'System', 'System'),
-    (NEWID(), 'admin', 'System administrator with user management and operational oversight capabilities', 1, 0, 'System', 'System'),
-    (NEWID(), 'superadmin', 'Full system administrator with complete access to all features and settings', 1, 0, 'System', 'System');
+-- Insert default roles
+INSERT INTO [Role] ([role_id], [name]) VALUES
+    (NEWID(), 'user'),
+    (NEWID(), 'cj'),
+    (NEWID(), 'admin');
 
 -- Insert default disaster categories
 INSERT INTO [DisasterType] ([name], [category]) VALUES
@@ -530,42 +501,3 @@ ADD [notification_sent] BIT NOT NULL DEFAULT 0;
 -- =====================================================
 -- END OF SCHEMA CREATION
 -- =====================================================
-
-
--- Migration to add performance indexes for AuditLog table
--- This will significantly improve query performance and resolve timeout issues
-
--- Index for timestamp ordering (most common query pattern)
-CREATE NONCLUSTERED INDEX [IX_AuditLog_Timestamp_DESC] 
-ON [AuditLog] ([timestamp] DESC)
-INCLUDE ([audit_log_id], [action], [severity], [details], [user_id], [user_name], [ip_address], [user_agent], [resource], [metadata]);
-
--- Index for user_id filtering and joins
-CREATE NONCLUSTERED INDEX [IX_AuditLog_UserId_Timestamp] 
-ON [AuditLog] ([user_id], [timestamp] DESC)
-WHERE [user_id] IS NOT NULL;
-
--- Index for severity filtering
-CREATE NONCLUSTERED INDEX [IX_AuditLog_Severity_Timestamp] 
-ON [AuditLog] ([severity], [timestamp] DESC);
-
--- Index for action filtering
-CREATE NONCLUSTERED INDEX [IX_AuditLog_Action_Timestamp] 
-ON [AuditLog] ([action], [timestamp] DESC);
-
--- Index for resource filtering
-CREATE NONCLUSTERED INDEX [IX_AuditLog_Resource_Timestamp] 
-ON [AuditLog] ([resource], [timestamp] DESC);
-
--- Index for entity type filtering (used in role audit logs)
-CREATE NONCLUSTERED INDEX [IX_AuditLog_EntityType_Timestamp] 
-ON [AuditLog] ([entity_type], [timestamp] DESC);
-
--- Index for date range filtering
-CREATE NONCLUSTERED INDEX [IX_AuditLog_Timestamp_Range] 
-ON [AuditLog] ([timestamp]);
-
--- Composite index for text search operations
-CREATE NONCLUSTERED INDEX [IX_AuditLog_Search] 
-ON [AuditLog] ([user_name], [action], [timestamp] DESC)
-INCLUDE ([details]);

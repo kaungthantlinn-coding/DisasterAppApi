@@ -23,6 +23,9 @@ public interface ISupportRequestRepository
 
     Task<List<SupportType>> GetSupportTypesByNamesAsync(List<string> names);
     Task<SupportRequestMetrics> GetMetricsAsync();
+
+    Task<IEnumerable<SupportRequest>> SearchByKeywordAsync(string? keyword, byte? urgency, string? status);
+    public Task<List<SupportType?>> GetBySupportTypeIdsAsync(IEnumerable<int> ids);
 }
 public class SupportRequestMetrics
 {

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace DisasterApp.Infrastructure.Repositories
 {
-    public class DisasterEventRepository:IDisasterEventRepository
+    public class DisasterEventRepository : IDisasterEventRepository
     {
         private readonly DisasterDbContext _context;
 
@@ -50,6 +50,6 @@ namespace DisasterApp.Infrastructure.Repositories
         {
             return await _context.DisasterEvents.FirstOrDefaultAsync(e => e.Name.ToLower() == name.ToLower());
         }
-         
+
     }
 }

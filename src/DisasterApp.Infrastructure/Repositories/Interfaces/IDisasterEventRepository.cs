@@ -1,4 +1,4 @@
-﻿using DisasterApp.Domain.Entities;
+using DisasterApp.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +14,6 @@ namespace DisasterApp.Infrastructure.Repositories
         Task AddAsync(DisasterEvent entity);
         Task UpdateAsync(DisasterEvent entity);
         Task DeleteAsync(DisasterEvent entity);
-        Task<DisasterEvent> GetByNameAsync(string name);
-        
+        Task<DisasterEvent?> GetByNameAsync(string name);
     }
 }

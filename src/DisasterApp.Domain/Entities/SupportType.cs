@@ -9,6 +9,8 @@ public partial class SupportType
 
     public string Name { get; set; } = null!;
 
+
+
    
     public virtual ICollection<SupportRequest> SupportRequests { get; set; } = new List<SupportRequest>();
 }
