@@ -67,7 +67,7 @@ public class TwoFactorServiceTests
     {
         // Arrange
         _mockUserRepository.Setup(x => x.GetByIdAsync(_testUserId))
-            .ReturnsAsync((User?)null);
+            .ReturnsAsync((User)null);
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -379,7 +379,7 @@ public class TwoFactorServiceTests
     {
         // Arrange
         _mockUserRepository.Setup(x => x.GetByIdAsync(_testUserId))
-            .ReturnsAsync((User?)null);
+            .ReturnsAsync((User)null);
 
         // Act
         var result = await _twoFactorService.IsTwoFactorEnabledAsync(_testUserId);
@@ -412,7 +412,7 @@ public class TwoFactorServiceTests
     {
         // Arrange
         _mockUserRepository.Setup(x => x.GetByIdAsync(_testUserId))
-            .ReturnsAsync((User?)null);
+            .ReturnsAsync((User)null);
 
         // Act & Assert
         await _twoFactorService.UpdateLastUsedAsync(_testUserId);

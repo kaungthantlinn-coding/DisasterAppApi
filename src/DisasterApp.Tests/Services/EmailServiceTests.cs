@@ -42,14 +42,14 @@ public class EmailServiceTests
     public async Task SendPasswordResetEmailAsync_NullEmail_ReturnsFalse()
     {
         // Arrange
-        string? email = null;
+        string email = null;
         var resetToken = "reset-token-123";
         var resetUrl = "https://example.com/reset";
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendPasswordResetEmailAsync(email!, resetToken, resetUrl);
+        var result = await _emailService.SendPasswordResetEmailAsync(email, resetToken, resetUrl);
 
         // Assert
         Assert.False(result);
@@ -110,14 +110,14 @@ public class EmailServiceTests
     public async Task SendEmailAsync_NullTo_ReturnsFalse()
     {
         // Arrange
-        string? to = null;
+        string to = null;
         var subject = "Test Subject";
         var body = "<h1>Test Body</h1>";
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendEmailAsync(to!, subject, body);
+        var result = await _emailService.SendEmailAsync(to, subject, body);
 
         // Assert
         Assert.False(result);
@@ -143,13 +143,13 @@ public class EmailServiceTests
     public async Task SendAuthProviderNotificationEmailAsync_NullEmail_ReturnsFalse()
     {
         // Arrange
-        string? email = null;
+        string email = null;
         var authProvider = "Google";
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendAuthProviderNotificationEmailAsync(email!, authProvider);
+        var result = await _emailService.SendAuthProviderNotificationEmailAsync(email, authProvider);
 
         // Assert
         Assert.False(result);
@@ -175,13 +175,13 @@ public class EmailServiceTests
     public async Task SendOtpEmailAsync_NullEmail_ReturnsFalse()
     {
         // Arrange
-        string? email = null;
+        string email = null;
         var otpCode = "123456";
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendOtpEmailAsync(email!, otpCode);
+        var result = await _emailService.SendOtpEmailAsync(email, otpCode);
 
         // Assert
         Assert.False(result);
@@ -255,12 +255,12 @@ public class EmailServiceTests
     public async Task SendTwoFactorEnabledEmailAsync_NullEmail_ReturnsFalse()
     {
         // Arrange
-        string? email = null;
+        string email = null;
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendTwoFactorEnabledEmailAsync(email!);
+        var result = await _emailService.SendTwoFactorEnabledEmailAsync(email);
 
         // Assert
         Assert.False(result);
@@ -270,12 +270,12 @@ public class EmailServiceTests
     public async Task SendTwoFactorDisabledEmailAsync_NullEmail_ReturnsFalse()
     {
         // Arrange
-        string? email = null;
+        string email = null;
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendTwoFactorDisabledEmailAsync(email!);
+        var result = await _emailService.SendTwoFactorDisabledEmailAsync(email);
 
         // Assert
         Assert.False(result);
@@ -285,13 +285,13 @@ public class EmailServiceTests
     public async Task SendBackupCodeUsedEmailAsync_NullEmail_ReturnsFalse()
     {
         // Arrange
-        string? email = null;
+        string email = null;
         var remainingCodes = 5;
         
         SetupValidEmailConfiguration();
 
         // Act
-        var result = await _emailService.SendBackupCodeUsedEmailAsync(email!, remainingCodes);
+        var result = await _emailService.SendBackupCodeUsedEmailAsync(email, remainingCodes);
 
         // Assert
         Assert.False(result);
@@ -364,12 +364,12 @@ public class EmailServiceTests
 
     private void SetupIncompleteEmailConfiguration()
     {
-        _mockConfiguration.Setup(x => x["Email:SmtpServer"]).Returns((string?)null);
+        _mockConfiguration.Setup(x => x["Email:SmtpServer"]).Returns((string)null);
         _mockConfiguration.Setup(x => x["Email:SmtpPort"]).Returns("587");
-        _mockConfiguration.Setup(x => x["Email:SenderEmail"]).Returns((string?)null);
+        _mockConfiguration.Setup(x => x["Email:SenderEmail"]).Returns((string)null);
         _mockConfiguration.Setup(x => x["Email:SenderName"]).Returns("Test Sender");
-        _mockConfiguration.Setup(x => x["Email:Username"]).Returns((string?)null);
-        _mockConfiguration.Setup(x => x["Email:Password"]).Returns((string?)null);
+        _mockConfiguration.Setup(x => x["Email:Username"]).Returns((string)null);
+        _mockConfiguration.Setup(x => x["Email:Password"]).Returns((string)null);
         _mockConfiguration.Setup(x => x["Email:EnableSsl"]).Returns("true");
     }
 }

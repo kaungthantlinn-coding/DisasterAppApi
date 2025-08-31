@@ -22,15 +22,16 @@ namespace DisasterApp.Application.DTOs
             public int Id { get; set; }
 
             public Guid ReportId { get; set; }
-            public string FullName { get; set; } = string.Empty;
-            public string Email { get; set; } = string.Empty;
+            public string FullName { get; set; }
+            public string Email { get; set; }
             public string? Location { get; set; }
-            public string UrgencyLevel { get; set; } = string.Empty;
-            public string Description { get; set; } = string.Empty;
+            // public Guid UserId { get; set; }
+            public string UrgencyLevel { get; set; }
+            public string Description { get; set; }
 
             public DateTime? DateReported { get; set; }
-            public string Status { get; set; } = string.Empty;
-
+            public string Status { get; set; }
+            public List<int> SupportTypeIds { get; set; } = new();
 
             public string? AdminRemarks { get; set; } = "No remarks";
 
@@ -52,6 +53,7 @@ namespace DisasterApp.Application.DTOs
             public string email { get; set; } = null!;
             public string Description { get; set; } = null!;
             public byte Urgency { get; set; }
+            public List<int> SupportTypeIds { get; set; } = new();
             public SupportRequestStatus? Status { get; set; }
             public Guid UserId { get; set; }
             public List<string> SupportTypeNames { get; set; } = new();
@@ -65,6 +67,7 @@ namespace DisasterApp.Application.DTOs
             public byte Urgency { get; set; }
             public string SupportTypeName { get; set; } = null!;
             public DateTime? UpdateAt { get; set; }
+            public List<int> SupportTypeIds { get; set; } = new();
         }
     }
 }

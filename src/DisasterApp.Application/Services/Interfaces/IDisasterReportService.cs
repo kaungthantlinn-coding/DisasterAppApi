@@ -29,5 +29,4 @@ namespace DisasterApp.Application.Services
 
 
     }
-
 }

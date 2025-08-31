@@ -129,46 +129,9 @@ public class ChatController : ControllerBase
                 Message = c.Message ?? string.Empty,
                 SentAt = c.SentAt ?? DateTime.UtcNow,
                 AttachmentUrl = c.AttachmentUrl,
-                IsRead = c.IsRead == true
+                IsRead = c.IsRead ?? false
             })
             .ToListAsync();
         return Ok(messages);
-    }
-
-    // Get list of users who have sent messages to a CJ officer
-    [HttpGet("senders/{cjId}")]
-    [Authorize(Roles = "cj")]
-    public async Task<IActionResult> GetSenders(Guid cjId)
-    {
-        var senders = await _context.Chats
-            .Where(c => c.ReceiverId == cjId)
-            .Include(c => c.Sender)
-            .GroupBy(c => c.SenderId)
-            .Select(g => new
-            {
-                UserId = g.Key,
-                UserName = g.First().Sender.Name,
-                UserEmail = g.First().Sender.Email,
-                UserPhoto = g.First().Sender.PhotoUrl,
-                LastMessageTime = g.Max(c => c.SentAt),
-                LastMessage = g.OrderByDescending(c => c.SentAt).First().Message,
-                UnreadCount = g.Count(c => c.IsRead != true)
-            })
-            .OrderByDescending(s => s.LastMessageTime)
-            .ToListAsync();
-        
-        return Ok(senders);
-    }
-
-    // Get unread message count for CJ
-    [HttpGet("unread-count/{cjId}")]
-    [Authorize(Roles = "cj")]
-    public async Task<IActionResult> GetUnreadCount(Guid cjId)
-    {
-        var count = await _context.Chats
-            .Where(c => c.ReceiverId == cjId && c.IsRead != true)
-            .CountAsync();
-        
-        return Ok(new { unreadCount = count });
     }
 }
