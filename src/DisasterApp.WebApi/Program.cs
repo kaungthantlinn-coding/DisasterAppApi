@@ -10,7 +10,6 @@ using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using DisasterApp.WebApi.Hubs;
-using DisasterApp.WebApi.Middleware;
 using DisasterApp.WebApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;

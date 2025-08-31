@@ -37,4 +37,6 @@ public interface IUserRepository
     Task<bool> BulkUpdateUsersAsync(List<User> users);
     Task<(int DisasterReports, int SupportRequests, int Donations, int Organizations)> GetUserStatisticsAsync(Guid userId);
     Task<List<User>> GetAllUsersAsyn();
+    Task<int> GetUserCountByRoleAsync(Guid roleId);
+    Task<List<User>> GetUsersByRoleAsync(Guid roleId);
 }

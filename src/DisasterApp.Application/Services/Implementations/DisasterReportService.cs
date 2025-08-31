@@ -13,7 +13,6 @@ using iText.Kernel.Pdf;
 using iText.Layout;
 using iText.Layout.Element;
 using iText.Layout.Properties;
-using iTextSharp.text;
 using OfficeOpenXml;
 using System.Collections.Concurrent;
 using System.Text.Json;

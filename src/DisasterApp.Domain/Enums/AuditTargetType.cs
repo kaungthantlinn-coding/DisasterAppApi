@@ -37,9 +37,7 @@ public enum AuditCategory
     Error = 12
 }
 
-/// <summary>
-/// Defines the severity levels for audit events
-/// </summary>
+
 public enum AuditSeverity
 {
     Info = 1,

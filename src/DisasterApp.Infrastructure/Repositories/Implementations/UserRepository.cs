@@ -228,14 +228,14 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .CountAsync(u => u.Roles.Any(r => r.RoleId == roleId));
+                .CountAsync(u => u.Roles.Any(r => r.RoleId == roleId) && u.IsBlacklisted != true);
         }
 
         public async Task<List<User>> GetUsersByRoleAsync(Guid roleId)
         {
             return await _context.Users
                 .Include(u => u.Roles)
-                .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+                .Where(u => u.Roles.Any(r => r.RoleId == roleId) && u.IsBlacklisted != true)
                 .ToListAsync();
         }
 
