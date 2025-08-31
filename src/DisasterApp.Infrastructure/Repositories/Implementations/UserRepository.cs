@@ -249,9 +249,8 @@ public class UserRepository : IUserRepository
             .OrderBy(u => u.Name)
             .ToListAsync();
     }
-}
-
     public async Task<List<User>> GetAllUsersAsync()
     {
         return await _context.Users.ToListAsync();
     }
+}
