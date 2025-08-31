@@ -28,15 +28,9 @@ namespace DisasterApp.WebApi.Middleware
 
         public AuditLogMiddleware(RequestDelegate next, ILogger<AuditLogMiddleware> logger, IServiceScopeFactory serviceScopeFactory)
         {
-<<<<<<< HEAD
             _next = next ?? throw new ArgumentNullException(nameof(next));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
-=======
-            _next = next;
-            _logger = logger;
-            _serviceScopeFactory = serviceScopeFactory;
->>>>>>> f5beea9ebc339905ce51c40a6f67a3ce32e9d8be
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -127,10 +121,7 @@ namespace DisasterApp.WebApi.Middleware
                     Action = action,
                     Severity = severity,
                     UserId = userId != null ? Guid.Parse(userId) : null,
-<<<<<<< HEAD
                     UserName = userName,
-=======
->>>>>>> f5beea9ebc339905ce51c40a6f67a3ce32e9d8be
                     Details = details,
                     IpAddress = GetClientIpAddress(context),
                     UserAgent = context.Request.Headers.UserAgent.ToString(),
@@ -157,7 +148,6 @@ namespace DisasterApp.WebApi.Middleware
             if (path.Contains("/auth/login")) return "USER_LOGIN";
             if (path.Contains("/auth/logout")) return "USER_LOGOUT";
             if (path.Contains("/auth/register")) return "USER_REGISTER";
-<<<<<<< HEAD
             
             // User Management endpoints
             if (path.Contains("/UserManagement") || path.Contains("/users"))
@@ -218,17 +208,6 @@ namespace DisasterApp.WebApi.Middleware
             }
 
             return $"{method}_UNKNOWN";
-=======
-            if (path.Contains("/users") && method == "POST") return "USER_CREATE";
-            if (path.Contains("/users") && method == "PUT") return "USER_UPDATE";
-            if (path.Contains("/users") && method == "DELETE") return "USER_DELETE";
-            if (path.Contains("/roles")) return $"ROLE_{method}";
-            if (path.Contains("/reports")) return $"REPORT_{method}";
-            if (path.Contains("/admin/settings")) return "SYSTEM_SETTINGS_UPDATE";
-            if (path.Contains("/admin")) return $"ADMIN_{method}";
-
-            return $"{method}_{path.Split('/').LastOrDefault()?.ToUpper() ?? "UNKNOWN"}";
->>>>>>> f5beea9ebc339905ce51c40a6f67a3ce32e9d8be
         }
 
         private string GetActionDetails(HttpContext context, string requestBody, Exception? exception)
