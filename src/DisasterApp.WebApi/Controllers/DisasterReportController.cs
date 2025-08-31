@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using DisasterApp.Application.Services;
+using DisasterApp.Application.Services.Interfaces;
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace DisasterApp.WebApi.Controllers
@@ -162,17 +163,19 @@ namespace DisasterApp.WebApi.Controllers
 
         [AllowAnonymous]
         [HttpGet("pdf")]
-
         public async Task<IActionResult> ExportPdf()
         {
-            var file = await _exportService.ExportDisasterReportsToPdfAsync();
+            var reports = await _service.GetAllAsync();
+            var file = await _exportService.ExportDisasterReportsToPdfAsync(reports);
             return File(file, "application/pdf", "DisasterReports.pdf");
         }
+        
         [AllowAnonymous]
         [HttpGet("excel")]
         public async Task<IActionResult> ExportExcel()
         {
-            var file = await _exportService.ExportDisasterReportsToExcelAsync();
+            var reports = await _service.GetAllAsync();
+            var file = await _exportService.ExportDisasterReportsToExcelAsync(reports);
             return File(file,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "DisasterReports.xlsx");

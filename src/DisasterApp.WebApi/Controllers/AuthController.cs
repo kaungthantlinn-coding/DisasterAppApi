@@ -1,13 +1,8 @@
-<<<<<<< HEAD
-using DisasterApp.Application.Services.Interfaces;
-=======
 using DisasterApp.Application.DTOs;
-using DisasterApp.Application.Services.Interfaces; //
->>>>>>> ktldev
+using DisasterApp.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DisasterApp.Infrastructure.Data;
-using DisasterApp.Application.DTOs;
 
 namespace DisasterApp.WebApi.Controllers;
 

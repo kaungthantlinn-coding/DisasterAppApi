@@ -10,12 +10,8 @@ using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using DisasterApp.WebApi.Hubs;
-<<<<<<< HEAD
 using DisasterApp.WebApi.Middleware;
 using DisasterApp.WebApi.Services;
-=======
-using DisasterApp.WebApi.Services;//
->>>>>>> ktldev
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;

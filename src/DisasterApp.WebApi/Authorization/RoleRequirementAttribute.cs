@@ -7,7 +7,7 @@ public class RoleRequirementAttribute : AuthorizeAttribute
 {
     public RoleRequirementAttribute(params string[] roles)
     {
-        Roles = string.Join(",", roles);//
+        Roles = string.Join(",", roles);
     }
 }
 
@@ -30,4 +30,9 @@ public class UserOnlyAttribute : RoleRequirementAttribute
 public class AdminOrCjAttribute : RoleRequirementAttribute
 {
     public AdminOrCjAttribute() : base("admin", "cj") { }
+}
+
+public class SuperAdminOrAdminAttribute : RoleRequirementAttribute
+{
+    public SuperAdminOrAdminAttribute() : base("SuperAdmin", "admin") { }
 }

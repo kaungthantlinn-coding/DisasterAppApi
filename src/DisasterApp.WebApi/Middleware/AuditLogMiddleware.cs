@@ -121,7 +121,6 @@ namespace DisasterApp.WebApi.Middleware
                     Action = action,
                     Severity = severity,
                     UserId = userId != null ? Guid.Parse(userId) : null,
-                    UserName = userName,
                     Details = details,
                     IpAddress = GetClientIpAddress(context),
                     UserAgent = context.Request.Headers.UserAgent.ToString(),

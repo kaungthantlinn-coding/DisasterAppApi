@@ -5,7 +5,7 @@ using iText.Layout;
 using iText.Layout.Element;
 using iText.Layout.Properties;
 using ClosedXML.Excel;
-using System.Globalization;//
+using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
@@ -139,6 +139,140 @@ public class ExportService : IExportService
                     table.AddCell(new Cell().Add(new Paragraph(cellValue).SetFontSize(8)));
                 }
             }
+        }
+
+        document.Add(table);
+        document.Close();
+
+        return stream.ToArray();
+    }
+
+    // Disaster Report Export Methods
+    public async Task<byte[]> ExportDisasterReportsToCsvAsync(IEnumerable<DisasterReportDto> data)
+    {
+        var csv = new StringBuilder();
+
+        // Add header
+        var headers = new[] { "ID", "Title", "Description", "Timestamp", "Severity", "Status", "User Name", "Disaster Type", "Latitude", "Longitude", "Address" };
+        csv.AppendLine(string.Join(",", headers.Select(EscapeCsvValue)));
+
+        // Add data rows
+        foreach (var report in data)
+        {
+            var values = new[]
+            {
+                report.Id.ToString(),
+                report.Title ?? "",
+                report.Description ?? "",
+                report.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+                report.Severity.ToString(),
+                report.Status.ToString(),
+                report.UserName ?? "",
+                report.DisasterTypeName ?? "",
+                report.Latitude.ToString(CultureInfo.InvariantCulture),
+                report.Longitude.ToString(CultureInfo.InvariantCulture),
+                report.Address ?? ""
+            };
+            csv.AppendLine(string.Join(",", values.Select(EscapeCsvValue)));
+        }
+
+        return Encoding.UTF8.GetBytes(csv.ToString());
+    }
+
+    public async Task<byte[]> ExportDisasterReportsToExcelAsync(IEnumerable<DisasterReportDto> data)
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Disaster Reports");
+
+        // Add headers
+        var headers = new[] { "ID", "Title", "Description", "Timestamp", "Severity", "Status", "User Name", "Disaster Type", "Latitude", "Longitude", "Address" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+        }
+
+        // Add data
+        var reportList = data.ToList();
+        for (int row = 0; row < reportList.Count; row++)
+        {
+            var report = reportList[row];
+            var values = new object[]
+            {
+                report.Id,
+                report.Title ?? "",
+                report.Description ?? "",
+                report.Timestamp,
+                report.Severity.ToString(),
+                report.Status.ToString(),
+                report.UserName ?? "",
+                report.DisasterTypeName ?? "",
+                report.Latitude,
+                report.Longitude,
+                report.Address ?? ""
+            };
+
+            for (int col = 0; col < values.Length; col++)
+            {
+                worksheet.Cell(row + 2, col + 1).Value = values[col].ToString();
+            }
+        }
+
+        // Auto-fit columns
+        worksheet.ColumnsUsed().AdjustToContents();
+
+        // Apply formatting to header row
+        var headerRange = worksheet.Range(1, 1, 1, headers.Length);
+        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public async Task<byte[]> ExportDisasterReportsToPdfAsync(IEnumerable<DisasterReportDto> data)
+    {
+        var reportList = data.ToList();
+        
+        using var stream = new MemoryStream();
+        using var writer = new PdfWriter(stream);
+        using var pdf = new PdfDocument(writer);
+        using var document = new Document(pdf);
+
+        // Add title
+        document.Add(new Paragraph("Disaster Reports")
+            .SetTextAlignment(TextAlignment.CENTER)
+            .SetFontSize(14)
+            .SetBold());
+
+        document.Add(new Paragraph($"Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC")
+            .SetTextAlignment(TextAlignment.CENTER)
+            .SetFontSize(9)
+            .SetMarginBottom(15));
+
+        // Create table
+        var headers = new[] { "ID", "Title", "Description", "Timestamp", "Severity", "Status", "User", "Type", "Location" };
+        var table = new Table(headers.Length);
+        table.SetWidth(UnitValue.CreatePercentValue(100));
+
+        // Add headers
+        foreach (var header in headers)
+        {
+            table.AddHeaderCell(new Cell().Add(new Paragraph(header).SetBold()));
+        }
+
+        // Add data rows
+        foreach (var report in reportList)
+        {
+            table.AddCell(report.Id.ToString());
+            table.AddCell(report.Title ?? "");
+            table.AddCell(report.Description?.Length > 50 ? report.Description.Substring(0, 50) + "..." : report.Description ?? "");
+            table.AddCell(report.Timestamp.ToString("yyyy-MM-dd HH:mm"));
+            table.AddCell(report.Severity.ToString());
+            table.AddCell(report.Status.ToString());
+            table.AddCell(report.UserName ?? "");
+            table.AddCell(report.DisasterTypeName ?? "");
+            table.AddCell($"{report.Latitude}, {report.Longitude}");
         }
 
         document.Add(table);
