@@ -1,9 +1,9 @@
 using DisasterApp.Application.DTOs;
-using DisasterApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-
+using DisasterApp.Application.Services;
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace DisasterApp.WebApi.Controllers
 {
@@ -14,29 +14,103 @@ namespace DisasterApp.WebApi.Controllers
     public class DisasterReportController : ControllerBase
     {
         private readonly IDisasterReportService _service;
-        public DisasterReportController(IDisasterReportService service)
+        private readonly IExportService _exportService;
+        public DisasterReportController(IDisasterReportService service, IExportService exportService)
         {
             _service = service;
-        }
-
-        /// <summary>
-        /// Test endpoint to verify API connectivity and authentication
-        /// </summary>
-        [HttpGet("test")]
-        [AllowAnonymous]
-        public async Task<IActionResult> TestEndpoint()
-        {
-            return Ok(new 
-            { 
-                message = "DisasterReport API is working",
-                timestamp = DateTime.UtcNow,
-                isAuthenticated = User.Identity?.IsAuthenticated ?? false,
-                userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            });
+            _exportService = exportService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll() => Ok(await _service.GetAllAsync());
+
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var report = await _service.GetByIdAsync(id);
+            if (report == null) return NotFound();
+            return Ok(report);
+        }
+
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetReportsByUserId(Guid userId)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var reports = await _service.GetReportsByUserIdAsync(userId);
+            return Ok(reports);
+        }
+
+        [HttpGet("pending")]
+        public async Task<IActionResult> GetPendingReports()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+            var adminId = Guid.Parse(userIdClaim);
+            var reports = await _service.GetPendingReportsForAdminAsync(adminId);
+            return Ok(reports);
+
+        }
+
+        [HttpGet("accepted")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAcceptedReports()
+        {
+            var reports = await _service.GetAcceptedReportsAsync();
+            return Ok(reports);
+        }
+
+        [HttpGet("rejected")]
+        public async Task<IActionResult> GetRejectedReports()
+        {
+            var reports = await _service.GetRejectedReportsAsync();
+            return Ok(reports);
+        }
+
+        [HttpPut("{id}/accept")]
+        public async Task<IActionResult> Accept(Guid id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+
+            var result = await _service.ApproveDisasterReportAsync(id, adminId);
+            if (!result) return NotFound();
+            return Ok(new { Message = "Report accepted successfully" });
+        }
+
+        [HttpPut("{id}/reject")]
+        public async Task<IActionResult> Reject(Guid id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+
+            var result = await _service.RejectDisasterReportAsync(id, adminId);
+            if (!result) return NotFound();
+            return Ok(new { Message = "Report rejected successfully" });
+        }
+
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateStatusDto dto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var adminId = Guid.Parse(userIdClaim);
+            var result = await _service.ApproveOrRejectReportAsync(id, dto.Status, adminId);
+            if (!result) return NotFound();
+            return Ok(new { Message = $"Report {dto.Status}" });
+        }
 
         [HttpPost]
         [Consumes("multipart/form-data")]
@@ -86,88 +160,22 @@ namespace DisasterApp.WebApi.Controllers
             return NoContent();
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
-        {
-            var report = await _service.GetByIdAsync(id);
-            if (report == null) return NotFound();
-            return Ok(report);
-        }
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetReportsByUserId(Guid userId)
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var reports = await _service.GetReportsByUserIdAsync(userId);
-            return Ok(reports);
-        }
-        [HttpGet("pending")]
-        public async Task<IActionResult> GetPendingReports()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-            var adminId = Guid.Parse(userIdClaim);
-            var reports = await _service.GetPendingReportsForAdminAsync(adminId);
-            return Ok(reports);
-
-        }
-
-        [HttpGet("accepted")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetAcceptedReports()
+        [HttpGet("pdf")]
+
+        public async Task<IActionResult> ExportPdf()
         {
-            var reports = await _service.GetAcceptedReportsAsync();
-            return Ok(reports);
+            var file = await _exportService.ExportDisasterReportsToPdfAsync();
+            return File(file, "application/pdf", "DisasterReports.pdf");
         }
-
-        [HttpGet("rejected")]
-        public async Task<IActionResult> GetRejectedReports()
+        [AllowAnonymous]
+        [HttpGet("excel")]
+        public async Task<IActionResult> ExportExcel()
         {
-            var reports = await _service.GetRejectedReportsAsync();
-            return Ok(reports);
-        }
-        [HttpPut("{id}/accept")]
-        public async Task<IActionResult> Accept(Guid id)
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var adminId = Guid.Parse(userIdClaim);
-
-            var result = await _service.ApproveDisasterReportAsync(id, adminId);
-            if (!result) return NotFound();
-            return Ok(new { Message = "Report accepted successfully" });
-        }
-
-        [HttpPut("{id}/reject")]
-        public async Task<IActionResult> Reject(Guid id)
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var adminId = Guid.Parse(userIdClaim);
-
-            var result = await _service.RejectDisasterReportAsync(id, adminId);
-            if (!result) return NotFound();
-            return Ok(new { Message = "Report rejected successfully" });
-        }
-
-        [HttpPut("{id}/status")]
-        public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateStatusDto dto)
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var adminId = Guid.Parse(userIdClaim);
-            var result = await _service.ApproveOrRejectReportAsync(id, dto.Status, adminId);
-            if (!result) return NotFound();
-            return Ok(new { Message = $"Report {dto.Status}" });
+            var file = await _exportService.ExportDisasterReportsToExcelAsync();
+            return File(file,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "DisasterReports.xlsx");
         }
 
     }

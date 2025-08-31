@@ -625,9 +625,7 @@ public class UserRepositoryTests : IDisposable
         var updatedUser1 = await _context.Users.FindAsync(user1.UserId);
         var updatedUser2 = await _context.Users.FindAsync(user2.UserId);
         
-        Assert.NotNull(updatedUser1);
         Assert.Equal("Updated Name 1", updatedUser1.Name);
-        Assert.NotNull(updatedUser2);
         Assert.Equal("Updated Name 2", updatedUser2.Name);
     }
 
@@ -868,8 +866,8 @@ public class UserRepositoryTests : IDisposable
         await _context.SaveChangesAsync();
         
         // Update with null optional fields
-        user.Name = null!;
-        user.AuthProvider = null!;
+        user.Name = null;
+        user.AuthProvider = null;
 
         // Act
         var result = await _repository.UpdateAsync(user);
@@ -877,7 +875,6 @@ public class UserRepositoryTests : IDisposable
         // Assert
         Assert.NotNull(result);
         var updatedUser = await _context.Users.FindAsync(user.UserId);
-        Assert.NotNull(updatedUser);
         Assert.Null(updatedUser.Name);
         Assert.Null(updatedUser.AuthProvider);
     }

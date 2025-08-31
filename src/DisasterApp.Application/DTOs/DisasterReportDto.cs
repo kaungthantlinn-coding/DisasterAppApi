@@ -35,8 +35,8 @@ namespace DisasterApp.Application.DTOs
     public class DisasterReportDto
     {
         public Guid Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
+        public string Title { get; set; } = null!;
+        public string Description { get; set; } = null!;
         public DateTime Timestamp { get; set; }
         public SeverityLevel Severity { get; set; }
         public ReportStatus Status { get; set; }
@@ -44,7 +44,7 @@ namespace DisasterApp.Application.DTOs
         public string? UserName { get; set; }
         public string? UserEmail { get; set; }
         public int DisasterTypeId { get; set; }
-        public string DisasterTypeName { get; set; } = string.Empty;
+        public string DisasterTypeName { get; set; }
         public string? NewDisasterTypeName { get; set; }
 
         public Guid DisasterEventId { get; set; }
@@ -57,12 +57,10 @@ namespace DisasterApp.Application.DTOs
 
 
 
-
         //public LocationDto? Location { get; set; }
         public List<ImpactDetailDto> ImpactDetails { get; set; } = new List<ImpactDetailDto>();
         // Photos (return as URLs for the frontend)
         public List<string> PhotoUrls { get; set; } = new();
-
 
     }
     public class DisasterReportUpdateDto
@@ -95,7 +93,7 @@ namespace DisasterApp.Application.DTOs
 
 
     public class DisasterReportExportDto
-    {
+    {      
         public string Title { get; set; } = null!;
         public string Description { get; set; } = null!;
         public DateTime Timestamp { get; set; }
@@ -118,3 +116,5 @@ namespace DisasterApp.Application.DTOs
         public List<string> PhotoUrls { get; set; } = new();
     }
 }
+
+

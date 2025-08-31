@@ -1,4 +1,5 @@
 using DisasterApp.Application.DTOs;
+using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using System;
 using System.Collections.Generic;
@@ -24,8 +25,9 @@ namespace DisasterApp.Application.Services
         Task<SupportRequestResponseDto?> RejectSupportRequestAsync(int id, Guid adminUserId);
         Task<bool> ApproveOrRejectSupportRequestAsync(int id, ReportStatus status, Guid adminUserId);
         Task CreateAsync(Guid userId, SupportRequestCreateDto dto);
-        Task UpdateAsync(int id, SupportRequestUpdateDto dto);
+        Task<SupportRequestResponseDto?> UpdateAsync(int id, Guid currentUserId, SupportRequestUpdateDto dto);
 
-        Task<bool> DeleteAsync(int id);
+        Task<bool> DeleteAsync(int requestId, Guid currentUserId, bool isAdmin);
+        Task<IEnumerable<SupportRequestsDto>> SearchByKeywordAsync(string? keyword, byte? urgency, string? status);
     }
 }

@@ -1,13 +1,14 @@
+﻿using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services;
+using DisasterApp.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using static DisasterApp.Application.DTOs.SupportRequestDto;
 
-namespace DisasterApp.WebApi.Controllers;
-
-
+namespace DisasterApp.Controllers
+{
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -83,16 +84,38 @@ namespace DisasterApp.WebApi.Controllers;
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] SupportRequestUpdateDto dto)
         {
-            await _service.UpdateAsync(id, dto);
-            return Ok(new { message = "Support request updated." });
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var userId = Guid.Parse(userIdClaim);
+
+            var updated = await _service.UpdateAsync(id, userId, dto);
+
+            if (updated == null)
+                return Forbid();
+
+            return Ok(updated);
+
         }
         [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var deleted = await _service.DeleteAsync(id);
-            if (!deleted) return NotFound();
-            return Ok(new { message = "Support request deleted." });
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            var userId = Guid.Parse(userIdClaim);// extract from JWT claims
+            var isAdmin = User.IsInRole("admin");// or check your Role system
+
+            var success = await _service.DeleteAsync(id, userId, isAdmin);
+
+            if (!success)
+                return Forbid(); // 403 if not allowed
+
+            return NoContent();
         }
         [Authorize]
         [HttpGet("support-types")]
@@ -112,6 +135,7 @@ namespace DisasterApp.WebApi.Controllers;
             var adminId = Guid.Parse(userIdClaim);
             var updatedDto = await _service.ApproveSupportRequestAsync(id, adminId);
             if (updatedDto == null) return NotFound();
+
             return Ok(updatedDto);
         }
         [HttpPut("{id}/reject")]
@@ -140,4 +164,16 @@ namespace DisasterApp.WebApi.Controllers;
 
             return Ok(result);
         }
+
+        [Authorize]
+        [HttpGet("search")]
+        public async Task<IActionResult> Search(
+            [FromQuery] string? keyword,
+            [FromQuery] byte? urgency,
+            [FromQuery] string? status)
+        {
+            var results = await _service.SearchByKeywordAsync(keyword, urgency, status);
+            return Ok(results);
+        }
     }
+}
