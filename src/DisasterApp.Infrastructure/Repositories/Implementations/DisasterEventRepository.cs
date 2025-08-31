@@ -46,5 +46,10 @@ namespace DisasterApp.Infrastructure.Repositories
             _context.DisasterEvents.Remove(entity);
             await _context.SaveChangesAsync();
         }
+        public async Task<DisasterEvent?> GetByNameAsync(string name)
+        {
+            return await _context.DisasterEvents.FirstOrDefaultAsync(e => e.Name.ToLower() == name.ToLower());
+        }
+         
     }
 }

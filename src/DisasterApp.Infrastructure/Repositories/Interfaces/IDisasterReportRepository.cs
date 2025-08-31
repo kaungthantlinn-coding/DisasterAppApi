@@ -24,6 +24,9 @@ namespace DisasterApp.Infrastructure.Repositories
         Task<DisasterReport> UpdateAsync(DisasterReport report);
         Task SoftDeleteAsync(Guid id);
         Task DeleteAsync(Guid id);
-        
+
+        Task<List<DisasterReport>> GetAllForExportReportsAsync();
     }
+
 }
+

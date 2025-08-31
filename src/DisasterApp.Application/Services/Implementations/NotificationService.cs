@@ -1,4 +1,5 @@
 using DisasterApp.Application.DTOs;
+using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure;
@@ -18,18 +19,21 @@ namespace DisasterApp.Application.Services
         private readonly IDisasterReportRepository _disasterReportRepository;
         private readonly INotificationHubService _notificationHubService;
         private readonly ILogger<NotificationService> _logger;
+        private readonly IEmailService _emailService;
         public NotificationService(
             INotificationRepository notificationRepository,
             IUserRepository userRepository,
             IDisasterReportRepository disasterReportRepository,
             INotificationHubService notificationHubService,
-            ILogger<NotificationService> logger)
+            ILogger<NotificationService> logger,
+            IEmailService emailService)
         {
             _notiRepository = notificationRepository;
             _userRepository = userRepository;
             _disasterReportRepository = disasterReportRepository;
             _notificationHubService = notificationHubService;
             _logger = logger;
+            _emailService = emailService;
         }
 
         public async Task<Notification> CreateNotificationAsync(Guid userId, Guid disasterReportId, string title, string message, NotificationType type)
@@ -42,7 +46,6 @@ namespace DisasterApp.Application.Services
                 Title = title,
                 Message = message,
                 Type = type,
-                
                 CreatedAt = DateTime.UtcNow,
                 IsRead = false
             };
@@ -159,11 +162,36 @@ namespace DisasterApp.Application.Services
                type);
 
         }
-    }
 
+        private static readonly HashSet<Guid> _notifiedEvents = new HashSet<Guid>();
+
+        public async Task SendEmailAcceptedNotificationAsync(DisasterReport report)
+        {
+
+            // DisasterEvent ရှိသလား စစ်မယ်
+            if (report.DisasterEvent == null) return;
+
+            // အဲဒီ DisasterEventId ကို email ပို့ပြီးသားလား စစ်မယ်
+            if (_notifiedEvents.Contains(report.DisasterEvent.Id))
+            {
+                Console.WriteLine($"📧 Skipping email: DisasterEvent '{report.DisasterEvent.Name}' already notified.");
+                return;
+            }
+            var users = await _userRepository.GetAllUsersAsyn();
+            foreach (var user in users)
+            {
+                var subject = $"🚨 Disaster Confirmed: {report.Title}";
+                var body = $@"
+                    <h2>Disaster Alert: {report.Title}</h2>
+<p><b>Disaster :</b> {report.DisasterEvent.Name}</p>
+<p><b>Description :</b> {report.Description}</p>
+<p><b>Severity :</b> {report.Severity}</p>
+<p><b>Location :</b> {report.Location?.Address ?? "N/A"}</p>
+<p><b>DateTime :</b> {report.Timestamp.ToString("f")}</p>
+            <p><a href='https://localhost:5173/reports/{report.Id}'>View Details</a></p>";
+
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+            }
         }
-       
-      
-       
-       
-   
+    }
+}

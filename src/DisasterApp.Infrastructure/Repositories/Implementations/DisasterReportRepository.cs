@@ -153,5 +153,20 @@ namespace DisasterApp.Infrastructure.Repositories
             return true;
         }
 
+        public async Task<List<DisasterReport>> GetAllForExportReportsAsync()
+        {
+            return await _context.DisasterReports
+                  .Include(r => r.User)
+                  .ThenInclude(u => u.Roles)
+                  .Include(r => r.DisasterEvent)
+                   .ThenInclude(r => r.DisasterType)
+                  .Include(r => r.Location)
+                  .Include(r => r.Photos)
+                  .Include(r => r.ImpactDetails)
+                  .ThenInclude(id => id.ImpactTypes)
+                  .Where(x => x.IsDeleted != true)
+                  .ToListAsync();
+
+        }
     }
 }

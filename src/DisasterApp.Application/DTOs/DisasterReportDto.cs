@@ -42,6 +42,7 @@ namespace DisasterApp.Application.DTOs
         public ReportStatus Status { get; set; }
         public Guid UserId { get; set; }
         public string? UserName { get; set; }
+        public string? UserEmail { get; set; }
         public int DisasterTypeId { get; set; }
         public string DisasterTypeName { get; set; } = string.Empty;
         public string? NewDisasterTypeName { get; set; }
@@ -92,4 +93,28 @@ namespace DisasterApp.Application.DTOs
         public ReportStatus Status { get; set; }
     }
 
+
+    public class DisasterReportExportDto
+    {
+        public string Title { get; set; } = null!;
+        public string Description { get; set; } = null!;
+        public DateTime Timestamp { get; set; }
+        public SeverityLevel Severity { get; set; }
+        public ReportStatus Status { get; set; }
+        public string? VerifiedBy { get; set; }
+        public DateTime? VerifiedAt { get; set; }
+        public string UserName { get; set; } = null!;
+        public string? UserEmail { get; set; }
+        public string DisasterTypeName { get; set; } = null!;
+        public string? NewDisasterTypeName { get; set; }
+        public string? DisasterEventName { get; set; }
+        public DisasterCategory? DisasterCategory { get; set; }
+        public decimal Latitude { get; set; }
+        public decimal Longitude { get; set; }
+        public string? CoordinatePrecision { get; set; }
+        public string? Address { get; set; }
+        public List<ImpactDetailDto> ImpactDetails { get; set; } = new List<ImpactDetailDto>();
+        // Photos (return as URLs for the frontend)
+        public List<string> PhotoUrls { get; set; } = new();
+    }
 }

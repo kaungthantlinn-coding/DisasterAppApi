@@ -11,6 +11,7 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DisasterApp.Application.Services.Implementations;
+
 public class EmailOtpService : IEmailOtpService
 {
     private readonly IUserRepository _userRepository;
@@ -179,6 +180,7 @@ public class EmailOtpService : IEmailOtpService
                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
             // Record successful attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "verify_otp", true);
+
             // Generate tokens
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();

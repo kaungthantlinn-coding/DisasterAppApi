@@ -6,17 +6,20 @@ using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Http;
-using System;
+using iText.Kernel.Colors;
+using iText.Kernel.Font;
+using iText.Kernel.Geom;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iTextSharp.text;
+using OfficeOpenXml;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
+using Paragraph = iText.Layout.Element.Paragraph;
+
+
 
 namespace DisasterApp.Application.Services
 {
@@ -27,10 +30,12 @@ namespace DisasterApp.Application.Services
         IDisasterTypeRepository disasterTypeRepository,
         IImpactTypeRepository impactTypeRepository,
         IUserRepository userRepository,
-        INotificationService notificationService) : IDisasterReportService
+        INotificationService notificationService,
+        IDisasterEventRepository eventRepository) : IDisasterReportService
     {
         private readonly IDisasterReportRepository _repository = repository;
         private readonly IDisasterTypeRepository _disasterTypeRepository = disasterTypeRepository;
+        private readonly IDisasterEventRepository _eventRepository = eventRepository;
         private readonly IImpactTypeRepository _impactTypeReository = impactTypeRepository;
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Nominatim");
         private readonly IPhotoService _photoService = photoService;
@@ -91,13 +96,23 @@ namespace DisasterApp.Application.Services
 
                 if (string.IsNullOrWhiteSpace(dto.DisasterEventName))
                     throw new Exception("DisasterEventName is required");
-
-                var disasterEvent = new DisasterEvent
+                var existingEvent = await _eventRepository.GetByNameAsync(dto.DisasterEventName);
+                DisasterEvent disasterEvent;
+                if (existingEvent != null)
                 {
-                    Id = Guid.NewGuid(),
-                    Name = dto.DisasterEventName,
-                    DisasterTypeId = disasterTypeId
-                };
+                    disasterEvent = existingEvent;
+                }
+                else
+                {
+
+                    disasterEvent = new DisasterEvent
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = dto.DisasterEventName,
+                        DisasterTypeId = disasterTypeId
+                    };
+                    await _eventRepository.AddAsync(disasterEvent);
+                }
 
 
                 var address = string.IsNullOrWhiteSpace(dto.Address)
@@ -119,10 +134,8 @@ namespace DisasterApp.Application.Services
                     ImpactDetails = new List<ImpactDetail>(),
                     Photos = new List<Photo>()
 
-
-
                 };
-                
+
                 // Process impact details
                 foreach (var impactDto in dto.ImpactDetails)
                 {
@@ -154,9 +167,8 @@ namespace DisasterApp.Application.Services
                     Report = report
                 };
 
-                await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
                 await _repository.CreateAsync(report, location);
-
+                await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
                 if (dto.Photos != null && dto.Photos.Any())
                 {
                     foreach (var file in dto.Photos)
@@ -188,7 +200,7 @@ namespace DisasterApp.Application.Services
 
                     ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                     {
-                        Id = i.Id,                       
+                        Id = i.Id,
                         Severity = i.Severity,
                         IsResolved = i.IsResolved,
                         ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
@@ -349,11 +361,14 @@ namespace DisasterApp.Application.Services
                 Timestamp = report.Timestamp,
                 Severity = report.Severity,
                 Status = report.Status,
+                DisasterTypeId = report.DisasterEvent.DisasterTypeId,
+                DisasterCategory=report.DisasterEvent.DisasterType.Category,
                 DisasterEventId = report.DisasterEventId,
                 DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = report.UserId,
                 UserName = report.User.Name ?? string.Empty,
+                UserEmail = report.User.Email,
                 Longitude = report.Location?.Longitude ?? 0,
                 Latitude = report.Location?.Latitude ?? 0,
                 Address = report.Location?.Address ?? string.Empty,
@@ -364,6 +379,7 @@ namespace DisasterApp.Application.Services
                     Severity = i.Severity,
                     IsResolved = i.IsResolved,
                     ResolvedAt = i.ResolvedAt,
+                    ImpactTypeIds = i.ImpactTypes.Select(t => t.Id).ToList(),
                     ImpactTypes = i.ImpactTypes.Select(t => new ImpactTypeDto
                     {
                         Id = t.Id,
@@ -458,7 +474,18 @@ namespace DisasterApp.Application.Services
             if (adminUser == null || !adminUser.Roles.Any(r => r.Name == "admin"))
                 throw new UnauthorizedAccessException("Only admins can update report status.");
 
-            return await _repository.UpdateStatusAsync(id, ReportStatus.Verified, adminUserId);
+            var success= await _repository.UpdateStatusAsync(id, ReportStatus.Verified, adminUserId);
+          if(success)
+            {
+                var report = await _repository.GetByIdAsync(id);
+                if(report != null)
+                {
+                    await _notificationService.SendEmailAcceptedNotificationAsync(report);    
+                       
+                }
+            }
+            
+            return success;
         }
 
         public async Task<bool> RejectDisasterReportAsync(Guid reportId, Guid adminUserId)
@@ -625,7 +652,8 @@ namespace DisasterApp.Application.Services
 
             GeocodeCache[(lat, lng)] = address;
             return address;
-        }
+        }    
 
+       
     }
 }

@@ -1,12 +1,13 @@
-﻿using DisasterApp.Application.Services;
+using DisasterApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using static DisasterApp.Application.DTOs.SupportRequestDto;
 
-namespace DisasterApp.Controllers
-{
+namespace DisasterApp.WebApi.Controllers;
+
+
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -140,4 +141,3 @@ namespace DisasterApp.Controllers
             return Ok(result);
         }
     }
-}

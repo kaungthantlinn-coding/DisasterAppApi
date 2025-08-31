@@ -12,5 +12,8 @@ namespace DisasterApp.Application.Services
         Task<bool> MarkAsReadAsync(Guid notificationId);
         Task SendReportSubmittedNotificationAsync(Guid disasterReportId, Guid reporterUserId);
         Task SendReportDecisionNotificationAsync(Guid disasterReportId, ReportStatus decision, string? reason = null);
+
+        Task SendEmailAcceptedNotificationAsync(DisasterReport report);
+
     }
 }

@@ -59,7 +59,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
             var user = await _context.Users
                 .Include(u => u.Roles)
                 .FirstOrDefaultAsync(u => u.UserId == userId);
-            
+
             return user?.Roles.Select(r => r.Name).ToList() ?? new List<string>();
         }
 
@@ -120,14 +120,14 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
             // Apply sorting
             query = sortBy.ToLower() switch
             {
-                "name" => sortDirection.ToLower() == "asc" 
-                    ? query.OrderBy(u => u.Name) 
+                "name" => sortDirection.ToLower() == "asc"
+                    ? query.OrderBy(u => u.Name)
                     : query.OrderByDescending(u => u.Name),
-                "email" => sortDirection.ToLower() == "asc" 
-                    ? query.OrderBy(u => u.Email) 
+                "email" => sortDirection.ToLower() == "asc"
+                    ? query.OrderBy(u => u.Email)
                     : query.OrderByDescending(u => u.Email),
-                "createdat" => sortDirection.ToLower() == "asc" 
-                    ? query.OrderBy(u => u.CreatedAt) 
+                "createdat" => sortDirection.ToLower() == "asc"
+                    ? query.OrderBy(u => u.CreatedAt)
                     : query.OrderByDescending(u => u.CreatedAt),
                 _ => query.OrderByDescending(u => u.CreatedAt)
             };
@@ -216,7 +216,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
         {
             var disasterReports = await _context.DisasterReports.CountAsync(dr => dr.UserId == userId);
             var supportRequests = await _context.SupportRequests.CountAsync(sr => sr.UserId == userId);
-            
+
             // Note: Donations and Organizations tables might not exist yet, so returning 0 for now
             var donations = 0;
             var organizations = 0;
@@ -236,6 +236,14 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations
             return await _context.Users
                 .Include(u => u.Roles)
                 .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+                .ToListAsync();
+        }
+
+        public async Task<List<User>> GetAllUsersAsyn()
+        {
+            return await _context.Users
+                .Include(u => u.Roles)
+                .Where(u => u.IsBlacklisted != true)
                 .ToListAsync();
         }
     }

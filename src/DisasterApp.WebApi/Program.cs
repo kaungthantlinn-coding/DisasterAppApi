@@ -10,6 +10,7 @@ using DisasterApp.Infrastructure.Repositories.Implementations;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using DisasterApp.WebApi.Hubs;
+using DisasterApp.WebApi.Middleware;
 using DisasterApp.WebApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -66,6 +67,7 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserBlacklistRepository, UserBlacklistRepository>();
             builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
+
             // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
@@ -95,6 +97,7 @@ namespace DisasterApp
 
             // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
+            builder.Services.AddScoped<IReportExportService, ReportExportService>();
 
             // Add Enhanced Audit System services
             builder.Services.AddScoped<IAuditTargetValidator, AuditTargetValidator>();
@@ -299,7 +302,6 @@ namespace DisasterApp
             app.MapHub<UserStatsHub>("/userStatsHub");
             app.MapHub<NotificationHub>("/notificationHub");
 
-            // ✅ Run
             app.Run();
         }
     }
