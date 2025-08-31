@@ -1,5 +1,6 @@
 namespace DisasterApp.Domain.Enums;
 
+
 public enum AuditTargetType
 {
     User = 1,
@@ -19,22 +20,26 @@ public enum AuditTargetType
     Integration = 15
 }
 
+
 public enum AuditCategory
 {
     Authentication = 1,
     Authorization = 2,
-    DataAccess = 3,
-    DataModification = 4,
-    SystemAdmin = 5,
-    UserManagement = 6,
+    UserManagement = 3,
+    DataAccess = 4,
+    DataModification = 5,
+    Security = 6,
     Financial = 7,
-    Security = 8,
-    Compliance = 9,
-    Integration = 10,
-    Emergency = 11,
+    Emergency = 8,
+    SystemAdmin = 9,
+    Compliance = 10,
+    Integration = 11,
     Error = 12
 }
 
+/// <summary>
+/// Defines the severity levels for audit events
+/// </summary>
 public enum AuditSeverity
 {
     Info = 1,
