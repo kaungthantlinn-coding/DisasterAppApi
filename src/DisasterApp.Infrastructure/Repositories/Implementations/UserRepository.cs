@@ -3,7 +3,7 @@ using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace DisasterApp.Infrastructure.Repositories.Implementations;//
+namespace DisasterApp.Infrastructure.Repositories.Implementations;
 
 public class UserRepository : IUserRepository
 {
@@ -19,7 +19,7 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Include(u => u.Roles)
             .FirstOrDefaultAsync(u => u.Email == email);
-    }
+    }//
 
     public async Task<User?> GetByIdAsync(Guid userId)
     {
@@ -233,11 +233,20 @@ public class UserRepository : IUserRepository
             user.Organizations.Count
         );
     }
-    public async Task<List<User>> GetAllUsersAsyn()
+
+    // Role management methods
+    public async Task<int> GetUserCountByRoleAsync(Guid roleId)
     {
         return await _context.Users
-            .Include(u => u.Roles)
-            .Where(u=> u.IsBlacklisted != true)
+            .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+            .CountAsync();
+    }
+
+    public async Task<List<User>> GetUsersByRoleAsync(Guid roleId)
+    {
+        return await _context.Users
+            .Where(u => u.Roles.Any(r => r.RoleId == roleId))
+            .OrderBy(u => u.Name)
             .ToListAsync();
     }
 }

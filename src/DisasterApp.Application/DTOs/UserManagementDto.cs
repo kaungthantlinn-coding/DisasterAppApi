@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DisasterApp.Application.Validation;
 
-namespace DisasterApp.Application.DTOs;
+namespace DisasterApp.Application.DTOs;//
 
 
 public class CreateUserDto
@@ -92,11 +92,6 @@ public class UserListItemDto
 
 
 
-public class RoleDto
-{
-    public Guid RoleId { get; set; }
-    public string Name { get; set; } = null!;
-}
 
 
 
