@@ -5,7 +5,7 @@ public static class RoleHierarchy
 {
     private static readonly Dictionary<string, int> _hierarchy = new()
     {
-        { "User", 1 },
+        { "User", 1 },//
         { "CJ", 2 },
         { "Admin", 3 },
         { "SuperAdmin", 4 }

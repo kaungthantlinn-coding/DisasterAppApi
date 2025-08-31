@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace DisasterApp.Application.DTOs;
-
+//
 public class RoleDto
 {
     public Guid Id { get; set; }

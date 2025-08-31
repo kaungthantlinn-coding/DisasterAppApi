@@ -3,7 +3,7 @@ namespace DisasterApp.Application.Services.Interfaces;
 public interface IAuditRetentionService
 {
     Task<int> ApplyRetentionPoliciesAsync();
-    Task<int> CleanupExpiredLogsAsync();
+    Task<int> CleanupExpiredLogsAsync();//
     Task<object> GetRetentionPolicyAsync();
     Task<bool> UpdateRetentionPolicyAsync(object policy);
     Task<int> ArchiveOldLogsAsync(int olderThanDays);

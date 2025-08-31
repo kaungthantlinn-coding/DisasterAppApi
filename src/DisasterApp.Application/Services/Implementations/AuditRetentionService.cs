@@ -4,8 +4,7 @@ using DisasterApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
-
+using System.Text.Json;//
 namespace DisasterApp.Application.Services.Implementations;
 public class AuditRetentionService : IAuditRetentionService
 {

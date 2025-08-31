@@ -8,7 +8,7 @@ namespace DisasterApp.Application.Services.Interfaces
         Task<SendOtpResponseDto> SendOtpAsync(Guid userId, string type);
         Task<bool> VerifyOtpAsync(Guid userId, string code, string type);
         Task<bool> MarkOtpAsUsedAsync(Guid userId, string code, string type);
-        string GenerateOtpCode();
+        string GenerateOtpCode();//
         Task<int> CleanupExpiredCodesAsync();
         Task<int> GetActiveCodeCountAsync(Guid userId, string? type = null);
         Task<int> InvalidateCodesAsync(Guid userId, string? type = null);

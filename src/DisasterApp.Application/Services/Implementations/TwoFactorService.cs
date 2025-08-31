@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DisasterApp.Application.Services.Implementations;
 public class TwoFactorService : ITwoFactorService
-{
+{//
     private readonly IUserRepository _userRepository;
     private readonly IOtpService _otpService;
     private readonly IBackupCodeService _backupCodeService;

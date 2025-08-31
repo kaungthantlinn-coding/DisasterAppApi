@@ -8,7 +8,7 @@ public class AuditTargetValidator : IAuditTargetValidator
     private readonly Dictionary<AuditTargetType, List<AuditCategory>> _validCombinations;
     private readonly Dictionary<string, AuditSeverity> _actionSeverityMap;
 
-    public AuditTargetValidator()
+    public AuditTargetValidator()//
     {
         _validCombinations = InitializeValidCombinations();
         _actionSeverityMap = InitializeActionSeverityMap();

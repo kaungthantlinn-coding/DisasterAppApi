@@ -4,7 +4,7 @@ namespace DisasterApp.Infrastructure.Repositories.Interfaces;
 
 public interface IUserRepository
 {
-    // Existing methods
+    // Existing methods  //
     Task<User?> GetByEmailAsync(string email);
     Task<User?> GetByIdAsync(Guid userId);
     Task<User?> GetByAuthProviderAsync(string authProvider, string authId);

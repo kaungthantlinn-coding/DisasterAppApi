@@ -7,4 +7,4 @@ namespace DisasterApp.Application.Services.Interfaces
         Task<SendEmailOtpResponseDto> SendOtpAsync(SendEmailOtpRequestDto request, string ipAddress);
         Task<VerifyEmailOtpResponseDto> VerifyOtpAsync(VerifyEmailOtpRequestDto request, string ipAddress);
     }
-}
+}//

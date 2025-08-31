@@ -1,7 +1,7 @@
 using DisasterApp.Domain.Enums;
 
 namespace DisasterApp.Application.Services.Interfaces;
-
+//
 public interface IAuditTargetValidator
 {
     bool IsValidTargetType(AuditTargetType targetType, string action);

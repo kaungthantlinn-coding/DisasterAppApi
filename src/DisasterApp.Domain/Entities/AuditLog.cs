@@ -4,7 +4,7 @@ public partial class AuditLog
 {
     public AuditLog()
     {
-        AuditLogId = Guid.NewGuid();
+        AuditLogId = Guid.NewGuid();//
         Timestamp = DateTime.UtcNow;
         CreatedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;

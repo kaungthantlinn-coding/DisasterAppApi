@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace DisasterApp.WebApi.Controllers;
-
+//
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

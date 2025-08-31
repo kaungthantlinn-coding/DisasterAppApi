@@ -9,7 +9,7 @@ public class OtpAttemptRepository : IOtpAttemptRepository
     private readonly DisasterDbContext _context;
 
     public OtpAttemptRepository(DisasterDbContext context)
-    {
+    {//
         _context = context;
     }
 

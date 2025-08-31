@@ -5,7 +5,7 @@ namespace DisasterApp.Application.Validation;
 
 /// Validation attribute to ensure role names are valid
 
-public class ValidRoleNamesAttribute : ValidationAttribute
+public class ValidRoleNamesAttribute : ValidationAttribute//
 {
     private static readonly string[] ValidRoles = { "user", "admin", "cj" };
 

@@ -9,7 +9,7 @@ namespace DisasterApp.Application.Services.Implementations;
 public class RoleService : IRoleService
 {
     private readonly DisasterDbContext _context;
-    private readonly ILogger<RoleService> _logger;
+    private readonly ILogger<RoleService> _logger;//
     private readonly IAuditService _auditService;
 
     public RoleService(DisasterDbContext context, ILogger<RoleService> logger, IAuditService auditService)

@@ -5,4 +5,4 @@ namespace DisasterApp.Application.Services.Interfaces
         string GenerateLoginToken(Guid userId);
         Task<Guid?> ValidateLoginTokenAsync(string loginToken);
     }
-}
+}//

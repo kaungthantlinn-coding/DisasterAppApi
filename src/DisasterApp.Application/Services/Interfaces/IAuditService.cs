@@ -2,7 +2,7 @@ using DisasterApp.Application.DTOs;
 using DisasterApp.Domain.Entities;
 
 namespace DisasterApp.Application.Services.Interfaces;
-
+//
 public interface IAuditService
 {
     // Existing role-specific methods

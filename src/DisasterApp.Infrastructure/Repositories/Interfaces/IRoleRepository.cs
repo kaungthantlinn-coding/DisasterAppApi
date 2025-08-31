@@ -8,7 +8,7 @@ public interface IRoleRepository
     Task<Role?> GetByIdAsync(Guid roleId);
     Task<Role?> GetByNameAsync(string name);
     Task<List<Role>> GetAllAsync();
-    Task<(List<Role> Roles, int TotalCount)> GetRolesAsync(
+    Task<(List<Role> Roles, int TotalCount)> GetRolesAsync(//
         int pageNumber,
         int pageSize,
         string? searchTerm = null,

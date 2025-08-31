@@ -10,7 +10,7 @@ public enum AuditTargetType
     Role = 6,
     Permission = 7,
     Authentication = 8,
-    Authorization = 9,
+    Authorization = 9,//
     DataAccess = 10,
     AuditLog = 11,
     Emergency = 12,

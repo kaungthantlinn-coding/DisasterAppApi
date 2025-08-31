@@ -2,7 +2,7 @@ namespace DisasterApp.Application.Services.Interfaces;
 
 public interface IAuditDataSanitizer
 {
-    string SanitizeForRole(string data, string userRole);
+    string SanitizeForRole(string data, string userRole);//
     bool ContainsPII(string data);
     string HashSensitiveData(string data);
     string MaskSensitiveDetails(string details, string userRole);

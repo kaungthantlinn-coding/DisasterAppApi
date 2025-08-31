@@ -6,7 +6,7 @@ public static class DefaultRoles
 {
     public static readonly List<Role> InitialRoles = new()
     {
-        new Role 
+        new Role //
         { 
             RoleId = Guid.NewGuid(),
             Name = "SuperAdmin", 

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DisasterApp.Infrastructure.Data;
 using DisasterApp.WebApi.Authorization;
-
+//
 namespace DisasterApp.WebApi.Controllers;
 
 [ApiController]

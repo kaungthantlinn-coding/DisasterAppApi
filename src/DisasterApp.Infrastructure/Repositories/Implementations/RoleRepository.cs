@@ -4,7 +4,7 @@ using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace DisasterApp.Infrastructure.Repositories.Implementations;
-
+//
 public class RoleRepository : IRoleRepository
 {
     private readonly DisasterDbContext _context;

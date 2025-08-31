@@ -2,7 +2,7 @@ using DisasterApp.Application.DTOs;
 
 namespace DisasterApp.Application.Services.Interfaces;
 
-public interface IBlacklistService
+public interface IBlacklistService//
 {
     Task<BlacklistUserResponseDto> BlacklistUserAsync(Guid userId, BlacklistUserDto blacklistDto, Guid adminUserId);
     Task<UnblacklistUserResponseDto> UnblacklistUserAsync(Guid userId, UnblacklistUserDto? unblacklistDto, Guid adminUserId);

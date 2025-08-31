@@ -4,7 +4,7 @@ namespace DisasterApp.Infrastructure.Repositories.Interfaces;
 public interface IOtpCodeRepository
 {
     Task<OtpCode> CreateAsync(OtpCode otpCode);
-    Task<OtpCode?> GetByIdAsync(Guid id);
+    Task<OtpCode?> GetByIdAsync(Guid id);//
     Task<OtpCode?> GetByUserAndCodeAsync(Guid userId, string code, string type);
     Task<List<OtpCode>> GetActiveCodesAsync(Guid userId, string? type = null);
     Task<OtpCode> UpdateAsync(OtpCode otpCode);
