@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace DisasterApp.Application.Services.Implementations;
 
-public class PasswordValidationService : IPasswordValidationService
+public class PasswordValidationService : IPasswordValidationService//
 {
     private const int MinPasswordLength = 8;
     private const int MaxPasswordLength = 100;

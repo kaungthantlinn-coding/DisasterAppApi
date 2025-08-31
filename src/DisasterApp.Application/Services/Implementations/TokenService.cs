@@ -8,7 +8,7 @@ using System.Text;
 
 namespace DisasterApp.Application.Services.Implementations;
 
-public class TokenService : ITokenService
+public class TokenService : ITokenService//
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<TokenService> _logger;

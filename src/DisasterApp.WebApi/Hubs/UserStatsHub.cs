@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
-using System.Linq;
+using System.Linq;//
 
 namespace DisasterApp.WebApi.Hubs;
 

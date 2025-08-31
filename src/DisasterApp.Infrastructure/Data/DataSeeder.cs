@@ -9,7 +9,7 @@ public static class DataSeeder
 {
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
-        using var scope = serviceProvider.CreateScope();
+        using var scope = serviceProvider.CreateScope();//
         var context = scope.ServiceProvider.GetRequiredService<DisasterDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<DisasterDbContext>>();
 

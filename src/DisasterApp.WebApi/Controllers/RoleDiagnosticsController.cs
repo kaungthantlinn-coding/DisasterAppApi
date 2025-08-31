@@ -5,7 +5,7 @@ using DisasterApp.WebApi.Authorization;
 using DisasterApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-
+//
 namespace DisasterApp.WebApi.Controllers;
 
 [ApiController]

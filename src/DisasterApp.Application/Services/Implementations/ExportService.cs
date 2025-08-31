@@ -1,5 +1,6 @@
 ﻿using CloudinaryDotNet.Core;
 using DisasterApp.Application.DTOs;
+<<<<<<< HEAD
 using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Repositories;
 using QuestPDF.Fluent;
@@ -9,6 +10,15 @@ using QuestPDF.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+=======
+using DisasterApp.Application.Services.Interfaces;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;//
+using ClosedXML.Excel;
+using System.Globalization;
+>>>>>>> ktldev
 using System.Text;
 using System.Threading.Tasks;
 

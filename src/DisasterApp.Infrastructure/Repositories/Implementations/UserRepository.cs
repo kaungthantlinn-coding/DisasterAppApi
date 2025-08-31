@@ -3,7 +3,7 @@ using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace DisasterApp.Infrastructure.Repositories.Implementations;
+namespace DisasterApp.Infrastructure.Repositories.Implementations;//
 
 public class UserRepository : IUserRepository
 {

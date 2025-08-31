@@ -6,7 +6,7 @@ public interface IUserManagementService
     Task<PagedUserListDto> GetUsersAsync(UserFilterDto filter); 
     Task<UserDetailsDto?> GetUserByIdAsync(Guid userId);
     Task<UserDetailsDto> CreateUserAsync(CreateUserDto createUserDto);
-    Task<UserDetailsDto> UpdateUserAsync(Guid userId, UpdateUserDto updateUserDto);
+    Task<UserDetailsDto> UpdateUserAsync(Guid userId, UpdateUserDto updateUserDto);//
     Task<bool> DeleteUserAsync(Guid userId);
     Task<bool> BlacklistUserAsync(Guid userId);
     Task<bool> UnblacklistUserAsync(Guid userId);

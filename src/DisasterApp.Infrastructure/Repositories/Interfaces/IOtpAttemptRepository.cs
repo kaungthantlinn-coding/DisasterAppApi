@@ -4,7 +4,7 @@ namespace DisasterApp.Infrastructure.Repositories.Interfaces;
 
 public interface IOtpAttemptRepository
 {
-    Task<OtpAttempt> CreateAsync(OtpAttempt otpAttempt);
+    Task<OtpAttempt> CreateAsync(OtpAttempt otpAttempt);//
     Task<List<OtpAttempt>> GetUserAttemptsAsync(Guid userId, DateTime since, string? attemptType = null);
     Task<List<OtpAttempt>> GetIpAttemptsAsync(string ipAddress, DateTime since, string? attemptType = null);
     Task<List<OtpAttempt>> GetEmailAttemptsAsync(string email, DateTime since, string? attemptType = null);

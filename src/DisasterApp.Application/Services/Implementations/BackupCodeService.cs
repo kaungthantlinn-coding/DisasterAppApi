@@ -9,7 +9,7 @@ namespace DisasterApp.Application.Services.Implementations;
 public class BackupCodeService : IBackupCodeService
 {
     private readonly IBackupCodeRepository _backupCodeRepository;
-    private readonly IUserRepository _userRepository;
+    private readonly IUserRepository _userRepository;//
     private readonly ILogger<BackupCodeService> _logger;
 
     public BackupCodeService(

@@ -5,7 +5,7 @@ namespace DisasterApp.Infrastructure.Repositories.Interfaces;
 public interface IUserBlacklistRepository
 {
     Task<UserBlacklist> CreateAsync(UserBlacklist userBlacklist);
-    Task<UserBlacklist?> GetActiveBlacklistAsync(Guid userId);
+    Task<UserBlacklist?> GetActiveBlacklistAsync(Guid userId);   //
     Task<IEnumerable<UserBlacklist>> GetBlacklistHistoryAsync(Guid userId);
     Task<UserBlacklist?> GetByIdAsync(Guid id);
     Task<UserBlacklist> UpdateAsync(UserBlacklist userBlacklist);

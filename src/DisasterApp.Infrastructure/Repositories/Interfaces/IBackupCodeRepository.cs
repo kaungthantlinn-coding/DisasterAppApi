@@ -3,7 +3,7 @@ using DisasterApp.Domain.Entities;
 namespace DisasterApp.Infrastructure.Repositories.Interfaces
 {
     public interface IBackupCodeRepository
-    {
+    {//
         Task<BackupCode> CreateAsync(BackupCode backupCode);
         Task<List<BackupCode>> CreateManyAsync(List<BackupCode> backupCodes);
         Task<BackupCode?> GetByIdAsync(Guid id);

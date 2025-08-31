@@ -1,7 +1,7 @@
 using DisasterApp.Application.DTOs;
 
 namespace DisasterApp.Application.Services.Interfaces;
-
+//
 public interface IAuthService
 {
     Task<AuthResponseDto> LoginAsync(LoginRequestDto request);

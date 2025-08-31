@@ -8,6 +8,6 @@ public interface IPasswordResetTokenRepository
     Task<PasswordResetToken> CreateAsync(PasswordResetToken passwordResetToken);
     Task<bool> DeleteAsync(string token);
     Task<bool> DeleteAllUserTokensAsync(Guid userId);
-    Task<bool> IsValidAsync(string token);
+    Task<bool> IsValidAsync(string token);//
     Task<bool> MarkAsUsedAsync(string token);
 }

@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DisasterApp.Infrastructure.Repositories.Implementations;
 
-public class RefreshTokenRepository : IRefreshTokenRepository
+public class RefreshTokenRepository : IRefreshTokenRepository//
 {
     private readonly DisasterDbContext _context;
     private readonly ILogger<RefreshTokenRepository> _logger;

@@ -3,7 +3,7 @@ using DisasterApp.Infrastructure.Data;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-
+//
 namespace DisasterApp.Infrastructure.Repositories.Implementations;
 
 public class UserBlacklistRepository : IUserBlacklistRepository

@@ -9,7 +9,7 @@ namespace DisasterApp.Infrastructure.Repositories.Implementations;
 public class PasswordResetTokenRepository : IPasswordResetTokenRepository
 {
     private readonly DisasterDbContext _context;
-    private readonly ILogger<PasswordResetTokenRepository> _logger;
+    private readonly ILogger<PasswordResetTokenRepository> _logger;//
 
     public PasswordResetTokenRepository(DisasterDbContext context, ILogger<PasswordResetTokenRepository> logger)
     {

@@ -7,7 +7,7 @@ public class RoleRequirementAttribute : AuthorizeAttribute
 {
     public RoleRequirementAttribute(params string[] roles)
     {
-        Roles = string.Join(",", roles);
+        Roles = string.Join(",", roles);//
     }
 }
 

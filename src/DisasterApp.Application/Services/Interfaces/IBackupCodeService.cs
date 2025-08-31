@@ -8,6 +8,6 @@ namespace DisasterApp.Application.Services.Interfaces
         Task<int> InvalidateAllBackupCodesAsync(Guid userId);
         string GenerateBackupCode();
         string HashBackupCode(string backupCode);
-        bool VerifyBackupCode(string backupCode, string hash);
+        bool VerifyBackupCode(string backupCode, string hash);//
     }
 }

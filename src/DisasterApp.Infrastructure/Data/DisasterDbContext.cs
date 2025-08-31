@@ -10,7 +10,7 @@ public partial class DisasterDbContext : DbContext
     public DisasterDbContext()
     {
     }
-
+//
     public DisasterDbContext(DbContextOptions<DisasterDbContext> options)
         : base(options)
     {
