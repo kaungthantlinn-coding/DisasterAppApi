@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
@@ -169,19 +169,19 @@ namespace DisasterApp.Application.Services
         public async Task SendEmailAcceptedNotificationAsync(DisasterReport report)
         {
 
-            // DisasterEvent ရှိသလား စစ်မယ်
+            // DisasterEvent ??????? ??????
             if (report.DisasterEvent == null) return;
 
-            // အဲဒီ DisasterEventId ကို email ပို့ပြီးသားလား စစ်မယ်
+            // ???? DisasterEventId ??? email ?????????????? ??????
             if (_notifiedEvents.Contains(report.DisasterEvent.Id))
             {
-                Console.WriteLine($"📧 Skipping email: DisasterEvent '{report.DisasterEvent.Name}' already notified.");
+                Console.WriteLine($"?? Skipping email: DisasterEvent '{report.DisasterEvent.Name}' already notified.");
                 return;
             }
-            var users = await _userRepository.GetAllUsersAsyn();
+            var users = await _userRepository.GetAllUsersAsync();
             foreach (var user in users)
             {
-                var subject = $"🚨 Disaster Confirmed: {report.Title}";
+                var subject = $"?? Disaster Confirmed: {report.Title}";
                 var body = $@"
                     <h2>Disaster Alert: {report.Title}</h2>
 <p><b>Disaster :</b> {report.DisasterEvent.Name}</p>

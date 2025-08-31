@@ -40,4 +40,4 @@ public interface IUserRepository
     // Role management methods
     Task<int> GetUserCountByRoleAsync(Guid roleId);
     Task<List<User>> GetUsersByRoleAsync(Guid roleId);
-}
+}    Task<List<User>> GetAllUsersAsync();
