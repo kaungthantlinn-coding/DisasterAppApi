@@ -25,17 +25,25 @@ namespace DisasterApp.Infrastructure.Repositories
                 .Include(sr => sr.Report)
                 .ThenInclude(r => r.Location)
                 .Include(sr => sr.User)
-
+                 .OrderByDescending(sr => sr.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<SupportRequest?> GetByIdAsync(int id)
         {
             return await _context.SupportRequests
+                .Include(sr => sr.User)
+                .Include(sr => sr.Report)
+                .ThenInclude(r => r.Location)
                  .Include(sr => sr.SupportTypes)
                  .FirstOrDefaultAsync(sr => sr.Id == id);
         }
-
+        public async Task<List<SupportType>> GetBySupportTypeIdsAsync(IEnumerable<int> ids)
+        {
+            return await _context.SupportTypes
+                .Where(st => ids.Contains(st.Id))
+                .ToListAsync();
+        }
 
         public async Task AddAsync(SupportRequest request)
         {
@@ -50,7 +58,7 @@ namespace DisasterApp.Infrastructure.Repositories
         public async Task DeleteAsync(SupportRequest request)
         {
             _context.SupportRequests.Remove(request);
-            await _context.SaveChangesAsync();
+
         }
 
         public async Task SaveChangesAsync()
@@ -125,6 +133,41 @@ namespace DisasterApp.Infrastructure.Repositories
                 VerifiedRequests = await _context.SupportRequests.CountAsync(r => r.Status == SupportRequestStatus.Verified),
                 RejectedRequests = await _context.SupportRequests.CountAsync(r => r.Status == SupportRequestStatus.Rejected),
             };
+        }
+
+        public async Task<IEnumerable<SupportRequest>> SearchByKeywordAsync(string? keyword, byte? urgency, string? status)
+        {
+            var query = _context.SupportRequests
+                .Include(sr => sr.SupportTypes)
+                .Include(sr => sr.Report)
+                .ThenInclude(r => r.Location)
+                .Include(sr => sr.User)
+                 .OrderByDescending(sr => sr.CreatedAt)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                var lowerKeyword = keyword.ToLower();
+                query = query.Where(sr =>
+                    sr.Description.ToLower().Contains(lowerKeyword) ||
+                    sr.Report.Location.Address.ToLower().Contains(lowerKeyword) ||
+                    sr.User.Name.ToLower().Contains(lowerKeyword) ||
+                   sr.SupportTypes.Any(st => st.Name.ToLower().Contains(lowerKeyword)));
+
+
+            }
+            if (urgency.HasValue)
+            {
+                query = query.Where(sr => sr.Urgency == urgency.Value);
+            }
+
+
+            if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<SupportRequestStatus>(status, true, out var parsedStatus))
+            {
+                query = query.Where(sr => sr.Status == parsedStatus);
+            }
+
+            return await query.ToListAsync();
         }
 
 

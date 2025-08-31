@@ -1,5 +1,4 @@
 using DisasterApp.Application.DTOs;
-using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Data;
@@ -133,9 +132,10 @@ namespace DisasterApp.Application.Services
                     ImpactDetails = new List<ImpactDetail>(),
                     Photos = new List<Photo>()
 
+
+
                 };
 
-                // Process impact details
                 foreach (var impactDto in dto.ImpactDetails)
                 {
                     var impactDetail = new ImpactDetail
@@ -155,6 +155,7 @@ namespace DisasterApp.Application.Services
                     report.ImpactDetails.Add(impactDetail);
                 }
 
+
                 var location = new Location
                 {
                     LocationId = Guid.NewGuid(),
@@ -163,11 +164,18 @@ namespace DisasterApp.Application.Services
                     Longitude = dto.Longitude,
                     Address = address,
                     FormattedAddress = address,
+
+                    CoordinatePrecision = dto.CoordinatePrecision,
                     Report = report
                 };
 
                 await _repository.CreateAsync(report, location);
+
+
+
+
                 await _notificationService.SendReportSubmittedNotificationAsync(report.Id, userId);
+
                 if (dto.Photos != null && dto.Photos.Any())
                 {
                     foreach (var file in dto.Photos)
@@ -181,7 +189,6 @@ namespace DisasterApp.Application.Services
                     }
                 }
                 await _repository.UpdateAsync(report);
-
 
                 return new DisasterReportDto
                 {
@@ -212,8 +219,9 @@ namespace DisasterApp.Application.Services
                     PhotoUrls = report.Photos.Select(p => p.Url).ToList(),
                 };
 
-
             }
+
+
             catch (Exception ex)
             {
 
@@ -361,7 +369,7 @@ namespace DisasterApp.Application.Services
                 Severity = report.Severity,
                 Status = report.Status,
                 DisasterTypeId = report.DisasterEvent.DisasterTypeId,
-                DisasterCategory=report.DisasterEvent.DisasterType.Category,
+                DisasterCategory = report.DisasterEvent.DisasterType.Category,
                 DisasterEventId = report.DisasterEventId,
                 DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
@@ -473,17 +481,17 @@ namespace DisasterApp.Application.Services
             if (adminUser == null || !adminUser.Roles.Any(r => r.Name == "admin"))
                 throw new UnauthorizedAccessException("Only admins can update report status.");
 
-            var success= await _repository.UpdateStatusAsync(id, ReportStatus.Verified, adminUserId);
-          if(success)
+            var success = await _repository.UpdateStatusAsync(id, ReportStatus.Verified, adminUserId);
+            if (success)
             {
                 var report = await _repository.GetByIdAsync(id);
-                if(report != null)
+                if (report != null)
                 {
-                    await _notificationService.SendEmailAcceptedNotificationAsync(report);    
-                       
+                    await _notificationService.SendEmailAcceptedNotificationAsync(report);
+
                 }
             }
-            
+
             return success;
         }
 
@@ -599,10 +607,10 @@ namespace DisasterApp.Application.Services
                 DisasterEventName = report.DisasterEvent?.Name ?? string.Empty,
                 DisasterTypeName = report.DisasterEvent?.DisasterType?.Name ?? string.Empty,
                 UserId = report.UserId,
-                UserName = report.User?.Name ?? string.Empty,
-                Longitude = report.Location?.Longitude ?? 0,
-                Latitude = report.Location?.Latitude ?? 0,
-                Address = report.Location?.Address ?? string.Empty,
+                UserName = report.User.Name ?? string.Empty,
+                Longitude = report.Location.Longitude,
+                Latitude = report.Location.Latitude,
+                Address = report.Location.Address,
                 ImpactDetails = report.ImpactDetails.Select(i => new ImpactDetailDto
                 {
                     Id = i.Id,
@@ -651,8 +659,8 @@ namespace DisasterApp.Application.Services
 
             GeocodeCache[(lat, lng)] = address;
             return address;
-        }    
+        }
 
-       
+
     }
 }

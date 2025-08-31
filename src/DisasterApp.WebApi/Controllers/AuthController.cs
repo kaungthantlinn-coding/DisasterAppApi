@@ -114,10 +114,6 @@ public class AuthController : ControllerBase
 
         try
         {
-            if (request == null)
-            {
-                return BadRequest(new { message = "Invalid request" });
-            }
             var response = await _authService.GoogleLoginAsync(request);
 
             // Set refresh token as HTTP-only secure cookie
@@ -437,8 +433,13 @@ public class AuthController : ControllerBase
         }
     }
 
+    // =====================================================
+    // TWO-FACTOR AUTHENTICATION ENDPOINTS
+    // =====================================================
 
-     // login with 2FA
+    /// <summary>
+    /// Enhanced login with 2FA support
+    /// </summary>
     [HttpPost("login-otp")]
     public async Task<ActionResult<EnhancedAuthResponseDto>> LoginWithTwoFactor([FromBody] LoginRequestDto request)
     {
@@ -448,7 +449,7 @@ public class AuthController : ControllerBase
             {
                 var errors = ModelState
                     .Where(x => x.Value?.Errors.Count > 0)
-                    .SelectMany(x => x.Value?.Errors)
+                    .SelectMany(x => x.Value!.Errors)
                     .Select(x => x.ErrorMessage)
                     .ToList();
 
@@ -483,7 +484,10 @@ public class AuthController : ControllerBase
     }
 
 
-// send OTP
+
+    /// <summary>
+    /// Send OTP code via email
+    /// </summary>
     [HttpPost("otp/send")]
     public async Task<ActionResult<SendOtpResponseDto>> SendOtp([FromBody] SendOtpRequestDto request)
     {
@@ -519,7 +523,9 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// verify OTP
+    /// <summary>
+    /// Verify OTP code
+    /// </summary>
     [HttpPost("otp/verify")]
     public async Task<ActionResult<AuthResponseDto>> VerifyOtp([FromBody] VerifyOtpRequestDto request)
     {
@@ -589,7 +595,9 @@ public class AuthController : ControllerBase
         }
     }
 
-    // Get 2FA status
+    /// <summary>
+    /// Get user's 2FA status
+    /// </summary>
     [HttpGet("2fa/status")]
     [Authorize]
     public async Task<ActionResult<TwoFactorStatusDto>> GetTwoFactorStatus()
@@ -611,7 +619,10 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while getting 2FA status" });
         }
     }
-// Setup 2FA
+
+    /// <summary>
+    /// Initialize 2FA setup
+    /// </summary>
     [HttpPost("2fa/setup")]
     [Authorize]
     public async Task<ActionResult<SetupTwoFactorResponseDto>> SetupTwoFactor([FromBody] SetupTwoFactorRequestDto request)
@@ -653,7 +664,9 @@ public class AuthController : ControllerBase
         }
     }
 
-    //Verify 2FA setup
+    /// <summary>
+    /// Complete 2FA setup
+    /// </summary>
     [HttpPost("2fa/verify-setup")]
     [Authorize]
     public async Task<ActionResult<VerifySetupResponseDto>> VerifySetup([FromBody] VerifySetupRequestDto request)
@@ -695,7 +708,9 @@ public class AuthController : ControllerBase
         }
     }
 
-    // Disable 2FA
+    /// <summary>
+    /// Disable 2FA
+    /// </summary>
     [HttpPost("2fa/disable")]
     [Authorize]
     public async Task<ActionResult> DisableTwoFactor([FromBody] DisableTwoFactorRequestDto request)
@@ -737,7 +752,9 @@ public class AuthController : ControllerBase
         }
     }
 
-    // Generate backup codes
+    /// <summary>
+    /// Generate new backup codes
+    /// </summary>
     [HttpPost("2fa/backup-codes/generate")]
     [Authorize]
     public async Task<ActionResult<GenerateBackupCodesResponseDto>> GenerateBackupCodes([FromBody] SetupTwoFactorRequestDto request)
@@ -779,7 +796,13 @@ public class AuthController : ControllerBase
         }
     }
 
-   // Send OTP
+    // =====================================================
+    // EMAIL OTP AUTHENTICATION ENDPOINTS
+    // =====================================================
+
+    /// <summary>
+    /// Send OTP code via email for authentication
+    /// </summary>
     [HttpPost("send-otp")]
     public async Task<ActionResult<SendEmailOtpResponseDto>> SendEmailOtp([FromBody] SendEmailOtpRequestDto request)
     {
@@ -816,7 +839,9 @@ public class AuthController : ControllerBase
         }
     }
 
- // Verify OTP
+    /// <summary>
+    /// Verify OTP code and authenticate user
+    /// </summary>
     [HttpPost("verify-otp")]
     public async Task<ActionResult<VerifyEmailOtpResponseDto>> VerifyEmailOtp([FromBody] VerifyEmailOtpRequestDto request)
     {
@@ -886,13 +911,17 @@ public class AuthController : ControllerBase
         Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
     }
 
-    // Get refresh token from cookie
+    /// <summary>
+    /// Helper method to get refresh token from HTTP-only cookie
+    /// </summary>
     private string? GetRefreshTokenFromCookie()
     {
         return Request.Cookies["refreshToken"];
     }
 
-    // Clear refresh token cookie
+    /// <summary>
+    /// Helper method to clear refresh token cookie
+    /// </summary>
     private void ClearRefreshTokenCookie()
     {
         var isHttps = Request.IsHttps;

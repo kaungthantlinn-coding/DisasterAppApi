@@ -1,4 +1,4 @@
-using DisasterApp.Application.DTOs;
+﻿using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
@@ -46,6 +46,7 @@ namespace DisasterApp.Application.Services
                 Title = title,
                 Message = message,
                 Type = type,
+
                 CreatedAt = DateTime.UtcNow,
                 IsRead = false
             };
@@ -195,3 +196,11 @@ namespace DisasterApp.Application.Services
         }
     }
 }
+
+
+
+
+
+
+
+

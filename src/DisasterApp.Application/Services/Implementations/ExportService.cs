@@ -1,252 +1,169 @@
+﻿using CloudinaryDotNet.Core;
 using DisasterApp.Application.DTOs;
-using DisasterApp.Application.Services.Interfaces;
-using iText.Kernel.Pdf;
-using iText.Layout;
-using iText.Layout.Element;
-using iText.Layout.Properties;
-using ClosedXML.Excel;
-using System.Globalization;
+using DisasterApp.Domain.Entities;
+using DisasterApp.Infrastructure.Repositories;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
-namespace DisasterApp.Application.Services.Implementations;
-
-public class ExportService : IExportService
+namespace DisasterApp.Application.Services
 {
-    private readonly List<string> _availableFields;
-    private readonly Dictionary<string, string> _fieldDisplayNames;
-
-    public ExportService()
+    public class ExportService : IExportService
     {
-        _availableFields = InitializeAvailableFields();
-        _fieldDisplayNames = InitializeFieldDisplayNames();
-    }
 
-    public async Task<byte[]> ExportToCsvAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null)
-    {
-        var fieldsToExport = fields ?? _availableFields;
-        var csv = new StringBuilder();
-
-        // Add header
-        var headers = fieldsToExport.Select(f => _fieldDisplayNames.GetValueOrDefault(f, f));
-        csv.AppendLine(string.Join(",", headers.Select(EscapeCsvValue)));
-
-        // Add data rows
-        foreach (var log in data)
+        private readonly IDisasterReportRepository _repository;
+        public ExportService(IDisasterReportRepository repository)
         {
-            var values = fieldsToExport.Select(field => GetFieldValue(log, field));
-            csv.AppendLine(string.Join(",", values.Select(EscapeCsvValue)));
+            _repository = repository;
         }
-
-        return Encoding.UTF8.GetBytes(csv.ToString());
-    }
-
-    public async Task<byte[]> ExportToExcelAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null)
-    {
-        var fieldsToExport = fields ?? _availableFields;
-
-        using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Audit Logs");
-
-        // Add headers
-        for (int i = 0; i < fieldsToExport.Count; i++)
+        private List<DisasterReportExportDto> MapToExportDto(List<DisasterReport> reports)
         {
-            var field = fieldsToExport[i];
-            var displayName = _fieldDisplayNames.GetValueOrDefault(field, field);
-            worksheet.Cell(1, i + 1).Value = displayName;
-            worksheet.Cell(1, i + 1).Style.Font.Bold = true;
-        }
-
-        // Add data
-        var dataList = data.ToList();
-        for (int row = 0; row < dataList.Count; row++)
-        {
-            var log = dataList[row];
-            for (int col = 0; col < fieldsToExport.Count; col++)
+            return reports.Select(r => new DisasterReportExportDto
             {
-                var field = fieldsToExport[col];
-                var value = GetFieldValue(log, field);
-                
-                // Handle different data types
-                if (field == "Timestamp" && DateTime.TryParse(value, out var dateValue))
-                {
-                    worksheet.Cell(row + 2, col + 1).Value = dateValue;
-                    worksheet.Cell(row + 2, col + 1).Style.DateFormat.Format = "yyyy-mm-dd hh:mm:ss";
-                }
-                else
-                {
-                    worksheet.Cell(row + 2, col + 1).Value = value;
-                }
-            }
+
+                Title = r.Title,
+                Description = r.Description,
+                Latitude = r.Location.Latitude,
+                Longitude = r.Location.Longitude,
+                Address = r.Location.Address,
+                Timestamp = r.Timestamp,
+                Severity = r.Severity,
+                Status = r.Status,
+                VerifiedAt = r.VerifiedAt,
+                VerifiedBy = r.VerifiedByNavigation?.Name ?? "-",
+                UserName = r.User.Name,
+                UserEmail = r.User.Email,
+                DisasterTypeName = r.DisasterEvent.DisasterType.Name,
+                PhotoUrls = r.Photos.Select(p => p.Url).ToList(),
+                DisasterEventName = r.DisasterEvent.Name,
+                //ImpactDetails = string.Join("\n", r.ImpactDetails.Select(i => $"{i.ImpactTypes}: {i.Description}").ToList()       
+            }).ToList();
         }
 
-        // Auto-fit columns
-        worksheet.ColumnsUsed().AdjustToContents();
 
-        // Apply formatting to header row
-        var headerRange = worksheet.Range(1, 1, 1, fieldsToExport.Count);
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
-
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        return stream.ToArray();
-    }
-
-    public async Task<byte[]> ExportToPdfAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null)
-    {
-        var fieldsToExport = fields ?? _availableFields;
-        var dataList = data.ToList(); // Convert once to avoid multiple enumeration
-        
-        using var stream = new MemoryStream();
-        using var writer = new PdfWriter(stream);
-        using var pdf = new PdfDocument(writer);
-        using var document = new Document(pdf);
-
-        // Add title
-        document.Add(new Paragraph("Audit Logs Report")
-            .SetTextAlignment(TextAlignment.CENTER)
-            .SetFontSize(14)
-            .SetBold());
-
-        document.Add(new Paragraph($"Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC")
-            .SetTextAlignment(TextAlignment.CENTER)
-            .SetFontSize(9)
-            .SetMarginBottom(15));
-
-        // Create table with optimized settings
-        var table = new Table(fieldsToExport.Count);
-        table.SetWidth(UnitValue.CreatePercentValue(100));
-        table.SetKeepTogether(false); // Allow table to break across pages
-
-        // Add headers with minimal styling
-        foreach (var field in fieldsToExport)
+        public async Task<byte[]> ExportDisasterReportsToExcelAsync()
         {
-            var displayName = _fieldDisplayNames.GetValueOrDefault(field, field);
-            table.AddHeaderCell(new Cell().Add(new Paragraph(displayName).SetBold().SetFontSize(10)));
-        }
 
-        // Add data rows with batch processing for better performance
-        var batchSize = 100;
-        for (int i = 0; i < dataList.Count; i += batchSize)
-        {
-            var batch = dataList.Skip(i).Take(batchSize);
-            foreach (var log in batch)
+            var reports = await _repository.GetAllForExportReportsAsync();
+            var dtoReports = MapToExportDto(reports);
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Reports");
+            worksheet.Cell(1, 1).Value = "Title";
+            worksheet.Cell(1, 2).Value = "Description";
+            worksheet.Cell(1, 3).Value = "Timestamp";
+            worksheet.Cell(1, 4).Value = "Severity";
+            worksheet.Cell(1, 5).Value = "Status";
+            worksheet.Cell(1, 6).Value = "User";
+            worksheet.Cell(1, 7).Value = "Disaster Event";
+
+            int row = 2;
+            foreach (var r in dtoReports)
             {
-                foreach (var field in fieldsToExport)
-                {
-                    var value = GetFieldValue(log, field);
-                    var cellValue = string.IsNullOrEmpty(value) ? "-" : (value.Length > 100 ? value.Substring(0, 100) + "..." : value);
-                    table.AddCell(new Cell().Add(new Paragraph(cellValue).SetFontSize(8)));
-                }
+                worksheet.Cell(row, 1).Value = r.Title;
+                worksheet.Cell(row, 2).Value = r.Description;
+                worksheet.Cell(row, 3).Value = r.Timestamp;
+                worksheet.Cell(row, 4).Value = r.Severity.ToString();
+                worksheet.Cell(row, 5).Value = r.Status.ToString();
+                worksheet.Cell(row, 6).Value = r.UserName;
+                worksheet.Cell(row, 7).Value = r.DisasterEventName;
+                row++;
             }
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
         }
 
-        document.Add(table);
-        document.Close();
-
-        return stream.ToArray();
-    }
-
-    public List<string> GetAvailableFields()
-    {
-        return _availableFields.ToList();
-    }
-
-    public bool ValidateFields(List<string> fields)
-    {
-        return fields.All(field => _availableFields.Contains(field, StringComparer.OrdinalIgnoreCase));
-    }
-
-    public string GetMimeType(string format)
-    {
-        return format.ToLowerInvariant() switch
+        public async Task<byte[]> ExportDisasterReportsToPdfAsync()
         {
-            "csv" => "text/csv",
-            "excel" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "pdf" => "application/pdf",
-            _ => "application/octet-stream"
-        };
-    }
 
-    public string GetFileExtension(string format)
-    {
-        return format.ToLowerInvariant() switch
-        {
-            "csv" => "csv",
-            "excel" => "xlsx",
-            "pdf" => "pdf",
-            _ => "bin"
-        };
-    }
+            QuestPDF.Settings.License = LicenseType.Community;
+            var reports = await _repository.GetAllForExportReportsAsync();
+            var dtoReports = MapToExportDto(reports);
 
-    private string GetFieldValue(AuditLogDto log, string field)
-    {
-        return field.ToLowerInvariant() switch
-        {
-            "id" => log.Id,
-            "timestamp" => log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
-            "action" => log.Action,
-            "severity" => log.Severity,
-            "userid" => log.User?.Id ?? "",
-            "username" => log.User?.Name ?? "",
-            "useremail" => log.User?.Email ?? "",
-            "details" => log.Details,
-            "ipaddress" => log.IpAddress ?? "",
-            "useragent" => log.UserAgent ?? "",
-            "resource" => log.Resource,
-            "metadata" => log.Metadata != null ? string.Join("; ", log.Metadata.Select(kvp => $"{kvp.Key}: {kvp.Value}")) : "",
-            _ => ""
-        };
-    }
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(20);
 
-    private string EscapeCsvValue(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-            return "\"\"";
+                    page.Header()
+                        .Text("Disaster Reports Export")
+                        .FontSize(18)
+                        .Bold()
+                        .AlignCenter();
 
-        if (value.Contains(",") || value.Contains("\"") || value.Contains("\n") || value.Contains("\r"))
-        {
-            return "\"" + value.Replace("\"", "\"\"") + "\"";
+                    page.Content()
+                        .Table(table =>
+                        {
+                            // Define columns (relative width)
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn(2); // Title
+                                columns.RelativeColumn(2); // User
+                                columns.RelativeColumn(2); // Severity
+                                columns.RelativeColumn(2); // Status
+                                columns.RelativeColumn(3);//Description
+                                columns.RelativeColumn(2); // VerifiedBy
+                                columns.RelativeColumn(2); // VerifiedAt
+                                columns.RelativeColumn(2); // DisasterEvent
+                                columns.RelativeColumn(2); //DisasterType
+                                columns.RelativeColumn(2); // Location
+                                columns.RelativeColumn(3); // ImpactDetails
+
+                            });
+
+                            // Header row
+                            table.Header(header =>
+                            {
+                                header.Cell().Text("Title").Bold();
+                                header.Cell().Text("User").Bold();
+                                header.Cell().Text("UserEmail").Bold();
+                                header.Cell().Text("Severity").Bold();
+                                header.Cell().Text("Status").Bold();
+                                header.Cell().Text("Description").Bold();
+                                header.Cell().Text("Verified By").Bold();
+                                header.Cell().Text("Verified At").Bold();
+                                header.Cell().Text("DisasterType").Bold();
+                                header.Cell().Text("Disaster Event").Bold();
+                                header.Cell().Text("Location").Bold();
+                                header.Cell().Text("Impact Details").Bold();
+                            });
+
+                            // Data rows
+                            foreach (var r in dtoReports)
+                            {
+                                table.Cell().Text(r.Title).FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.UserName).FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.UserEmail).FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.Severity).FontSize(8).WrapAnywhere(); // already string
+                                table.Cell().Text(r.Status).FontSize(8).WrapAnywhere();   // already string
+                                table.Cell().Text(r.Description).FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.VerifiedBy ?? "-").FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.VerifiedAt?.ToString("yyyy-MM-dd") ?? "-").FontSize(8).WrapAnywhere();
+                                
+                                table.Cell().Text(r.DisasterTypeName).FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.DisasterEventName).FontSize(8).WrapAnywhere();
+
+                                table.Cell().Text(r.Address).FontSize(8).WrapAnywhere();
+                                table.Cell().Text(r.ImpactDetails).FontSize(8).WrapAnywhere();
+                                
+                            }
+                        });
+                });
+            });
+
+            return document.GeneratePdf();
         }
-
-        return value;
     }
-
-    private List<string> InitializeAvailableFields()
-    {
-        return new List<string>
-        {
-            "Id",
-            "Timestamp",
-            "Action",
-            "Severity",
-            "UserId",
-            "UserName",
-            "UserEmail",
-            "Details",
-            "IpAddress",
-            "UserAgent",
-            "Resource",
-            "Metadata"
-        };
     }
+    
 
-    private Dictionary<string, string> InitializeFieldDisplayNames()
-    {
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Id"] = "ID",
-            ["Timestamp"] = "Timestamp",
-            ["Action"] = "Action",
-            ["Severity"] = "Severity",
-            ["UserId"] = "User ID",
-            ["UserName"] = "User Name",
-            ["UserEmail"] = "User Email",
-            ["Details"] = "Details",
-            ["IpAddress"] = "IP Address",
-            ["UserAgent"] = "User Agent",
-            ["Resource"] = "Resource",
-            ["Metadata"] = "Metadata"
-        };
-    }
-}

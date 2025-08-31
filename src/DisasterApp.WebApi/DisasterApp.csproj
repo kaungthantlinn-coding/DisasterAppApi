@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -35,6 +35,10 @@
   <ItemGroup>
     <ProjectReference Include="..\DisasterApp.Application\DisasterApp.Application.csproj" />
     <ProjectReference Include="..\DisasterApp.Infrastructure\DisasterApp.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\" />
   </ItemGroup>
 
 

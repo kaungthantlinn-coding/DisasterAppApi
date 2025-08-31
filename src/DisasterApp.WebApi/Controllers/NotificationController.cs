@@ -1,4 +1,4 @@
-using DisasterApp.Application.DTOs;
+﻿using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 
@@ -23,6 +23,7 @@ namespace DisasterApp.WebApi.Controllers
         {
             var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
 
+
             var notifications = await _notificationService.GetAdminNotificationAsync(userId);
             return Ok(notifications);
         }
@@ -45,7 +46,7 @@ namespace DisasterApp.WebApi.Controllers
         }
 
         // Create notification (admin use case)
-         [HttpPost]
+        [HttpPost]
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<NotificationDto>> CreateNotification([FromBody] CreateNotificationDto dto)
         {
@@ -70,7 +71,7 @@ namespace DisasterApp.WebApi.Controllers
 
             return CreatedAtAction(nameof(GetUserNotifications), new { id = result.Id }, result);
         }
-        
+
         // ✅ Mark all notifications as read (for current user)
         [HttpPut("read-all")]
         public async Task<ActionResult> MarkAllAsRead()

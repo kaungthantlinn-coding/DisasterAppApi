@@ -11,7 +11,6 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DisasterApp.Application.Services.Implementations;
-
 public class EmailOtpService : IEmailOtpService
 {
     private readonly IUserRepository _userRepository;
@@ -59,11 +58,11 @@ public class EmailOtpService : IEmailOtpService
                 throw new InvalidOperationException("Too many requests. Please wait before requesting another code.");
             }
 
-            // Check rate limiting for IP
+            // Find or create a temporary user for email-based OTP
             var user = await _userRepository.GetByEmailAsync(request.email);
             if (user == null)
             {
-                // Create a new user
+                // Create a temporary user for email OTP
                 user = new User
                 {
                     UserId = Guid.NewGuid(),
@@ -103,7 +102,7 @@ public class EmailOtpService : IEmailOtpService
             if (!emailSent)
             {
                 _logger.LogError("Failed to send OTP email to {Email}", request.email);
-                // Rollback
+                // Clean up the OTP code if email failed
                 await _otpCodeRepository.DeleteAsync(otpEntity.Id);
                 throw new InvalidOperationException("Failed to send verification code. Please try again.");
             }
@@ -144,7 +143,7 @@ public class EmailOtpService : IEmailOtpService
                 throw new UnauthorizedAccessException("Invalid or expired verification code");
             }
 
-            // Find OTP code
+            // Find the OTP code using the existing repository method
             var otpCode = await _otpCodeRepository.GetByUserAndCodeAsync(user.UserId, request.otp, request.purpose);
 
             if (otpCode == null)
@@ -154,7 +153,7 @@ public class EmailOtpService : IEmailOtpService
                 throw new UnauthorizedAccessException("Invalid or expired verification code");
             }
 
-            // Check validity
+            // Check if code is still valid (not expired and not used)
             if (!otpCode.IsValid)
             {
                 _logger.LogWarning("Invalid OTP code for {Email} - expired or already used", request.email);
@@ -171,17 +170,18 @@ public class EmailOtpService : IEmailOtpService
                 throw new UnauthorizedAccessException("Too many failed attempts. Please request a new code.");
             }
 
-            // Increment attempt count
+            // Increment attempt count but don't mark as used yet
             otpCode.AttemptCount++;
             await _otpCodeRepository.UpdateAsync(otpCode);
 
-            // Check if this is a new user (just created for email OTP)
-            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
-                          user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
             // Record successful attempt
             await _rateLimitingService.RecordAttemptAsync(user.UserId, request.email, ipAddress, "verify_otp", true);
 
-            // Generate tokens
+            // Check if this is a new user (just created for email OTP)
+            var isNewUser = user.AuthProvider == "email" && user.CreatedAt.HasValue &&
+                           user.CreatedAt.Value > DateTime.UtcNow.AddMinutes(-10);
+
+            // Generate authentication tokens directly
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
             var accessToken = GenerateAccessToken(user, roles);

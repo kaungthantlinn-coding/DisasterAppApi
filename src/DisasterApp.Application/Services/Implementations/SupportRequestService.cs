@@ -1,9 +1,11 @@
 using CloudinaryDotNet.Core;
 using DisasterApp.Application.DTOs;
+using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 using DisasterApp.Infrastructure.Repositories;
 using DisasterApp.Infrastructure.Repositories.Interfaces;
+using DocumentFormat.OpenXml.Bibliography;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,12 +63,14 @@ namespace DisasterApp.Application.Services
                 Description = data.Description,
                 FullName = data.User.Name,
                 Email = data.User.Email,
+                //UserId=data.UserId,
                 Location = data.Report.Location.Address,
                 UrgencyLevel = ((UrgencyLevel)data.Urgency).ToString(),
 
                 AdminRemarks = "No remarks",
 
                 DateReported = data.CreatedAt,
+                SupportTypeIds = data.SupportTypes.Select(st => st.Id).ToList(),
                 SupportTypeNames = data.SupportTypes
                              .Select(st => st.Name)
                              .ToList() ?? new List<string>(),
@@ -109,28 +113,66 @@ namespace DisasterApp.Application.Services
             await _supportRepo.AddAsync(supportRequest);
             await _supportRepo.SaveChangesAsync();
         }
-        public async Task UpdateAsync(int id, SupportRequestUpdateDto dto)
+
+        public async Task<SupportRequestResponseDto?> UpdateAsync(int id, Guid currentUserId, SupportRequestUpdateDto dto)
         {
             var request = await _supportRepo.GetByIdAsync(id);
-            if (request == null) return;
-            //var supportType = await _supportRepo.GetSupportTypeByNameAsync(dto.SupportTypeName);
+            if (request == null)
+                return null;
+            if (request.UserId != currentUserId)
+                return null;
+
 
             request.Description = dto.Description;
             request.Urgency = dto.Urgency;
-            //request.SupportTypeId = supportType.Id;
             request.UpdatedAt = DateTime.UtcNow;
 
-            _supportRepo.UpdateAsync(request);
-            await _supportRepo.SaveChangesAsync();
+            var supportTypes = await _supportRepo.GetBySupportTypeIdsAsync(dto.SupportTypeIds);
+            request.SupportTypes.Clear();
+            foreach (var st in supportTypes)
+            {
+                request.SupportTypes.Add(st);
+            }
+            await _supportRepo.UpdateAsync(request);
+
+
+            var updated = await _supportRepo.GetByIdAsync(id);
+
+
+            var response = new SupportRequestResponseDto
+            {
+                Id = updated.Id,
+                ReportId = updated.ReportId,
+                UserId = updated.UserId,
+                UserName = updated.User.Name,
+                email = updated.User.Email,
+                Description = updated.Description,
+                Urgency = request.Urgency,
+                Status = updated.Status,
+                SupportTypeNames = updated.SupportTypes.Select(st => st.Name).ToList(),
+                CreatedAt = updated.CreatedAt,
+                UpdatedAt = updated.UpdatedAt
+            };
+
+            return response;
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task<bool> DeleteAsync(int requestId, Guid currentUserId, bool isAdmin)
         {
-            var request = await _supportRepo.GetByIdAsync(id);
-            if (request == null) return false;
-            _supportRepo.DeleteAsync(request);
-            await _supportRepo.SaveChangesAsync();
-            return true;
+            var request = await _supportRepo.GetByIdAsync(requestId);
+
+            if (request == null)
+                return false;
+
+
+            if (isAdmin || request.UserId == currentUserId)
+            {
+                await _supportRepo.DeleteAsync(request);
+                return true;
+            }
+
+
+            return false;
 
         }
 
@@ -143,7 +185,7 @@ namespace DisasterApp.Application.Services
         public async Task<SupportRequestResponseDto?> ApproveSupportRequestAsync(int id, Guid adminUserId)
         {
             var adminUser = await _userRepo.GetByIdAsync(adminUserId);
-            if (adminUser == null ||  adminUser.Roles == null || !adminUser.Roles.Any(r => r.Name == "admin"))
+            if (adminUser == null || adminUser.Roles == null || !adminUser.Roles.Any(r => r.Name == "admin"))
             {
                 throw new UnauthorizedAccessException("Only Admins can approve support requests.");
             }
@@ -214,6 +256,8 @@ namespace DisasterApp.Application.Services
         {
             throw new NotImplementedException();
         }
+
+
 
         public async Task<IEnumerable<SupportRequestsDto>> GetPendingRequestsAsync()
         {
@@ -287,6 +331,7 @@ namespace DisasterApp.Application.Services
                 Urgency = r.Urgency,
                 Status = r.Status,
                 UserId = r.UserId,
+                SupportTypeIds = r.SupportTypes.Select(st => st.Id).ToList(),
                 SupportTypeNames = r.SupportTypes.Select(st => st.Name).ToList(),
                 CreatedAt = r.CreatedAt
             }).ToList();
@@ -302,6 +347,27 @@ namespace DisasterApp.Application.Services
                 VerifiedRequests = metrics.VerifiedRequests,
                 RejectedRequests = metrics.RejectedRequests
             };
+        }
+
+        public async Task<IEnumerable<SupportRequestsDto>> SearchByKeywordAsync(string? keyword, byte? urgency, string? status)
+        {
+            var result = await _supportRepo.SearchByKeywordAsync(keyword, urgency, status);
+            return result.Select(r => new SupportRequestsDto
+            {
+                Id = r.Id,
+                ReportId = r.ReportId,
+                Description = r.Description,
+                FullName = r.User.Name,
+                Email = r.User.Email,
+                Location = r.Report.Location.Address,
+                UrgencyLevel = ((UrgencyLevel)r.Urgency).ToString(),
+                AdminRemarks = "No remarks",
+                DateReported = r.CreatedAt,
+                Status = r.Status.ToString(),
+                SupportTypeNames = r.SupportTypes
+                             .Select(st => st.Name)
+                             .ToList() ?? new List<string>()
+            }).ToList();
         }
     }
 }

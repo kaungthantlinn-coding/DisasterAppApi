@@ -1,14 +1,14 @@
-using DisasterApp.Application.DTOs;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace DisasterApp.Application.Services.Interfaces;
-
-public interface IExportService
+namespace DisasterApp.Application.Services
 {
-    Task<byte[]> ExportToCsvAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null);
-    Task<byte[]> ExportToExcelAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null);
-    Task<byte[]> ExportToPdfAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null);
-    List<string> GetAvailableFields();
-    bool ValidateFields(List<string> fields);
-    string GetMimeType(string format);
-    string GetFileExtension(string format);
+    public interface IExportService
+    {
+        Task<byte[]> ExportDisasterReportsToExcelAsync();
+        Task<byte[]> ExportDisasterReportsToPdfAsync();
+    }
 }
