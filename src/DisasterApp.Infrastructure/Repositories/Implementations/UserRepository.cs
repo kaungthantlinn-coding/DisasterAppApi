@@ -14,6 +14,11 @@ public class UserRepository : IUserRepository
         _context = context;
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<User?> GetByEmailAsync(string email)
     {
         return await _context.Users
@@ -28,11 +33,21 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.UserId == userId);
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<User?> GetByAuthProviderAsync(string authProvider, string authId)
     {
         return await _context.Users
             .Include(u => u.Roles)
             .FirstOrDefaultAsync(u => u.AuthProvider == authProvider && u.AuthId == authId);
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<User> CreateAsync(User user)
@@ -42,6 +57,11 @@ public class UserRepository : IUserRepository
         return user;
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<User> UpdateAsync(User user)
     {
         _context.Users.Update(user);
@@ -49,9 +69,19 @@ public class UserRepository : IUserRepository
         return user;
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<bool> ExistsAsync(string email)
     {
         return await _context.Users.AnyAsync(u => u.Email == email);
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<List<string>> GetUserRolesAsync(Guid userId)
@@ -61,6 +91,11 @@ public class UserRepository : IUserRepository
             .SelectMany(u => u.Roles)
             .Select(r => r.Name)
             .ToListAsync();
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<(List<User> Users, int TotalCount)> GetUsersAsync(
@@ -137,6 +172,11 @@ public class UserRepository : IUserRepository
         return (users, totalCount);
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<User?> GetUserWithDetailsAsync(Guid userId)
     {
         return await _context.Users
@@ -146,6 +186,11 @@ public class UserRepository : IUserRepository
             .Include(u => u.DonationUsers)
             .Include(u => u.Organizations)
             .FirstOrDefaultAsync(u => u.UserId == userId);
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<bool> DeleteUserAsync(Guid userId)
@@ -158,9 +203,19 @@ public class UserRepository : IUserRepository
         return true;
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<bool> ExistsAsync(Guid userId)
     {
         return await _context.Users.AnyAsync(u => u.UserId == userId);
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<bool> ExistsAsync(string email, Guid excludeUserId)
@@ -168,9 +223,19 @@ public class UserRepository : IUserRepository
         return await _context.Users.AnyAsync(u => u.Email == email && u.UserId != excludeUserId);
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<int> GetTotalUsersCountAsync()
     {
         return await _context.Users.CountAsync();
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<int> GetActiveUsersCountAsync()
@@ -178,9 +243,19 @@ public class UserRepository : IUserRepository
         return await _context.Users.CountAsync(u => u.IsBlacklisted != true);
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<int> GetSuspendedUsersCountAsync()
     {
         return await _context.Users.CountAsync(u => u.IsBlacklisted == true);
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<int> GetAdminUsersCountAsync()
@@ -190,12 +265,22 @@ public class UserRepository : IUserRepository
             .CountAsync();
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     public async Task<List<User>> GetUsersByIdsAsync(List<Guid> userIds)
     {
         return await _context.Users
             .Include(u => u.Roles)
             .Where(u => userIds.Contains(u.UserId))
             .ToListAsync();
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<bool> BulkUpdateUsersAsync(List<User> users)
@@ -210,6 +295,11 @@ public class UserRepository : IUserRepository
         {
             return false;
         }
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<(int DisasterReports, int SupportRequests, int Donations, int Organizations)> GetUserStatisticsAsync(Guid userId)
@@ -234,12 +324,22 @@ public class UserRepository : IUserRepository
         );
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
     // Role management methods
     public async Task<int> GetUserCountByRoleAsync(Guid roleId)
     {
         return await _context.Users
             .Where(u => u.Roles.Any(r => r.RoleId == roleId))
             .CountAsync();
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task<List<User>> GetUsersByRoleAsync(Guid roleId)
@@ -249,4 +349,9 @@ public class UserRepository : IUserRepository
             .OrderBy(u => u.Name)
             .ToListAsync();
     }
-}    public async Task<List<User>> GetAllUsersAsync() { return await _context.Users.ToListAsync(); }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+}
