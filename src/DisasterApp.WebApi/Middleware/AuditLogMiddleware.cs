@@ -1,4 +1,4 @@
-using DisasterApp.Application.Services.Interfaces; //
+using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Application.DTOs;
 using System.Security.Claims;
 using System.Text;
@@ -12,18 +12,16 @@ namespace DisasterApp.WebApi.Middleware
         private readonly ILogger<AuditLogMiddleware> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
 
-        // Actions that should be logged
         private readonly HashSet<string> _loggedActions = new()
         {
             "POST", "PUT", "DELETE", "PATCH"
         };
 
-        // Paths that should be excluded from logging
         private readonly HashSet<string> _excludedPaths = new()
         {
             "/api/auth/refresh",
             "/api/health",
-            "/api/audit-logs" // Avoid recursive logging
+            "/api/audit-logs"
         };
 
         public AuditLogMiddleware(RequestDelegate next, ILogger<AuditLogMiddleware> logger, IServiceScopeFactory serviceScopeFactory)
@@ -47,7 +45,6 @@ namespace DisasterApp.WebApi.Middleware
             {
                 await _next(context);
 
-                // Log successful actions
                 if (ShouldLogAction(context))
                 {
                     await LogActionAsync(context, requestBody, startTime, null);
@@ -55,7 +52,6 @@ namespace DisasterApp.WebApi.Middleware
             }
             catch (Exception ex)
             {
-                // Log failed actions
                 if (ShouldLogAction(context))
                 {
                     await LogActionAsync(context, requestBody, startTime, ex);
@@ -74,15 +70,12 @@ namespace DisasterApp.WebApi.Middleware
             var path = context.Request.Path.Value?.ToLower() ?? "";
             var method = context.Request.Method;
 
-            // Skip excluded paths
             if (_excludedPaths.Any(excluded => path.StartsWith(excluded)))
                 return false;
 
-            // Log all methods for admin endpoints
             if (path.StartsWith("/api/admin"))
                 return true;
 
-            // Log specific HTTP methods
             return _loggedActions.Contains(method);
         }
 
@@ -127,7 +120,7 @@ namespace DisasterApp.WebApi.Middleware
                     Resource = resource,
                     Metadata = metadata,
                     EntityType = "HttpRequest",
-                    EntityId = userId ?? "system" // Provide default value to avoid NULL constraint error
+                    EntityId = userId ?? "system"
                 };
 
                 await auditService.CreateLogAsync(createDto);
@@ -143,12 +136,10 @@ namespace DisasterApp.WebApi.Middleware
             var method = context.Request.Method;
             var path = context.Request.Path.Value ?? "";
 
-            // Extract meaningful action names
             if (path.Contains("/auth/login")) return "USER_LOGIN";
             if (path.Contains("/auth/logout")) return "USER_LOGOUT";
             if (path.Contains("/auth/register")) return "USER_REGISTER";
             
-            // User Management endpoints
             if (path.Contains("/UserManagement") || path.Contains("/users"))
             {
                 return method switch
@@ -161,7 +152,6 @@ namespace DisasterApp.WebApi.Middleware
                 };
             }
             
-            // Role Management endpoints
             if (path.Contains("/RoleManagement") || (path.Contains("/api/Role") && !path.Contains("/api/RoleUser")))
             {
                 return method switch
@@ -174,25 +164,21 @@ namespace DisasterApp.WebApi.Middleware
                 };
             }
             
-            // Role assignment endpoints
             if (path.Contains("/Role/assign")) return "ROLE_ASSIGN";
             if (path.Contains("/Role/remove")) return "ROLE_REMOVE";
             if (path.Contains("/roles/assign")) return "ROLE_ASSIGN";
             if (path.Contains("/roles/remove")) return "ROLE_REMOVE";
             
-            // Generic patterns
             if (path.Contains("/reports")) return $"REPORT_{method}";
             if (path.Contains("/admin/settings")) return "SYSTEM_SETTINGS_UPDATE";
             if (path.Contains("/admin")) return $"ADMIN_{method}";
             if (path.Contains("/audit-logs")) return $"AUDIT_{method}";
             if (path.Contains("/diagnostics")) return $"DIAGNOSTICS_{method}";
 
-            // Extract controller name for better action names
             var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length >= 2 && segments[0] == "api")
             {
                 var controller = segments[1].ToUpperInvariant();
-                // Special handling for DELETE methods to make them more descriptive
                 if (method == "DELETE")
                 {
                     return $"{controller}_DELETE";
@@ -200,7 +186,6 @@ namespace DisasterApp.WebApi.Middleware
                 return $"{method}_{controller}";
             }
 
-            // Default to method + generic for DELETE operations
             if (method == "DELETE")
             {
                 return "RESOURCE_DELETED";
@@ -222,7 +207,6 @@ namespace DisasterApp.WebApi.Middleware
 
             var details = $"{method} {path} completed successfully (Status: {statusCode})";
             
-            // Add request body for certain operations (excluding sensitive data)
             if (!string.IsNullOrEmpty(requestBody) && !path.Contains("/auth/"))
             {
                 var truncatedBody = requestBody.Length > 500 ? requestBody.Substring(0, 500) + "..." : requestBody;
@@ -265,7 +249,6 @@ namespace DisasterApp.WebApi.Middleware
 
         private string GetClientIpAddress(HttpContext context)
         {
-            // Check for forwarded IP first
             var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
             if (!string.IsNullOrEmpty(forwardedFor))
             {
@@ -282,7 +265,6 @@ namespace DisasterApp.WebApi.Middleware
         }
     }
 
-    // Extension method to register the middleware
     public static class AuditLogMiddlewareExtensions
     {
         public static IApplicationBuilder UseAuditLogging(this IApplicationBuilder builder)

@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-//
+
 namespace DisasterApp.WebApi.Controllers;
 
 [ApiController]
@@ -136,7 +136,6 @@ public class AuthDiagnosticsController : ControllerBase
     {
         try
         {
-            // This is for testing purposes only - DO NOT use in production
             var userId = Guid.Parse(request.UserId);
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
@@ -147,7 +146,6 @@ public class AuthDiagnosticsController : ControllerBase
             var userRoles = await _roleService.GetUserRolesAsync(userId);
             var roleNames = userRoles.Select(r => r.Name).ToList();
 
-            // Simple test token - this bypasses normal authentication
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes("ThisIsAVeryLongSecretKeyForJWTTokenGenerationThatShouldBeAtLeast32Characters");
 

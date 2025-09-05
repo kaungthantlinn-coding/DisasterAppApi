@@ -10,7 +10,7 @@ public partial class DisasterDbContext : DbContext
     public DisasterDbContext()
     {
     }
-//
+
     public DisasterDbContext(DbContextOptions<DisasterDbContext> options)
         : base(options)
     {
@@ -64,11 +64,8 @@ public partial class DisasterDbContext : DbContext
     {
         if (!optionsBuilder.IsConfigured)
         {
-            // Configuration is typically done in Program.cs or Startup.cs
-            // This method is left empty as configuration is handled externally
         }
 
-        // Suppress pending model changes warning for navigation property updates
         optionsBuilder.ConfigureWarnings(warnings =>
             warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     }
@@ -82,7 +79,6 @@ public partial class DisasterDbContext : DbContext
 
             entity.ToTable("AuditLog");
 
-            // Performance indexes for common query patterns
             entity.HasIndex(e => e.Timestamp, "IX_AuditLog_Timestamp_DESC")
                 .IsDescending()
                 .IncludeProperties(e => new { e.AuditLogId, e.Action, e.Severity, e.Details, e.UserId, e.UserName, e.IpAddress, e.UserAgent, e.Resource, e.Metadata });
@@ -164,9 +160,6 @@ public partial class DisasterDbContext : DbContext
                 .HasConstraintName("FK_AuditLog_User");
         });
 
-        // Notification
-
-
         modelBuilder.Entity<Notification>(entity =>
         {
             entity.ToTable("Notifications");
@@ -192,7 +185,6 @@ public partial class DisasterDbContext : DbContext
             entity.Property(n => n.ReadAt)
                   .IsRequired(false);
 
-            // Relationships
             entity.HasOne(n => n.User)
                   .WithMany(u => u.Notifications)   // assumes User entity has ICollection<Notification>
                   .HasForeignKey(n => n.UserId)
@@ -301,7 +293,6 @@ public partial class DisasterDbContext : DbContext
                 .HasForeignKey(d => d.VerifiedBy)
                 .HasConstraintName("FK_DisasterReport_VerifiedBy");
 
-            // ✅ NEW: DisasterReport → Notifications relationship
             entity.HasMany(d => d.Notifications)
                 .WithOne(n => n.DisasterReport)
                 .HasForeignKey(n => n.DisasterReportId)
@@ -391,7 +382,6 @@ public partial class DisasterDbContext : DbContext
                 .HasConversion<string>()
                 .HasColumnName("severity");
 
-            // Many-to-many mapping to ImpactType
             entity.HasMany(d => d.ImpactTypes)
                 .WithMany(t => t.ImpactDetails)
                 .UsingEntity<Dictionary<string, object>>(
@@ -718,7 +708,6 @@ public partial class DisasterDbContext : DbContext
                         j.IndexerProperty<Guid>("UserId").HasColumnName("user_id");
                         j.IndexerProperty<Guid>("RoleId").HasColumnName("role_id");
                     });
-            // ✅ NEW: User→ Notifications relationship
             entity.HasMany(d => d.Notifications)
       .WithOne(n => n.User)
       .HasForeignKey(n => n.UserId)

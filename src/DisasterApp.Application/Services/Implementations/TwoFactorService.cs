@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DisasterApp.Application.Services.Implementations;
 public class TwoFactorService : ITwoFactorService
-{//
+{
     private readonly IUserRepository _userRepository;
     private readonly IOtpService _otpService;
     private readonly IBackupCodeService _backupCodeService;
@@ -66,7 +66,6 @@ public class TwoFactorService : ITwoFactorService
                 };
             }
 
-            // Verify current password (only for email auth users)
             if (user.AuthProvider == "Email")
             {
                 if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.AuthId))
@@ -79,7 +78,6 @@ public class TwoFactorService : ITwoFactorService
                 }
             }
 
-            // Check if 2FA is already enabled
             if (user.TwoFactorEnabled)
             {
                 return new SetupTwoFactorResponseDto
@@ -89,7 +87,6 @@ public class TwoFactorService : ITwoFactorService
                 };
             }
 
-            // Send setup OTP
             var otpResponse = await _otpService.SendOtpAsync(userId, user.Email, OtpCodeTypes.Setup);
             if (!otpResponse.Success)
             {
@@ -132,7 +129,6 @@ public class TwoFactorService : ITwoFactorService
                 };
             }
 
-            // Verify the setup OTP
             var isValidOtp = await _otpService.VerifyOtpAsync(userId, otpCode, OtpCodeTypes.Setup);
             if (!isValidOtp)
             {
@@ -143,14 +139,11 @@ public class TwoFactorService : ITwoFactorService
                 };
             }
 
-            // Enable 2FA for the user
             user.TwoFactorEnabled = true;
             await _userRepository.UpdateAsync(user);
 
-            // Generate backup codes
             var backupCodes = await _backupCodeService.GenerateBackupCodesAsync(userId);
 
-            // Send confirmation email
             await _emailService.SendTwoFactorEnabledEmailAsync(user.Email);
 
             _logger.LogInformation("2FA enabled successfully for user {UserId}", userId);
@@ -184,7 +177,6 @@ public class TwoFactorService : ITwoFactorService
                 return false;
             }
 
-            // Verify current password (only for email auth users)
             if (user.AuthProvider == "Email")
             {
                 if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.AuthId))
@@ -194,7 +186,6 @@ public class TwoFactorService : ITwoFactorService
                 }
             }
 
-            // If 2FA is enabled and OTP code is provided, verify it
             if (user.TwoFactorEnabled && !string.IsNullOrEmpty(otpCode))
             {
                 var isValidOtp = await _otpService.VerifyOtpAsync(userId, otpCode, OtpCodeTypes.Disable);
@@ -205,19 +196,15 @@ public class TwoFactorService : ITwoFactorService
                 }
             }
 
-            // Disable 2FA
             user.TwoFactorEnabled = false;
             user.BackupCodesRemaining = 0;
             user.TwoFactorLastUsed = null;
             await _userRepository.UpdateAsync(user);
 
-            // Remove all backup codes
             await _backupCodeService.InvalidateAllBackupCodesAsync(userId);
 
-            // Remove all OTP codes
             await _otpService.InvalidateCodesAsync(userId);
 
-            // Send notification email
             await _emailService.SendTwoFactorDisabledEmailAsync(user.Email);
 
             _logger.LogInformation("2FA disabled successfully for user {UserId}", userId);
@@ -244,7 +231,6 @@ public class TwoFactorService : ITwoFactorService
                 };
             }
 
-            // Check if 2FA is enabled
             if (!user.TwoFactorEnabled)
             {
                 return new GenerateBackupCodesResponseDto
@@ -254,7 +240,6 @@ public class TwoFactorService : ITwoFactorService
                 };
             }
 
-            // Verify current password (only for email auth users)
             if (user.AuthProvider == "Email")
             {
                 if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.AuthId))
@@ -267,7 +252,6 @@ public class TwoFactorService : ITwoFactorService
                 }
             }
 
-            // If OTP code is provided, verify it
             if (!string.IsNullOrEmpty(otpCode))
             {
                 var isValidOtp = await _otpService.VerifyOtpAsync(userId, otpCode, OtpCodeTypes.BackupGenerate);
@@ -281,7 +265,6 @@ public class TwoFactorService : ITwoFactorService
                 }
             }
 
-            // Generate new backup codes
             var backupCodes = await _backupCodeService.GenerateBackupCodesAsync(userId);
 
             _logger.LogInformation("New backup codes generated for user {UserId}", userId);

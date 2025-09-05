@@ -9,25 +9,18 @@ public static class DataSeeder
 {
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
-        using var scope = serviceProvider.CreateScope();//
+        using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DisasterDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<DisasterDbContext>>();
 
         try
         {
-            // Ensure 2FA tables exist - COMMENTED OUT: Tables are now created via EF migrations
-            // await EnsureTwoFactorTablesExistAsync(context, logger);
-
-            // Seed roles
             await SeedRolesAsync(context, logger);
 
-            // Seed disaster types
             await SeedDisasterTypesAsync(context, logger);
 
-            // Seed impact types
             await SeedImpactTypesAsync(context, logger);
 
-            // Seed support types
             await SeedSupportTypesAsync(context, logger);
 
             await context.SaveChangesAsync();
@@ -41,7 +34,6 @@ public static class DataSeeder
 
     private static async Task SeedRolesAsync(DisasterDbContext context, ILogger logger)
     {
-        // Check if roles already exist
         if (await context.Roles.AnyAsync())
         {
             logger.LogInformation("Roles already exist, skipping role seeding");
@@ -77,7 +69,6 @@ public static class DataSeeder
 
     private static async Task SeedDisasterTypesAsync(DisasterDbContext context, ILogger logger)
     {
-        // Check if disaster types already exist
         if (await context.DisasterTypes.AnyAsync())
         {
             logger.LogInformation("Disaster types already exist, skipping disaster type seeding");
@@ -108,7 +99,6 @@ public static class DataSeeder
 
     private static async Task SeedImpactTypesAsync(DisasterDbContext context, ILogger logger)
     {
-        // Check if impact types already exist
         if (await context.ImpactTypes.AnyAsync())
         {
             logger.LogInformation("Impact types already exist, skipping impact type seeding");
@@ -135,7 +125,6 @@ public static class DataSeeder
 
     private static async Task SeedSupportTypesAsync(DisasterDbContext context, ILogger logger)
     {
-        // Check if support types already exist
         if (await context.SupportTypes.AnyAsync())
         {
             logger.LogInformation("Support types already exist, skipping support type seeding");
@@ -170,7 +159,6 @@ public static class DataSeeder
 
         try
         {
-            // Execute raw SQL to create 2FA tables if they don't exist
             var sql = @"
                 -- Add 2FA columns to User table if they don't exist
                 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('[User]') AND name = 'two_factor_enabled')

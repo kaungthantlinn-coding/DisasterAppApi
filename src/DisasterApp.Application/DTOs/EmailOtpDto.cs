@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace DisasterApp.Application.DTOs;
-//
 public class SendEmailOtpRequestDto
 {
 

@@ -5,7 +5,7 @@ using DisasterApp.WebApi.Authorization;
 using DisasterApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-//
+
 namespace DisasterApp.WebApi.Controllers;
 
 [ApiController]
@@ -34,7 +34,6 @@ public class RoleDiagnosticsController : ControllerBase
         try
         {
             var roles = await _context.Roles.ToListAsync();
-            // In-memory friendly computation of total user-role assignments
             var userRolesCount = await _context.Users
                 .Include(u => u.Roles)
                 .Select(u => u.Roles.Count)
@@ -107,11 +106,10 @@ public class RoleDiagnosticsController : ControllerBase
             {
                 if (string.IsNullOrEmpty(role.Name))
                 {
-                    // Try to determine role name based on common role IDs or patterns
                     role.Name = role.RoleId.ToString().ToLower().Contains("admin") ? "admin" :
                                role.RoleId.ToString().ToLower().Contains("user") ? "user" :
                                role.RoleId.ToString().ToLower().Contains("cj") ? "cj" :
-                               "user"; // default to user role
+                               "user";
                     fixedCount++;
                 }
             }

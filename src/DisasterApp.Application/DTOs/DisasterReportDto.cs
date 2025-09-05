@@ -1,4 +1,4 @@
-﻿using DisasterApp.Domain.Enums;
+using DisasterApp.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -57,9 +57,7 @@ namespace DisasterApp.Application.DTOs
 
 
 
-        //public LocationDto? Location { get; set; }
         public List<ImpactDetailDto> ImpactDetails { get; set; } = new List<ImpactDetailDto>();
-        // Photos (return as URLs for the frontend)
         public List<string> PhotoUrls { get; set; } = new();
 
     }
@@ -112,7 +110,6 @@ namespace DisasterApp.Application.DTOs
         public string? CoordinatePrecision { get; set; }
         public string? Address { get; set; }
         public List<ImpactDetailDto> ImpactDetails { get; set; } = new List<ImpactDetailDto>();
-        // Photos (return as URLs for the frontend)
         public List<string> PhotoUrls { get; set; } = new();
     }
 }

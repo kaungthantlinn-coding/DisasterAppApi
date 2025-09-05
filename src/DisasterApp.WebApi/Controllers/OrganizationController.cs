@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +20,6 @@ namespace DisasterApp.Controllers
         private Guid GetUserId() =>
             Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // Admin only: Create
         [HttpPost]
         [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Create([FromBody] CreateOrganizationDto dto)
@@ -30,7 +29,6 @@ namespace DisasterApp.Controllers
             return Ok(new { OrganizationId = id });
         }
 
-        // Admin only: Update
         [HttpPut("{id}")]
         [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateOrganizationDto dto)
@@ -41,7 +39,6 @@ namespace DisasterApp.Controllers
             return NoContent();
         }
 
-        // Admin only: Delete
         [HttpDelete("{id}")]
         [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> Delete(int id)
@@ -52,7 +49,6 @@ namespace DisasterApp.Controllers
             return NoContent();
         }
 
-        // Public: Get by ID
         [HttpGet("{id}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
@@ -62,7 +58,6 @@ namespace DisasterApp.Controllers
             return Ok(org);
         }
 
-        // Public: List all
         [HttpGet]
         [AllowAnonymous]
 

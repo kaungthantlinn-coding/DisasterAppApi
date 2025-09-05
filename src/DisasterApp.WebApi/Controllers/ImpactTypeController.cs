@@ -1,9 +1,8 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace DisasterApp.Controllers
 {
@@ -18,7 +17,6 @@ namespace DisasterApp.Controllers
         {
             _service = service;
         }
-        //[Authorize]
         [HttpGet]
         public async Task<ActionResult<List<ImpactTypeDto>>> GetAll()
         {
@@ -38,7 +36,6 @@ namespace DisasterApp.Controllers
 
 
         [HttpPost]
-        //[Authorize]
         public async Task<ActionResult<ImpactTypeDto>> Create([FromBody] ImpactTypeCreateDto dto)
         {
             try

@@ -8,7 +8,7 @@ using System.Text;
 
 namespace DisasterApp.Application.Services.Implementations;
 
-public class TokenService : ITokenService//
+public class TokenService : ITokenService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<TokenService> _logger;
@@ -31,7 +31,7 @@ public class TokenService : ITokenService//
                 new Claim("userId", userId.ToString()),
                 new Claim("type", "login_token")
             }),
-            Expires = DateTime.UtcNow.AddMinutes(5), // Short-lived token for 2FA
+            Expires = DateTime.UtcNow.AddMinutes(5),
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -62,14 +62,12 @@ public class TokenService : ITokenService//
 
             var principal = tokenHandler.ValidateToken(loginToken, validationParameters, out SecurityToken validatedToken);
 
-            // Check if it's a login token
             var tokenTypeClaim = principal.FindFirst("type");
             if (tokenTypeClaim?.Value != "login_token")
             {
                 return Task.FromResult<Guid?>(null);
             }
 
-            // Extract user ID
             var userIdClaim = principal.FindFirst("userId");
             if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
             {

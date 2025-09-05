@@ -1,4 +1,4 @@
-﻿using DisasterApp.Domain.Entities;
+using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
 
 using System;
@@ -13,7 +13,6 @@ namespace DisasterApp.Infrastructure.Repositories
     {
         Task<DisasterReport?> GetByIdAsync(Guid id);
         Task<IEnumerable<DisasterReport>> GetAllAsync();
-        //Task<Guid> AddReportWithLocationAsync(DisasterReport report, Location loction);
 
         Task<IEnumerable<DisasterReport>> GetReportsByUserIdAsync(Guid userId);
         Task<IEnumerable<DisasterReport>> GetPendingReportsAsync();

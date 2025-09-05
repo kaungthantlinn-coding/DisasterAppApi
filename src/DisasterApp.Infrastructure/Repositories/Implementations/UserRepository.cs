@@ -79,7 +79,6 @@ public class UserRepository : IUserRepository
             .Include(u => u.Roles)
             .AsQueryable();
 
-        // Apply filters
         if (!string.IsNullOrEmpty(searchTerm))
         {
             var searchTermLower = searchTerm.ToLower();
@@ -112,7 +111,6 @@ public class UserRepository : IUserRepository
             query = query.Where(u => u.CreatedAt <= createdBefore.Value);
         }
 
-        // Apply sorting
         query = sortBy.ToLower() switch
         {
             "name" => sortDirection.ToLower() == "desc"
@@ -234,7 +232,6 @@ public class UserRepository : IUserRepository
         );
     }
 
-    // Role management methods
     public async Task<int> GetUserCountByRoleAsync(Guid roleId)
     {
         return await _context.Users

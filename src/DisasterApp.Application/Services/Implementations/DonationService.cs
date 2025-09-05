@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Domain.Enums;
@@ -35,7 +35,6 @@ namespace DisasterApp.Application.Services.Implementations
         {
             string? fileUrl = null;
 
-            // ✅ Handle transaction photo upload
             if (dto.TransactionPhoto != null)
             {
                 fileUrl = await _fileStorageService.SaveAsync(
@@ -81,7 +80,6 @@ namespace DisasterApp.Application.Services.Implementations
             var donations = await _donationRepository.GetByOrganizationIdAsync(organizationId);
 
             return donations
-                //.Where(d => d.Status == DonationStatus.Verified)
                 .Select(d => new DonationDto
                 {
                     Id = d.Id,

@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Repositories;
 using System;
@@ -78,7 +78,6 @@ namespace DisasterApp.Application.Services
         {
             var photos = await _photoRepository.GetAllAsync();
 
-            // Entity ကို manual map လုပ်
             var photoDtos = photos.Select(p => new PhotoDto
             {
                 Id = p.Id,

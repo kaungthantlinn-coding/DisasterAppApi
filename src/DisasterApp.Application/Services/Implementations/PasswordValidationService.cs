@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace DisasterApp.Application.Services.Implementations;
 
-public class PasswordValidationService : IPasswordValidationService//
+public class PasswordValidationService : IPasswordValidationService
 {
     private const int MinPasswordLength = 8;
     private const int MaxPasswordLength = 100;
@@ -23,20 +23,20 @@ public class PasswordValidationService : IPasswordValidationService//
             return result;
         }
 
-        // Check minimum length
+       
         strength.HasMinLength = password.Length >= MinPasswordLength;
         if (!strength.HasMinLength)
         {
             errors.Add($"Password must be at least {MinPasswordLength} characters long");
         }
 
-        // Check maximum length
+      
         if (password.Length > MaxPasswordLength)
         {
             errors.Add($"Password must not exceed {MaxPasswordLength} characters");
         }
 
-        // Check for uppercase letter
+      
         strength.HasUppercase = Regex.IsMatch(password, @"[A-Z]");
         if (!strength.HasUppercase)
         {
@@ -44,7 +44,6 @@ public class PasswordValidationService : IPasswordValidationService//
             strength.Feedback.Add("Add an uppercase letter");
         }
 
-        // Check for lowercase letter
         strength.HasLowercase = Regex.IsMatch(password, @"[a-z]");
         if (!strength.HasLowercase)
         {
@@ -52,7 +51,7 @@ public class PasswordValidationService : IPasswordValidationService//
             strength.Feedback.Add("Add a lowercase letter");
         }
 
-        // Check for number
+
         strength.HasNumber = Regex.IsMatch(password, @"\d");
         if (!strength.HasNumber)
         {
@@ -60,7 +59,7 @@ public class PasswordValidationService : IPasswordValidationService//
             strength.Feedback.Add("Add a number");
         }
 
-        // Check for special character
+    
         strength.HasSpecialChar = Regex.IsMatch(password, @"[@$!%*?&]");
         if (!strength.HasSpecialChar)
         {
@@ -68,10 +67,9 @@ public class PasswordValidationService : IPasswordValidationService//
             strength.Feedback.Add("Add a special character (@$!%*?&)");
         }
 
-        // Calculate strength score
+    
         strength.Score = CalculateStrengthScore(password, strength);
 
-        // Add feedback based on score
         switch (strength.Score)
         {
             case 0:
@@ -109,21 +107,17 @@ public class PasswordValidationService : IPasswordValidationService//
     {
         int score = 0;
 
-        // Base requirements
         if (strength.HasMinLength) score++;
         if (strength.HasUppercase) score++;
         if (strength.HasLowercase) score++;
         if (strength.HasNumber) score++;
         if (strength.HasSpecialChar) score++;
 
-        // longer passwords
         if (password.Length >= 12) score++;
         if (password.Length >= 16) score++;
 
-        // variety of special characters
         if (Regex.Matches(password, @"[@$!%*?&]").Count > 1) score++;
 
-        // cap at 5
         return Math.Min(score, 5);
     }
 }

@@ -171,7 +171,6 @@ public class UpdateUserRolesDto
     
     public string? Reason { get; set; }
     
-    // Keep the old property for backward compatibility
     public List<string> Roles 
     { 
         get => RoleNames; 

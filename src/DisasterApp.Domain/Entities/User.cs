@@ -9,7 +9,6 @@ public partial class User
     {
         UserId = Guid.NewGuid();
         CreatedAt = DateTime.UtcNow;
-        // Initialize required auth fields to safe defaults for test entities
         AuthProvider = "local";
         AuthId = Guid.NewGuid().ToString();
     }

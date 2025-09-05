@@ -27,7 +27,6 @@ public class AuthController : ControllerBase
         _logger = logger;
     }
 
-    /// User login endpoint
 
     [HttpPost("login")]
     public async Task<ActionResult<CookieAuthResponseDto>> Login([FromBody] LoginRequestDto request)
@@ -36,10 +35,8 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.LoginAsync(request);
 
-            // Set refresh token as HTTP-only secure cookie
             SetRefreshTokenCookie(response.RefreshToken);
 
-            // Return response without refresh token (stored in cookie)
             var cookieResponse = new CookieAuthResponseDto
             {
                 AccessToken = response.AccessToken,
@@ -47,7 +44,6 @@ public class AuthController : ControllerBase
                 User = response.User
             };
 
-            // Debug logging to check what's being returned
             _logger.LogInformation("Login response for {Email}: AccessToken={HasToken}, User.UserId={UserId}, User.Name={Name}, User.Email={Email}, User.Roles={Roles}",
                 request.Email,
                 !string.IsNullOrEmpty(response.AccessToken),
@@ -71,7 +67,6 @@ public class AuthController : ControllerBase
     }
 
 
-    /// User signup endpoint
 
     [HttpPost("signup")]
     public async Task<ActionResult<CookieAuthResponseDto>> Signup([FromBody] SignupRequestDto request)
@@ -80,10 +75,8 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.SignupAsync(request);
 
-            // Set refresh token as HTTP-only secure cookie
             SetRefreshTokenCookie(response.RefreshToken);
 
-            // Return response without refresh token (stored in cookie)
             var cookieResponse = new CookieAuthResponseDto
             {
                 AccessToken = response.AccessToken,
@@ -105,7 +98,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// Google OAuth login endpoint
     [HttpPost("google-login")]
     public async Task<ActionResult<CookieAuthResponseDto>> GoogleLogin([FromBody] GoogleLoginRequestDto request)
     {
@@ -116,10 +108,8 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.GoogleLoginAsync(request);
 
-            // Set refresh token as HTTP-only secure cookie
             SetRefreshTokenCookie(response.RefreshToken);
 
-            // Return response without refresh token (stored in cookie)
             var cookieResponse = new CookieAuthResponseDto
             {
                 AccessToken = response.AccessToken,
@@ -150,16 +140,13 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// Refresh access token using refresh token from cookie
     [HttpPost("refresh")]
     public async Task<ActionResult<CookieAuthResponseDto>> RefreshToken()
     {
         try
         {
-            // Get refresh token from HTTP-only cookie
             var refreshToken = GetRefreshTokenFromCookie();
 
-            // Debug logging
             _logger.LogInformation("🔍 RefreshToken - Cookie value: {HasCookie}, Length: {Length}",
                 !string.IsNullOrEmpty(refreshToken), refreshToken?.Length ?? 0);
 
@@ -172,10 +159,8 @@ public class AuthController : ControllerBase
             var request = new RefreshTokenRequestDto { RefreshToken = refreshToken };
             var response = await _authService.RefreshTokenAsync(request);
 
-            // Set new refresh token as HTTP-only secure cookie
             SetRefreshTokenCookie(response.RefreshToken);
 
-            // Return response without refresh token (stored in cookie)
             var cookieResponse = new CookieAuthResponseDto
             {
                 AccessToken = response.AccessToken,
@@ -197,7 +182,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// User logout endpoint
 
     [HttpPost("logout")]
     [Authorize]
@@ -205,37 +189,32 @@ public class AuthController : ControllerBase
     {
         try
         {
-            // Get refresh token from HTTP-only cookie
             var refreshToken = GetRefreshTokenFromCookie();
             if (string.IsNullOrEmpty(refreshToken))
             {
-                // Clear cookie anyway and return success
                 ClearRefreshTokenCookie();
                 return Ok(new { message = "Logged out successfully" });
             }
 
             var success = await _authService.LogoutAsync(refreshToken);
 
-            // Clear refresh token cookie regardless of logout success
             ClearRefreshTokenCookie();
 
             if (success)
             {
                 return Ok(new { message = "Logged out successfully" });
             }
-            return Ok(new { message = "Logged out successfully" }); // Return success even if token was invalid
+            return Ok(new { message = "Logged out successfully" });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
-            // Clear cookie even on error
             ClearRefreshTokenCookie();
             return StatusCode(500, new { message = "An error occurred during logout" });
         }
     }
 
 
-    /// Validate access token
 
     [HttpGet("validate")]
     [Authorize]
@@ -260,7 +239,6 @@ public class AuthController : ControllerBase
     }
 
 
-    /// Get current user information
 
     [HttpGet("me")]
     [Authorize]
@@ -289,7 +267,6 @@ public class AuthController : ControllerBase
     }
 
 
-    /// Initiate password reset process
 
     [HttpPost("forgot-password")]
     public async Task<ActionResult<ForgotPasswordResponseDto>> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
@@ -311,7 +288,6 @@ public class AuthController : ControllerBase
     }
 
 
-    // reset password using reset token
     [HttpPost("reset-password")]
     public async Task<ActionResult<ForgotPasswordResponseDto>> ResetPassword([FromBody] ResetPasswordRequestDto request)
     {
@@ -351,7 +327,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    // verify reset token validity
 
     [HttpPost("verify-reset-token")]
     public async Task<ActionResult<VerifyResetTokenResponseDto>> VerifyResetToken([FromBody] VerifyResetTokenRequestDto request)
@@ -376,14 +351,12 @@ public class AuthController : ControllerBase
         }
     }
 
-    // validate password strength
 
     [HttpPost("validate-password")]
     public ActionResult ValidatePassword([FromBody] ValidatePasswordRequestDto request)
     {
         try
         {
-            // basic validation that matches the DTO validation
             var isValid = !string.IsNullOrWhiteSpace(request.Password) &&
                          request.Password.Length >= 8 &&
                          System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]");
@@ -401,7 +374,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    // test email functionality
 
     [HttpPost("test-email")]
     public async Task<IActionResult> TestEmail([FromBody] ForgotPasswordRequestDto request)
@@ -433,13 +405,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    // =====================================================
-    // TWO-FACTOR AUTHENTICATION ENDPOINTS
-    // =====================================================
 
-    /// <summary>
-    /// Enhanced login with 2FA support
-    /// </summary>
     [HttpPost("login-otp")]
     public async Task<ActionResult<EnhancedAuthResponseDto>> LoginWithTwoFactor([FromBody] LoginRequestDto request)
     {
@@ -485,9 +451,6 @@ public class AuthController : ControllerBase
 
 
 
-    /// <summary>
-    /// Send OTP code via email
-    /// </summary>
     [HttpPost("otp/send")]
     public async Task<ActionResult<SendOtpResponseDto>> SendOtp([FromBody] SendOtpRequestDto request)
     {
@@ -523,9 +486,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Verify OTP code
-    /// </summary>
     [HttpPost("otp/verify")]
     public async Task<ActionResult<AuthResponseDto>> VerifyOtp([FromBody] VerifyOtpRequestDto request)
     {
@@ -559,9 +519,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Verify backup code
-    /// </summary>
     [HttpPost("otp/verify-backup")]
     public async Task<ActionResult<AuthResponseDto>> VerifyBackupCode([FromBody] VerifyBackupCodeRequestDto request)
     {
@@ -595,9 +552,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get user's 2FA status
-    /// </summary>
     [HttpGet("2fa/status")]
     [Authorize]
     public async Task<ActionResult<TwoFactorStatusDto>> GetTwoFactorStatus()
@@ -620,9 +574,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Initialize 2FA setup
-    /// </summary>
     [HttpPost("2fa/setup")]
     [Authorize]
     public async Task<ActionResult<SetupTwoFactorResponseDto>> SetupTwoFactor([FromBody] SetupTwoFactorRequestDto request)
@@ -708,9 +659,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Disable 2FA
-    /// </summary>
     [HttpPost("2fa/disable")]
     [Authorize]
     public async Task<ActionResult> DisableTwoFactor([FromBody] DisableTwoFactorRequestDto request)
@@ -752,9 +700,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Generate new backup codes
-    /// </summary>
     [HttpPost("2fa/backup-codes/generate")]
     [Authorize]
     public async Task<ActionResult<GenerateBackupCodesResponseDto>> GenerateBackupCodes([FromBody] SetupTwoFactorRequestDto request)
@@ -796,13 +741,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    // =====================================================
-    // EMAIL OTP AUTHENTICATION ENDPOINTS
-    // =====================================================
 
-    /// <summary>
-    /// Send OTP code via email for authentication
-    /// </summary>
     [HttpPost("send-otp")]
     public async Task<ActionResult<SendEmailOtpResponseDto>> SendEmailOtp([FromBody] SendEmailOtpRequestDto request)
     {
@@ -839,9 +778,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Verify OTP code and authenticate user
-    /// </summary>
     [HttpPost("verify-otp")]
     public async Task<ActionResult<VerifyEmailOtpResponseDto>> VerifyEmailOtp([FromBody] VerifyEmailOtpRequestDto request)
     {
@@ -897,8 +833,6 @@ public class AuthController : ControllerBase
         var cookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            // In development, allow non-secure cookies with SameSite.Lax
-            // In production, require secure cookies with SameSite.None for cross-origin
             Secure = isHttps,
             SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax,
             Expires = DateTime.UtcNow.AddDays(int.Parse(HttpContext.RequestServices.GetRequiredService<IConfiguration>()["Jwt:RefreshTokenExpirationDays"] ?? "30")),
@@ -931,7 +865,7 @@ public class AuthController : ControllerBase
             HttpOnly = true,
             Secure = isHttps,
             SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTime.UtcNow.AddDays(-1), // Expire the cookie
+            Expires = DateTime.UtcNow.AddDays(-1),
             Path = "/"
         };
 

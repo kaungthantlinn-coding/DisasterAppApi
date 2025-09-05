@@ -26,7 +26,6 @@ public class BlacklistService : IBlacklistService
     {
         try
         {
-            // Validate user exists
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
@@ -38,7 +37,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Validate admin exists
             var admin = await _userRepository.GetByIdAsync(adminUserId);
             if (admin == null)
             {
@@ -50,7 +48,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Check if user is already blacklisted
             var existingBlacklist = await _blacklistRepository.GetActiveBlacklistAsync(userId);
             if (existingBlacklist != null)
             {
@@ -62,7 +59,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Prevent self-blacklisting
             if (userId == adminUserId)
             {
                 return new BlacklistUserResponseDto
@@ -73,7 +69,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Create blacklist record
             var blacklistRecord = new UserBlacklist
             {
                 UserId = userId,
@@ -85,7 +80,6 @@ public class BlacklistService : IBlacklistService
 
             await _blacklistRepository.CreateAsync(blacklistRecord);
 
-            // Update user's blacklist status
             user.IsBlacklisted = true;
             await _userRepository.UpdateAsync(user);
 
@@ -122,7 +116,6 @@ public class BlacklistService : IBlacklistService
     {
         try
         {
-            // Validate user exists
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
@@ -134,7 +127,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Validate admin exists
             var admin = await _userRepository.GetByIdAsync(adminUserId);
             if (admin == null)
             {
@@ -146,7 +138,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Get active blacklist record
             var activeBlacklist = await _blacklistRepository.GetActiveBlacklistAsync(userId);
             if (activeBlacklist == null)
             {
@@ -158,7 +149,6 @@ public class BlacklistService : IBlacklistService
                 };
             }
 
-            // Update blacklist record
             activeBlacklist.IsActive = false;
             activeBlacklist.UnblacklistedBy = adminUserId;
             activeBlacklist.UnblacklistedAt = DateTime.UtcNow;
@@ -166,7 +156,6 @@ public class BlacklistService : IBlacklistService
 
             await _blacklistRepository.UpdateAsync(activeBlacklist);
 
-            // Update user's blacklist status
             user.IsBlacklisted = false;
             await _userRepository.UpdateAsync(user);
 

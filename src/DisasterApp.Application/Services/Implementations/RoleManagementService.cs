@@ -31,14 +31,14 @@ public class RoleManagementService : IRoleManagementService
         {
             var roles = await _roleRepository.GetAllRolesAsync();
             
-            // Apply search filter
+    
             if (!string.IsNullOrEmpty(search))
             {
                 roles = roles.Where(r => r.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                                         r.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
             }
 
-            // Apply status filter
+        
             if (!string.IsNullOrEmpty(filter))
             {
                 switch (filter.ToLower())
@@ -78,8 +78,6 @@ public class RoleManagementService : IRoleManagementService
                     UpdatedBy = role.UpdatedBy
                 });
             }
-
-            // Calculate statistics
             var statistics = new RoleStatistics
             {
                 TotalRoles = roleList.Count,
@@ -136,7 +134,7 @@ public class RoleManagementService : IRoleManagementService
     {
         try
         {
-            // Check if role name already exists
+       
             if (await RoleExistsAsync(dto.Name))
             {
                 throw new ArgumentException($"Role with name '{dto.Name}' already exists");
@@ -156,7 +154,7 @@ public class RoleManagementService : IRoleManagementService
 
             var createdRole = await _roleRepository.CreateRoleAsync(role);
 
-            // Log audit event
+           
             await _auditService.LogUserActionAsync(
                 action: "ROLE_CREATED",
                 severity: "Info",
@@ -208,7 +206,7 @@ public class RoleManagementService : IRoleManagementService
                 throw new InvalidOperationException("Cannot modify system roles");
             }
 
-            // Check if new name conflicts with existing roles (excluding current role)
+        
             if (await RoleExistsAsync(dto.Name, id))
             {
                 throw new ArgumentException($"Role with name '{dto.Name}' already exists");
@@ -225,7 +223,7 @@ public class RoleManagementService : IRoleManagementService
             var updatedRole = await _roleRepository.UpdateRoleAsync(existingRole);
             var userCount = await _userRepository.GetUserCountByRoleAsync(id);
 
-            // Log audit event
+     
             await _auditService.LogUserActionAsync(
                 action: "ROLE_UPDATED",
                 severity: "Info",
@@ -288,7 +286,6 @@ public class RoleManagementService : IRoleManagementService
 
             if (deleted)
             {
-                // Log audit event with proper username information
                 await _auditService.LogUserActionAsync(
                     action: "ROLE_DELETED",
                     severity: "Warning",

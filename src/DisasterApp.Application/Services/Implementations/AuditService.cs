@@ -3,7 +3,7 @@ using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;//
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text;
 using ClosedXML.Excel;
@@ -223,10 +223,8 @@ public class AuditService : IAuditService
     {
         try
         {
-            // Use AsNoTracking for better performance on read-only queries
             var query = _context.AuditLogs.AsNoTracking().AsQueryable();
 
-            // Apply filters in order of selectivity (most selective first)
             if (!string.IsNullOrEmpty(filters.UserId) && Guid.TryParse(filters.UserId, out var userId))
             {
                 query = query.Where(a => a.UserId == userId);
@@ -257,7 +255,6 @@ public class AuditService : IAuditService
                 query = query.Where(a => a.Resource == filters.Resource);
             }
 
-            // Apply text search last as it's the most expensive
             if (!string.IsNullOrEmpty(filters.Search))
             {
                 query = query.Where(a => a.Details.Contains(filters.Search) || 
@@ -265,10 +262,8 @@ public class AuditService : IAuditService
                                         (a.UserName != null && a.UserName.Contains(filters.Search)));
             }
 
-            // Order by timestamp descending (using index)
             query = query.OrderByDescending(a => a.Timestamp);
 
-            // Get total count with timeout handling
             var totalCount = 0;
             try
             {
@@ -277,11 +272,9 @@ public class AuditService : IAuditService
             catch (Exception countEx)
             {
                 _logger.LogWarning(countEx, "Failed to get exact count, using estimated count");
-                // Fallback to a reasonable estimate if count times out
-                totalCount = filters.PageSize * 10; // Estimate for pagination
+                totalCount = filters.PageSize * 10;
             }
 
-            // Get paginated results with explicit timeout and include User data
             var logs = await query
                 .Skip((filters.Page - 1) * filters.PageSize)
                 .Take(filters.PageSize)
@@ -512,7 +505,6 @@ public class AuditService : IAuditService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Audit Logs");
 
-        // Headers
         worksheet.Cell(1, 1).Value = "Timestamp";
         worksheet.Cell(1, 2).Value = "Action";
         worksheet.Cell(1, 3).Value = "Severity";
@@ -521,7 +513,6 @@ public class AuditService : IAuditService
         worksheet.Cell(1, 6).Value = "IP Address";
         worksheet.Cell(1, 7).Value = "Resource";
 
-        // Data
         for (int i = 0; i < logs.Count; i++)
         {
             var log = logs[i];

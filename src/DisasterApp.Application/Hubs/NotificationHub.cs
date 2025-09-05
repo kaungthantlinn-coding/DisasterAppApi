@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
 namespace DisasterApp.Hubs
-
 {
     [Authorize]
     public class NotificationHub : Hub
@@ -13,7 +12,6 @@ namespace DisasterApp.Hubs
             if (Context.User?.IsInRole("admin") == true)
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, "AdminNotifications");
-
             }
         }
         public async Task JoinUserGroup()
@@ -23,7 +21,6 @@ namespace DisasterApp.Hubs
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"User_{userId}");
             }
-
         }
     }
 }

@@ -1,7 +1,7 @@
 using DisasterApp.Application.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Net;//
+using System.Net;
 using System.Net.Mail;
 
 namespace DisasterApp.Application.Services.Implementations;
@@ -49,7 +49,6 @@ public class EmailService : IEmailService
             var password = _configuration["Email:Password"];
             var enableSsl = bool.Parse(_configuration["Email:EnableSsl"] ?? "true");
 
-            // Add detailed logging for debugging
             _logger.LogInformation("=== EMAIL SERVICE DEBUG INFO ===");
             _logger.LogInformation("SmtpServer: '{SmtpServer}'", smtpServer ?? "NULL");
             _logger.LogInformation("SmtpPort: {SmtpPort}", smtpPort);
@@ -61,7 +60,6 @@ public class EmailService : IEmailService
             _logger.LogInformation("To: '{To}'", to);
             _logger.LogInformation("Subject: '{Subject}'", subject);
 
-            // Validate configuration
             if (string.IsNullOrEmpty(smtpServer) || string.IsNullOrEmpty(senderEmail) ||
                 string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             {
@@ -69,7 +67,7 @@ public class EmailService : IEmailService
                 _logger.LogInformation("Email would be sent to: {Email}", to);
                 _logger.LogInformation("Subject: {Subject}", subject);
                 _logger.LogInformation("Body: {Body}", body);
-                return true; // Return true for development
+                return true;
             }
 
             _logger.LogInformation("Configuration validated successfully. Attempting to send email...");
@@ -99,7 +97,6 @@ public class EmailService : IEmailService
             _logger.LogError(ex, "❌ Failed to send email to {Email}. Error: {ErrorMessage}", to, ex.Message);
             _logger.LogError("Exception details: {ExceptionDetails}", ex.ToString());
 
-            // Fallback: Log the email content for development
             _logger.LogInformation("Email fallback - would be sent to: {Email}", to);
             _logger.LogInformation("Subject: {Subject}", subject);
             _logger.LogInformation("Body: {Body}", body);

@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 
@@ -17,7 +17,6 @@ namespace DisasterApp.WebApi.Controllers
         {
             _notificationService = notificationService;
         }
-        // Get Admin notifications(only for Admin Role)
         [HttpGet("admin")]
         public async Task<IActionResult> GetAdminNotifications()
         {
@@ -28,7 +27,6 @@ namespace DisasterApp.WebApi.Controllers
             return Ok(notifications);
         }
 
-        //Get Currengt User Notifications
         [HttpGet("user")]
         public async Task<IActionResult> GetUserNotifications()
         {
@@ -36,7 +34,6 @@ namespace DisasterApp.WebApi.Controllers
             var notifications = await _notificationService.GetUserNotificationAsync(userId);
             return Ok(notifications);
         }
-        // Mark Notification as Read
         [HttpPut("{id}/read")]
         public async Task<IActionResult> MarkAsRead(Guid id)
         {
@@ -45,7 +42,6 @@ namespace DisasterApp.WebApi.Controllers
             return Ok();
         }
 
-        // Create notification (admin use case)
         [HttpPost]
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<NotificationDto>> CreateNotification([FromBody] CreateNotificationDto dto)
@@ -72,7 +68,6 @@ namespace DisasterApp.WebApi.Controllers
             return CreatedAtAction(nameof(GetUserNotifications), new { id = result.Id }, result);
         }
 
-        // ✅ Mark all notifications as read (for current user)
         [HttpPut("read-all")]
         public async Task<ActionResult> MarkAllAsRead()
         {
@@ -82,7 +77,6 @@ namespace DisasterApp.WebApi.Controllers
 
             var userId = Guid.Parse(userIdClaim);
 
-            // get user notifications
             var notifications = await _notificationService.GetUserNotificationAsync(userId);
             foreach (var n in notifications)
             {
@@ -92,12 +86,5 @@ namespace DisasterApp.WebApi.Controllers
             return NoContent();
         }
 
-        //[HttpGet("unread-count")]
-        //public async Task<IActionResult> GetUnreadCount()
-        //{
-        //    var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-        //    var count = await _notificationService.GetUnreadCountAsync(userId);
-        //    return Ok(new { count });
-        //}
     }
 }

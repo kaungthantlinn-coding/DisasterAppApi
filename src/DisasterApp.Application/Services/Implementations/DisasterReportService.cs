@@ -79,7 +79,6 @@ namespace DisasterApp.Application.Services
 
                         };
                         await _disasterTypeRepository.AddAsync(newType);
-                        //await _context.SaveChangesAsync();
                         disasterTypeId = newType.Id;
 
                     }
@@ -140,7 +139,6 @@ namespace DisasterApp.Application.Services
                 {
                     var impactDetail = new ImpactDetail
                     {
-                        //Id= Guid.NewGuid(), // Ensure a new ID is generated
                         Description = impactDto.Description,
                         Severity = impactDto.Severity,
                         ImpactTypes = new List<ImpactType>()
@@ -274,7 +272,6 @@ namespace DisasterApp.Application.Services
         {
             var reports = await _repository.GetAllAsync();
 
-            // Only include reports that are not deleted and have Status = Verified
             var acceptedReports = reports
                 .Where(r => r.IsDeleted != true && r.Status == ReportStatus.Verified)
                 .Select(r => new DisasterReportDto
@@ -316,7 +313,6 @@ namespace DisasterApp.Application.Services
         {
             var reports = await _repository.GetAllAsync();
 
-            // Only include reports that are not deleted and have Status = Rejected
             var rejectedReports = reports
                 .Where(r => r.IsDeleted != true && r.Status == ReportStatus.Rejected)
                 .Select(r => new DisasterReportDto
@@ -549,7 +545,6 @@ namespace DisasterApp.Application.Services
                 {
                     var impactDetail = new ImpactDetail
                     {
-                        //Id = Guid.NewGuid(), // Ensure a new ID is generated
                         ImpactTypes = new List<ImpactType>(),
                         Description = impactDto.Description,
                         Severity = impactDto.Severity,
@@ -580,7 +575,6 @@ namespace DisasterApp.Application.Services
                 }
             }
 
-            // 5️⃣ Handle Photo Deletions
             if (dto.RemovePhotoIds != null && dto.RemovePhotoIds.Any())
             {
                 foreach (var photoId in dto.RemovePhotoIds)
@@ -634,7 +628,6 @@ namespace DisasterApp.Application.Services
             if (report == null || report.IsDeleted == true)
                 return false;
 
-            // Mark as deleted
             report.IsDeleted = true;
             report.UpdatedAt = DateTime.UtcNow; // optional if you track delete timestamp
 

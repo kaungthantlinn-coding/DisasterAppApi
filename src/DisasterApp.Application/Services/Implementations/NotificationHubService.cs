@@ -19,14 +19,12 @@ namespace DisasterApp.Application.Services
             _hubContext = hubContext;
         }
 
-        // Send notification to a specific user
         public async Task SendNotificationToUser(Guid userId, NotificationDto notification)
         {
             await _hubContext.Clients.Group($"User_{userId}")
                                      .SendAsync("ReceiveNotification", notification);
         }
 
-        // Send notification to a group (e.g., admin group)
         public async Task SendNotificationToGroup(string groupName, NotificationDto notification)
         {
             await _hubContext.Clients.Group(groupName)

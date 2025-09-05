@@ -27,11 +27,9 @@ public class ExportService : IExportService
         var fieldsToExport = fields ?? _availableFields;
         var csv = new StringBuilder();
 
-        // Add header
         var headers = fieldsToExport.Select(f => _fieldDisplayNames.GetValueOrDefault(f, f));
         csv.AppendLine(string.Join(",", headers.Select(EscapeCsvValue)));
 
-        // Add data rows
         foreach (var log in data)
         {
             var values = fieldsToExport.Select(field => GetFieldValue(log, field));
@@ -48,7 +46,6 @@ public class ExportService : IExportService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Audit Logs");
 
-        // Add headers
         for (int i = 0; i < fieldsToExport.Count; i++)
         {
             var field = fieldsToExport[i];
@@ -57,7 +54,6 @@ public class ExportService : IExportService
             worksheet.Cell(1, i + 1).Style.Font.Bold = true;
         }
 
-        // Add data
         var dataList = data.ToList();
         for (int row = 0; row < dataList.Count; row++)
         {
@@ -67,8 +63,7 @@ public class ExportService : IExportService
                 var field = fieldsToExport[col];
                 var value = GetFieldValue(log, field);
                 
-                // Handle different data types
-                if (field == "Timestamp" && DateTime.TryParse(value, out var dateValue))
+                        if (field == "Timestamp" && DateTime.TryParse(value, out var dateValue))
                 {
                     worksheet.Cell(row + 2, col + 1).Value = dateValue;
                     worksheet.Cell(row + 2, col + 1).Style.DateFormat.Format = "yyyy-mm-dd hh:mm:ss";
@@ -80,10 +75,8 @@ public class ExportService : IExportService
             }
         }
 
-        // Auto-fit columns
         worksheet.ColumnsUsed().AdjustToContents();
 
-        // Apply formatting to header row
         var headerRange = worksheet.Range(1, 1, 1, fieldsToExport.Count);
         headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
@@ -102,7 +95,6 @@ public class ExportService : IExportService
         using var pdf = new PdfDocument(writer);
         using var document = new Document(pdf);
 
-        // Add title
         document.Add(new Paragraph("Audit Logs Report")
             .SetTextAlignment(TextAlignment.CENTER)
             .SetFontSize(14)
@@ -113,19 +105,16 @@ public class ExportService : IExportService
             .SetFontSize(9)
             .SetMarginBottom(15));
 
-        // Create table with optimized settings
         var table = new Table(fieldsToExport.Count);
         table.SetWidth(UnitValue.CreatePercentValue(100));
-        table.SetKeepTogether(false); // Allow table to break across pages
+        table.SetKeepTogether(false);
 
-        // Add headers with minimal styling
         foreach (var field in fieldsToExport)
         {
             var displayName = _fieldDisplayNames.GetValueOrDefault(field, field);
             table.AddHeaderCell(new Cell().Add(new Paragraph(displayName).SetBold().SetFontSize(10)));
         }
 
-        // Add data rows with batch processing for better performance
         var batchSize = 100;
         for (int i = 0; i < dataList.Count; i += batchSize)
         {
@@ -147,16 +136,13 @@ public class ExportService : IExportService
         return stream.ToArray();
     }
 
-    // Disaster Report Export Methods
     public async Task<byte[]> ExportDisasterReportsToCsvAsync(IEnumerable<DisasterReportDto> data)
     {
         var csv = new StringBuilder();
 
-        // Add header
         var headers = new[] { "ID", "Title", "Description", "Timestamp", "Severity", "Status", "User Name", "Disaster Type", "Latitude", "Longitude", "Address" };
         csv.AppendLine(string.Join(",", headers.Select(EscapeCsvValue)));
 
-        // Add data rows
         foreach (var report in data)
         {
             var values = new[]
@@ -183,8 +169,6 @@ public class ExportService : IExportService
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Disaster Reports");
-
-        // Add headers
         var headers = new[] { "ID", "Title", "Description", "Timestamp", "Severity", "Status", "User Name", "Disaster Type", "Latitude", "Longitude", "Address" };
         for (int i = 0; i < headers.Length; i++)
         {
@@ -192,7 +176,6 @@ public class ExportService : IExportService
             worksheet.Cell(1, i + 1).Style.Font.Bold = true;
         }
 
-        // Add data
         var reportList = data.ToList();
         for (int row = 0; row < reportList.Count; row++)
         {
@@ -218,10 +201,8 @@ public class ExportService : IExportService
             }
         }
 
-        // Auto-fit columns
         worksheet.ColumnsUsed().AdjustToContents();
 
-        // Apply formatting to header row
         var headerRange = worksheet.Range(1, 1, 1, headers.Length);
         headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
@@ -239,7 +220,6 @@ public class ExportService : IExportService
         using var pdf = new PdfDocument(writer);
         using var document = new Document(pdf);
 
-        // Add title
         document.Add(new Paragraph("Disaster Reports")
             .SetTextAlignment(TextAlignment.CENTER)
             .SetFontSize(14)
@@ -250,18 +230,14 @@ public class ExportService : IExportService
             .SetFontSize(9)
             .SetMarginBottom(15));
 
-        // Create table
         var headers = new[] { "ID", "Title", "Description", "Timestamp", "Severity", "Status", "User", "Type", "Location" };
         var table = new Table(headers.Length);
         table.SetWidth(UnitValue.CreatePercentValue(100));
-
-        // Add headers
         foreach (var header in headers)
         {
             table.AddHeaderCell(new Cell().Add(new Paragraph(header).SetBold()));
         }
 
-        // Add data rows
         foreach (var report in reportList)
         {
             table.AddCell(report.Id.ToString());

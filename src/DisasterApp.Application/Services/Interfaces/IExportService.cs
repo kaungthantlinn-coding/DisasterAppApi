@@ -8,7 +8,6 @@ public interface IExportService
     Task<byte[]> ExportToExcelAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null);
     Task<byte[]> ExportToPdfAsync(IEnumerable<AuditLogDto> data, List<string>? fields = null);
     
-    // Disaster Report Export Methods
     Task<byte[]> ExportDisasterReportsToCsvAsync(IEnumerable<DisasterReportDto> data);
     Task<byte[]> ExportDisasterReportsToExcelAsync(IEnumerable<DisasterReportDto> data);
     Task<byte[]> ExportDisasterReportsToPdfAsync(IEnumerable<DisasterReportDto> data);
@@ -18,4 +17,3 @@ public interface IExportService
     string GetMimeType(string format);
     string GetFileExtension(string format);
 }
-//

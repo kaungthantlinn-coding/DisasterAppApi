@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace DisasterApp.WebApi.Controllers;
-//
 
 [ApiController]
 [Route("api/[controller]")]
@@ -30,9 +29,6 @@ public class UserManagementController : ControllerBase
         _logger = logger;
     }
 
-
-    /// Get paginated list of users with filtering
-
     [HttpGet]
     [AdminOnly]
     public async Task<ActionResult<PagedUserListDto>> GetUsers([FromQuery] UserFilterDto filter)
@@ -48,9 +44,6 @@ public class UserManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
-
-
-    /// Get user details by ID
 
     [HttpGet("{userId}")]
     [AdminOnly]
@@ -72,9 +65,6 @@ public class UserManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
-
-
-    /// Create a new user
 
     [HttpPost]
     [AdminOnly]
@@ -106,10 +96,6 @@ public class UserManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
-
-
-    /// Update an existing user
-
 
     [HttpPut("{userId}")]
     [AdminOnly]
@@ -147,9 +133,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-
-    /// Delete a user
-
     [HttpDelete("{userId}")]
     [AdminOnly]
     public async Task<IActionResult> DeleteUser(Guid userId)
@@ -175,9 +158,6 @@ public class UserManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
-
-
-    /// Blacklist/suspend a user with reason
     [HttpPost("{userId}/blacklist")]
     [AdminOnly]
     public async Task<IActionResult> BlacklistUser(Guid userId, [FromBody] BlacklistUserDto blacklistDto)
@@ -211,7 +191,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Remove blacklist/unsuspend a user
     [HttpPost("{userId}/unblacklist")]
     [AdminOnly]
     public async Task<IActionResult> UnblacklistUser(Guid userId, [FromBody] UnblacklistUserDto? unblacklistDto = null)
@@ -245,7 +224,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Get blacklist history for a user
     [HttpGet("{userId}/blacklist-history")]
     [AdminOnly]
     public async Task<IActionResult> GetBlacklistHistory(Guid userId)
@@ -261,10 +239,6 @@ public class UserManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
-
-
-    /// Change user password
-
 
     [HttpPost("{userId}/change-password")]
     [AdminOnly]
@@ -302,9 +276,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-
-    /// Perform bulk operations on multiple users
-
     [HttpPost("bulk-operation")]
     [AdminOnly]
     public async Task<IActionResult> BulkOperation([FromBody] BulkUserOperationDto bulkOperation)
@@ -316,7 +287,6 @@ public class UserManagementController : ControllerBase
                 return BadRequest(ModelState);
             }
 
-            // Get current admin user ID from JWT token
             var adminUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             Guid? adminUserId = null;
             if (Guid.TryParse(adminUserIdClaim, out var parsedAdminId))
@@ -339,9 +309,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-
-    /// Get user management dashboard statistics
-
     [HttpGet("dashboard/stats")]
     [AdminOnly]
     public async Task<ActionResult<UserManagementStatsDto>> GetDashboardStats()
@@ -358,7 +325,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Get comprehensive user statistics for analytics
     [HttpGet("statistics")]
     [AdminOnly]
     public async Task<ActionResult<UserStatisticsResponseDto>> GetUserStatistics()
@@ -375,7 +341,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Get user activity trends over time
     [HttpGet("trends")]
     [AdminOnly]
     public async Task<ActionResult<UserActivityTrendsDto>> GetUserActivityTrends(
@@ -394,7 +359,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Get role distribution statistics
     [HttpGet("roles/distribution")]
     [AdminOnly]
     public async Task<ActionResult<RoleDistributionDto>> GetRoleDistribution()
@@ -410,9 +374,6 @@ public class UserManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
-
-
-    /// Validate if user can be deleted
 
     [HttpGet("{userId}/validate-deletion")]
     [AdminOnly]
@@ -430,8 +391,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    // update user roles only
-    
     [HttpPut("{userId}/roles")]
     [AdminOnly]
     public async Task<ActionResult<UserDetailsDto>> UpdateUserRoles(Guid userId, [FromBody] UpdateUserRolesDto updateRolesDto)
@@ -464,9 +423,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-  
-    // validate role update before applying changes
-    
     [HttpPost("{userId}/roles/validate")]
     [AdminOnly]
     public async Task<ActionResult<RoleUpdateValidationDto>> ValidateRoleUpdate(Guid userId, [FromBody] UpdateUserRolesDto updateRolesDto)
@@ -488,8 +444,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    // get available roles for filtering
-    
     [HttpGet("roles")]
     [AdminOnly]
     public async Task<ActionResult<List<string>>> GetAvailableRoles()
@@ -507,8 +461,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Get all CJ users (for chat)
-    
     [HttpGet("cj-users")]
     [Authorize]
     public async Task<ActionResult<List<UserListItemDto>>> GetAllCjUsers()
@@ -526,8 +478,6 @@ public class UserManagementController : ControllerBase
         }
     }
 
-    /// Export users data in various formats
-    
     [HttpPost("export")]
     [AdminOnly]
     public async Task<IActionResult> ExportUsers([FromBody] UserExportRequestDto exportRequest)
@@ -539,21 +489,18 @@ public class UserManagementController : ControllerBase
                 return BadRequest(ModelState);
             }
 
-            // Normalize and validate filters
             if (exportRequest.Filters != null)
             {
                 exportRequest.Filters.Role = exportRequest.Filters.Role?.Trim().ToLowerInvariant();
                 exportRequest.Filters.Status = exportRequest.Filters.Status?.Trim().ToLowerInvariant();
             }
 
-            // Validate format
             var validFormats = new[] { "csv", "json", "excel", "pdf" };
             if (!validFormats.Contains(exportRequest.Format.ToLower()))
             {
                 return BadRequest(new { message = "Invalid format. Supported formats: csv, json, excel, pdf" });
             }
 
-            // Validate fields if provided
             var validFields = new[] { "name", "email", "role", "status", "createdAt", "phoneNumber", "authProvider", "disasterReports", "supportRequests", "donations", "organizations" };
             if (exportRequest.Fields?.Any() == true)
             {
@@ -577,7 +524,6 @@ public class UserManagementController : ControllerBase
             
             var fileName = $"users-export-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.{exportRequest.Format.ToLower()}";
             
-            // Log export action with filters
             var currentUserId = GetCurrentUserId();
             if (currentUserId != Guid.Empty)
             {

@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace DisasterApp.Application.DTOs;
-//
 public class AuditLogDto
 {
     public string Id { get; set; } = null!;
@@ -35,7 +34,6 @@ public class AuditLogFiltersDto
     public string? UserId { get; set; }
     public string? Resource { get; set; }
     
-    // Additional properties for API compatibility
     public DateTime? StartDate 
     { 
         get => DateFrom; 

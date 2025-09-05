@@ -4,7 +4,6 @@ namespace DisasterApp.Infrastructure.Repositories.Interfaces;
 
 public interface IUserRepository
 {
-    // Existing methods
     Task<User?> GetByEmailAsync(string email);
     Task<User?> GetByIdAsync(Guid userId);
     Task<User?> GetByAuthProviderAsync(string authProvider, string authId);
@@ -13,11 +12,10 @@ public interface IUserRepository
     Task<bool> ExistsAsync(string email);
     Task<List<string>> GetUserRolesAsync(Guid userId);
 
-    // User management methods
     Task<(List<User> Users, int TotalCount)> GetUsersAsync(
         int pageNumber,
         int pageSize,
-        string? searchTerm = null,//
+        string? searchTerm = null,
         string? role = null,
         bool? isBlacklisted = null,
         string? authProvider = null,
@@ -37,7 +35,6 @@ public interface IUserRepository
     Task<bool> BulkUpdateUsersAsync(List<User> users);
     Task<(int DisasterReports, int SupportRequests, int Donations, int Organizations)> GetUserStatisticsAsync(Guid userId);
     
-    // Role management methods
     Task<int> GetUserCountByRoleAsync(Guid roleId);
     Task<List<User>> GetUsersByRoleAsync(Guid roleId);
     Task<List<User>> GetAllUsersAsync();

@@ -4,7 +4,6 @@ namespace DisasterApp.Infrastructure.Repositories.Interfaces;
 
 public interface IRoleRepository
 {
-    // Legacy methods for backward compatibility
     Task<Role?> GetByIdAsync(Guid roleId);
     Task<Role?> GetByNameAsync(string name);
     Task<List<Role>> GetAllAsync();
@@ -15,7 +14,7 @@ public interface IRoleRepository
         string sortBy = "Name",
         string sortDirection = "asc");
     Task<Role> CreateAsync(Role role);
-    Task<Role> UpdateAsync(Role role);//
+    Task<Role> UpdateAsync(Role role);
     Task<bool> DeleteAsync(Guid roleId);
     Task<bool> ExistsAsync(string name);
     Task<bool> ExistsAsync(Guid roleId);
@@ -25,7 +24,6 @@ public interface IRoleRepository
     Task<List<Role>> GetRolesByIdsAsync(List<Guid> roleIds);
     Task<List<Role>> GetRolesByNamesAsync(List<string> names);
 
-    // New simplified role management methods
     Task<Role?> GetRoleByIdAsync(Guid id);
     Task<IEnumerable<Role>> GetAllRolesAsync();
     Task<Role> CreateRoleAsync(Role role);

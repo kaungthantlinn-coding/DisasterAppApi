@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Repositories;
 using System;
@@ -62,7 +62,6 @@ namespace DisasterApp.Application.Services
             if (entity == null)
                 throw new Exception("ImpactType not found");
 
-            // Check duplicate name except current
             var all = await _impactTypeRepository.GetAllAsync();
             if (all.Any(e => e.Id != id && e.Name.Equals(dto.Name, StringComparison.OrdinalIgnoreCase)))
                 throw new Exception("ImpactType name already exists");

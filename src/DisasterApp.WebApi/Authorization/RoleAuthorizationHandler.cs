@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
 namespace DisasterApp.WebApi.Authorization;
-//
 public class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirement>
 {
     private readonly IRoleService _roleService;

@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services;
 using DisasterApp.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -71,7 +71,6 @@ namespace DisasterApp.Controllers
             if (!User.Identity?.IsAuthenticated ?? true)
                 return Unauthorized();
 
-            // ✅ Extract userId from token
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized();
@@ -107,13 +106,13 @@ namespace DisasterApp.Controllers
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized();
 
-            var userId = Guid.Parse(userIdClaim);// extract from JWT claims
-            var isAdmin = User.IsInRole("admin");// or check your Role system
+            var userId = Guid.Parse(userIdClaim);
+            var isAdmin = User.IsInRole("admin");
 
             var success = await _service.DeleteAsync(id, userId, isAdmin);
 
             if (!success)
-                return Forbid(); // 403 if not allowed
+                return Forbid();
 
             return NoContent();
         }

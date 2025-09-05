@@ -11,7 +11,6 @@ public class RoleRequirementAttribute : AuthorizeAttribute
     }
 }
 
-// Specific role attributes for convenience
 public class AdminOnlyAttribute : RoleRequirementAttribute
 {
     public AdminOnlyAttribute() : base("admin") { }

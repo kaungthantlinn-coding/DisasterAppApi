@@ -63,7 +63,6 @@ namespace DisasterApp.Application.Services
                 Description = data.Description,
                 FullName = data.User.Name,
                 Email = data.User.Email,
-                //UserId=data.UserId,
                 Location = data.Report.Location.Address,
                 UrgencyLevel = ((UrgencyLevel)data.Urgency).ToString(),
 
@@ -79,11 +78,9 @@ namespace DisasterApp.Application.Services
         }
         public async Task CreateAsync(Guid userId, SupportRequestCreateDto dto)
         {
-            // Step 1: Get existing types
             var existingTypes = await _supportRepo.GetSupportTypesByNamesAsync(dto.SupportTypeNames);
             var existingTypeNames = existingTypes.Select(st => st.Name).ToList();
 
-            // Step 2: Find new types that don't exist yet
             var newTypeNames = dto.SupportTypeNames
                 .Except(existingTypeNames, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -95,10 +92,8 @@ namespace DisasterApp.Application.Services
             if (newTypes.Any())
                 await _supportRepo.AddSupportTypesAsync(newTypes);
 
-            // Step 3: Combine existing + new
             var allTypes = existingTypes.Concat(newTypes).ToList();
 
-            // Step 4: Create SupportRequest
             var supportRequest = new SupportRequest
             {
                 ReportId = dto.ReportId,

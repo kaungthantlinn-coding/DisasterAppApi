@@ -9,7 +9,7 @@ namespace DisasterApp.Application.Services.Implementations;
 public class RoleService : IRoleService
 {
     private readonly DisasterDbContext _context;
-    private readonly ILogger<RoleService> _logger;//
+    private readonly ILogger<RoleService> _logger;
     private readonly IAuditService _auditService;
 
     public RoleService(DisasterDbContext context, ILogger<RoleService> logger, IAuditService auditService)
@@ -25,8 +25,6 @@ public class RoleService : IRoleService
         {
             var roles = await _context.Roles.ToListAsync();
             _logger.LogInformation("Retrieved {Count} roles from database", roles.Count);
-            
-            // Log any roles with missing names
             var rolesWithoutNames = roles.Where(r => string.IsNullOrEmpty(r.Name)).ToList();
             if (rolesWithoutNames.Any())
             {
@@ -85,7 +83,6 @@ public class RoleService : IRoleService
             user.Roles.Add(role);
             await _context.SaveChangesAsync();
 
-            // Log the role assignment
             await _auditService.LogRoleAssignmentAsync(
                 userId,
                 roleName,
@@ -132,8 +129,6 @@ public class RoleService : IRoleService
             var roles = user.Roles.ToList();
             _logger.LogInformation("Retrieved {Count} roles for user {UserId}: {RoleNames}", 
                 roles.Count, userId, string.Join(", ", roles.Select(r => r.Name ?? "[NO NAME]")));
-
-            // Log any roles with missing names
             var rolesWithoutNames = roles.Where(r => string.IsNullOrEmpty(r.Name)).ToList();
             if (rolesWithoutNames.Any())
             {
@@ -174,7 +169,6 @@ public class RoleService : IRoleService
                 throw new InvalidOperationException($"User with ID {userId} not found.");
             }
 
-            // Validate role removal
             var canRemove = await CanRemoveRoleAsync(userId, roleName);
             if (!canRemove)
             {
@@ -187,7 +181,6 @@ public class RoleService : IRoleService
                 user.Roles.Remove(roleToRemove);
                 await _context.SaveChangesAsync();
 
-                // Log the role removal
                 await _auditService.LogRoleRemovalAsync(
                     userId,
                     roleName,
@@ -249,7 +242,6 @@ public class RoleService : IRoleService
     {
         try
         {
-            // Check if removing admin role would leave no admins
             if (roleName.ToLower() == "admin")
             {
                 var isLastAdmin = await IsLastAdminAsync(userId);
@@ -259,7 +251,6 @@ public class RoleService : IRoleService
                 }
             }
 
-            // Check if user would have no roles left
             var user = await _context.Users
                 .Include(u => u.Roles)
                 .FirstOrDefaultAsync(u => u.UserId == userId);
@@ -301,7 +292,6 @@ public class RoleService : IRoleService
         {
             _logger.LogInformation("Starting cleanup of duplicate user roles");
             
-            // Get all users with their roles
             var users = await _context.Users
                 .Include(u => u.Roles)
                 .ToListAsync();
@@ -310,14 +300,12 @@ public class RoleService : IRoleService
             
             foreach (var user in users)
             {
-                // Group roles by RoleId to find duplicates
                 var roleGroups = user.Roles.GroupBy(r => r.RoleId).ToList();
                 
                 foreach (var roleGroup in roleGroups)
                 {
                     if (roleGroup.Count() > 1)
                     {
-                        // Keep only the first occurrence, remove the rest
                         var rolesToRemove = roleGroup.Skip(1).ToList();
                         foreach (var duplicateRole in rolesToRemove)
                         {
@@ -366,7 +354,6 @@ public class RoleService : IRoleService
 
             foreach (var role in rolesWithoutNames)
             {
-                // Try to identify role by common IDs
                 if (role.RoleId.ToString().ToUpper() == "AB4F1B2A-7227-4EAE-B368-32AA5E0A6F4D")
                 {
                     role.Name = "admin";
@@ -379,7 +366,7 @@ public class RoleService : IRoleService
                 }
                 else
                 {
-                    role.Name = "user"; // Default to user role
+                    role.Name = "user";
                     _logger.LogInformation("Fixed role {RoleId} to default 'user'", role.RoleId);
                 }
             }
@@ -409,7 +396,6 @@ public class RoleService : IRoleService
                 throw new InvalidOperationException($"User with ID {userId} not found.");
             }
 
-            // Validate all roles exist before making any changes
             var rolesToAssign = new List<Role>();
             foreach (var roleName in roleNames)
             {
@@ -421,7 +407,7 @@ public class RoleService : IRoleService
                 rolesToAssign.Add(role);
             }
 
-            // Check if removing admin role would leave no admins
+            
             var currentAdminRole = user.Roles.FirstOrDefault(r => r.Name.ToLower() == "admin");
             var newAdminRole = rolesToAssign.FirstOrDefault(r => r.Name.ToLower() == "admin");
             
@@ -434,11 +420,9 @@ public class RoleService : IRoleService
                 }
             }
 
-            // Store current roles for audit logging
             var currentRoles = user.Roles.ToList();
             var currentRoleNames = currentRoles.Select(r => r.Name).ToList();
 
-            // Replace all roles atomically
             user.Roles.Clear();
             foreach (var role in rolesToAssign)
             {
@@ -447,7 +431,6 @@ public class RoleService : IRoleService
 
             await _context.SaveChangesAsync();
 
-            // Log the role replacement
             await _auditService.LogRoleUpdateAsync(
                 userId,
                 currentRoleNames,

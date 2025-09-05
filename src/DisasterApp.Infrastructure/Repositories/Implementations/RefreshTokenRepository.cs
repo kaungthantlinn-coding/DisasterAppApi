@@ -33,7 +33,6 @@ public class RefreshTokenRepository : IRefreshTokenRepository//
         {
             _logger.LogDebug("🔍 GetByTokenAsync - Token not found in database");
             
-            // Log recent tokens for comparison
             var recentTokens = await _context.RefreshTokens
                 .Include(rt => rt.User)
                 .OrderByDescending(rt => rt.CreatedAt)

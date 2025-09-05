@@ -26,17 +26,14 @@ public class BackupCodeService : IBackupCodeService
     {
         try
         {
-            // Validate user exists
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
                 throw new InvalidOperationException("User not found");
             }
 
-            // Remove existing backup codes
             await _backupCodeRepository.DeleteByUserAsync(userId);
 
-            // Generate new backup codes
             var backupCodes = new List<string>();
             var backupCodeEntities = new List<BackupCode>();
 
@@ -53,10 +50,8 @@ public class BackupCodeService : IBackupCodeService
                 });
             }
 
-            // Save to database
             await _backupCodeRepository.CreateManyAsync(backupCodeEntities);
 
-            // Update user's backup code count
             user.BackupCodesRemaining = count;
             await _userRepository.UpdateAsync(user);
 
@@ -74,18 +69,14 @@ public class BackupCodeService : IBackupCodeService
     {
         try
         {
-            // Get all unused backup codes for the user
             var unusedCodes = await _backupCodeRepository.GetUnusedCodesAsync(userId);
 
-            // Try to find a matching code
             foreach (var storedCode in unusedCodes)
             {
                 if (VerifyBackupCode(backupCode, storedCode.CodeHash))
                 {
-                    // Mark the code as used
                     await _backupCodeRepository.MarkAsUsedAsync(storedCode.Id);
 
-                    // Update user's remaining backup code count
                     var user = await _userRepository.GetByIdAsync(userId);
                     if (user != null)
                     {
@@ -129,7 +120,6 @@ public class BackupCodeService : IBackupCodeService
         {
             var deletedCount = await _backupCodeRepository.DeleteByUserAsync(userId);
 
-            // Update user's backup code count
             var user = await _userRepository.GetByIdAsync(userId);
             if (user != null)
             {

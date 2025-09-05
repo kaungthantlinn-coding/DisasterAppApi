@@ -18,7 +18,6 @@ public interface IUserManagementService
     Task<RoleUpdateValidationDto> ValidateRoleUpdateAsync(Guid userId, List<string> newRoles);
     Task<byte[]> ExportUsersAsync(UserExportRequestDto exportRequest);
     
-    // Analytics endpoints
     Task<UserStatisticsResponseDto> GetUserStatisticsAsync();
     Task<UserActivityTrendsDto> GetUserActivityTrendsAsync(string period = "monthly", int months = 12);
     Task<RoleDistributionDto> GetRoleDistributionAsync();

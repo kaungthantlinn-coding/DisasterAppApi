@@ -169,10 +169,8 @@ namespace DisasterApp.Application.Services
         public async Task SendEmailAcceptedNotificationAsync(DisasterReport report)
         {
 
-            // DisasterEvent ??????? ??????
             if (report.DisasterEvent == null) return;
 
-            // ???? DisasterEventId ??? email ?????????????? ??????
             if (_notifiedEvents.Contains(report.DisasterEvent.Id))
             {
                 Console.WriteLine($"?? Skipping email: DisasterEvent '{report.DisasterEvent.Name}' already notified.");

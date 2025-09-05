@@ -34,7 +34,6 @@ namespace DisasterApp
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add Entity Framework
             builder.Services.AddDbContext<DisasterDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
                     sqlOptions =>
@@ -51,7 +50,6 @@ namespace DisasterApp
                 return new Cloudinary(new Account(config.CloudName, config.ApiKey, config.ApiSecret));
             });
 
-            // Add repositories
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
@@ -68,7 +66,6 @@ namespace DisasterApp
             builder.Services.AddScoped<IUserBlacklistRepository, UserBlacklistRepository>();
 
 
-            // Add services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
             builder.Services.AddScoped<IUserManagementService, UserManagementService>();
@@ -88,7 +85,6 @@ namespace DisasterApp
             builder.Services.AddScoped<IDonationRepository, DonationRepository>();
             builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 
-            // Add Two-Factor Authentication services
             builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
             builder.Services.AddScoped<IOrganizationService, OrganizationService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
@@ -108,12 +104,10 @@ namespace DisasterApp
                 return new DonationService(repo, fileService, wwwRoot);
             });
 
-            // Add Email OTP services
             builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
             builder.Services.AddScoped<IExportService, ExportService>();
 
 
-            // Add authorization
             builder.Services.AddAuthorization(options =>
             {
                 options.AddPolicy("AdminOnly", policy => policy.Requirements.Add(new RoleRequirement("admin")));
@@ -122,10 +116,8 @@ namespace DisasterApp
                 options.AddPolicy("AdminOrCj", policy => policy.Requirements.Add(new RoleRequirement("admin", "cj")));
             });
 
-            // Add authorization handlers
             builder.Services.AddScoped<IAuthorizationHandler, RoleAuthorizationHandler>();
 
-            // Add JWT Authentication
             var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
             var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -173,14 +165,12 @@ namespace DisasterApp
                 options.ClientSecret = builder.Configuration["GoogleAuth:ClientSecret"] ?? throw new InvalidOperationException("Google Client Secret not configured");
             });
 
-            // Add services to the container.
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
             });
 
-            // Add SignalR
             builder.Services.AddSignalR();
 
             builder.Services.AddScoped<IUserStatsHubService, UserStatsHubService>();
@@ -190,7 +180,6 @@ namespace DisasterApp
                 client.DefaultRequestHeaders.UserAgent.ParseAdd("DisasterApp/1.0 (kaungthantlinn78@gmail.com)");
             });
 
-            // Add Cookie Policy for secure refresh token storage
             builder.Services.Configure<CookiePolicyOptions>(options =>
             {
                 options.CheckConsentNeeded = context => false; // Disable consent for API
@@ -198,7 +187,6 @@ namespace DisasterApp
                 options.Secure = CookieSecurePolicy.SameAsRequest; // Use HTTPS in production
             });
 
-            // Add CORS (optimized for Google OAuth)
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
@@ -211,14 +199,12 @@ namespace DisasterApp
                 });
             });
 
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "DisasterApp API", Version = "v1" });
 
                 c.SupportNonNullableReferenceTypes();
-                // Add JWT authentication to Swagger
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -247,7 +233,6 @@ namespace DisasterApp
             var app = builder.Build();
 
 
-            // Initialize and seed the database
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
@@ -258,7 +243,6 @@ namespace DisasterApp
                 {
                     logger.LogInformation("Ensuring database is created and migrated...");
 
-                    // Ensure database is created (this will create the database if it doesn't exist)
                     logger.LogInformation("Ensuring database is created and migrated...");
                     await context.Database.EnsureCreatedAsync();
                     logger.LogInformation("Database creation completed successfully.");
@@ -274,7 +258,6 @@ namespace DisasterApp
                 }
             }
 
-            // Configure the HTTP request pipeline.
             app.UseSwagger();
             app.UseSwaggerUI(c =>
             {
@@ -282,10 +265,8 @@ namespace DisasterApp
                 c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
             });
 
-            // Add security headers (optimized for Google OAuth)
             app.Use(async (context, next) =>
             {
-                // Allow same-origin-allow-popups for Google OAuth popups
                 if (!context.Response.Headers.ContainsKey("Cross-Origin-Opener-Policy"))
                     context.Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
                 if (!context.Response.Headers.ContainsKey("Cross-Origin-Embedder-Policy"))
@@ -303,7 +284,6 @@ namespace DisasterApp
             app.UseCors("AllowAll");
             app.UseCookiePolicy();
 
-            // Only use HTTPS redirection in production or when HTTPS is configured
             if (app.Environment.IsProduction() || builder.Configuration.GetValue<string>("ASPNETCORE_URLS")?.Contains("https") == true)
             {
                 app.UseHttpsRedirection();

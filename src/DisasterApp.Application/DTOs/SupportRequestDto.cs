@@ -14,7 +14,6 @@ namespace DisasterApp.Application.DTOs
             public Guid ReportId { get; set; }
             public string Description { get; set; } = null!;
             public byte Urgency { get; set; }
-            //public Guid UserId { get; set; }
             public List<string> SupportTypeNames { get; set; } = new();
         }
         public class SupportRequestsDto
@@ -25,7 +24,6 @@ namespace DisasterApp.Application.DTOs
             public string FullName { get; set; }
             public string Email { get; set; }
             public string? Location { get; set; }
-            // public Guid UserId { get; set; }
             public string UrgencyLevel { get; set; }
             public string Description { get; set; }
 

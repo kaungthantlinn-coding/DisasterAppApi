@@ -5,7 +5,7 @@ namespace DisasterApp.Application.Services.Implementations;
 
 public class AuditTargetValidator : IAuditTargetValidator
 {
-    private readonly Dictionary<AuditTargetType, List<AuditCategory>> _validCombinations;//
+    private readonly Dictionary<AuditTargetType, List<AuditCategory>> _validCombinations;
     private readonly Dictionary<string, AuditSeverity> _actionSeverityMap;
 
     public AuditTargetValidator()
@@ -19,7 +19,6 @@ public class AuditTargetValidator : IAuditTargetValidator
         if (string.IsNullOrWhiteSpace(action))
             return false;
 
-        // Check for valid target type
         return Enum.IsDefined(typeof(AuditTargetType), targetType);
     }
 
@@ -65,31 +64,25 @@ public class AuditTargetValidator : IAuditTargetValidator
     {
         var actionLower = action.ToLowerInvariant();
 
-        // Check for critical security actions
         if (actionLower.Contains("failed_login") || actionLower.Contains("security_violation") || 
             actionLower.Contains("unauthorized") || actionLower.Contains("breach"))
             return AuditSeverity.Critical;
 
-        // Check for high priority actions
         if (actionLower.Contains("delete") || actionLower.Contains("admin") || 
             actionLower.Contains("role_change") || actionLower.Contains("permission_grant"))
             return AuditSeverity.High;
 
-        // Check for medium priority actions
         if (actionLower.Contains("create") || actionLower.Contains("update") || 
             actionLower.Contains("export") || actionLower.Contains("login"))
             return AuditSeverity.Medium;
 
-        // Check for low priority actions
         if (actionLower.Contains("view") || actionLower.Contains("search") || 
             actionLower.Contains("access"))
             return AuditSeverity.Low;
 
-        // Check action severity map
         if (_actionSeverityMap.TryGetValue(actionLower, out var mappedSeverity))
             return mappedSeverity;
 
-        // Target type specific defaults
         return targetType switch
         {
             AuditTargetType.System => AuditSeverity.High,
@@ -105,8 +98,7 @@ public class AuditTargetValidator : IAuditTargetValidator
     {
         var recommended = GetRecommendedSeverity(action, targetType);
         
-        // Allow the recommended severity or higher
-        return (int)severity >= (int)recommended - 1; // Allow one level lower than recommended
+        return (int)severity >= (int)recommended - 1;
     }
 
     private Dictionary<AuditTargetType, List<AuditCategory>> InitializeValidCombinations()
@@ -186,33 +178,28 @@ public class AuditTargetValidator : IAuditTargetValidator
     {
         return new Dictionary<string, AuditSeverity>
         {
-            // Critical actions
             ["system_shutdown"] = AuditSeverity.Critical,
             ["data_breach"] = AuditSeverity.Critical,
             ["security_violation"] = AuditSeverity.Critical,
             ["unauthorized_access"] = AuditSeverity.Critical,
             ["failed_login_multiple"] = AuditSeverity.Critical,
             
-            // High severity actions
             ["user_delete"] = AuditSeverity.High,
             ["admin_role_assigned"] = AuditSeverity.High,
             ["permission_escalation"] = AuditSeverity.High,
             ["data_export_large"] = AuditSeverity.High,
             ["system_configuration_change"] = AuditSeverity.High,
             
-            // Medium severity actions
             ["user_create"] = AuditSeverity.Medium,
             ["user_update"] = AuditSeverity.Medium,
             ["donation_create"] = AuditSeverity.Medium,
             ["report_create"] = AuditSeverity.Medium,
             ["login_success"] = AuditSeverity.Medium,
             
-            // Low severity actions
             ["data_view"] = AuditSeverity.Low,
             ["search_performed"] = AuditSeverity.Low,
             ["report_view"] = AuditSeverity.Low,
             
-            // Info level actions
             ["page_access"] = AuditSeverity.Info,
             ["api_call"] = AuditSeverity.Info,
             ["logout"] = AuditSeverity.Info

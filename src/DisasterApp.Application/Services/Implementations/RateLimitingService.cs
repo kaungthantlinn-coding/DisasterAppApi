@@ -7,12 +7,12 @@ using Microsoft.Extensions.Logging;
 namespace DisasterApp.Application.Services.Implementations;
 
 public class RateLimitingService : IRateLimitingService
-{//
+{
     private readonly IOtpAttemptRepository _otpAttemptRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<RateLimitingService> _logger;
 
-    // Rate limiting configuration
+
     private readonly int _maxOtpSendPerHour;
     private readonly int _maxOtpVerifyPerHour;
     private readonly int _maxFailedAttemptsForLockout;
@@ -28,7 +28,7 @@ public class RateLimitingService : IRateLimitingService
         _configuration = configuration;
         _logger = logger;
 
-        // Load configuration with defaults
+       
         _maxOtpSendPerHour = int.Parse(_configuration["TwoFactor:MaxOtpSendPerHour"] ?? "3");
         _maxOtpVerifyPerHour = int.Parse(_configuration["TwoFactor:MaxOtpVerifyPerHour"] ?? "10");
         _maxFailedAttemptsForLockout = int.Parse(_configuration["TwoFactor:MaxFailedAttemptsForLockout"] ?? "5");
@@ -42,7 +42,6 @@ public class RateLimitingService : IRateLimitingService
         {
             var oneHourAgo = DateTime.UtcNow.AddHours(-1);
 
-            // Check user-specific rate limit
             var userSendAttempts = await _otpAttemptRepository.CountUserAttemptsAsync(
                 userId, oneHourAgo, OtpAttemptTypes.SendOtp);
 
@@ -53,7 +52,6 @@ public class RateLimitingService : IRateLimitingService
                 return false;
             }
 
-            // Check IP-specific rate limit
             var ipAttempts = await _otpAttemptRepository.CountIpAttemptsAsync(
                 ipAddress, oneHourAgo, OtpAttemptTypes.SendOtp);
 
@@ -64,7 +62,6 @@ public class RateLimitingService : IRateLimitingService
                 return false;
             }
 
-            // Check if account is locked
             if (await IsAccountLockedAsync(userId))
             {
                 _logger.LogWarning("User {UserId} account is locked", userId);
@@ -76,7 +73,7 @@ public class RateLimitingService : IRateLimitingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking OTP send rate limit for user {UserId}", userId);
-            return false; // Fail safe
+            return false;
         }
     }
 
@@ -86,7 +83,6 @@ public class RateLimitingService : IRateLimitingService
         {
             var oneHourAgo = DateTime.UtcNow.AddHours(-1);
 
-            // Check user-specific rate limit
             var userVerifyAttempts = await _otpAttemptRepository.CountUserAttemptsAsync(
                 userId, oneHourAgo, OtpAttemptTypes.VerifyOtp);
 
@@ -97,7 +93,6 @@ public class RateLimitingService : IRateLimitingService
                 return false;
             }
 
-            // Check IP-specific rate limit
             var ipAttempts = await _otpAttemptRepository.CountIpAttemptsAsync(
                 ipAddress, oneHourAgo, OtpAttemptTypes.VerifyOtp);
 
@@ -108,7 +103,6 @@ public class RateLimitingService : IRateLimitingService
                 return false;
             }
 
-            // Check if account is locked
             if (await IsAccountLockedAsync(userId))
             {
                 _logger.LogWarning("User {UserId} account is locked", userId);
@@ -120,7 +114,7 @@ public class RateLimitingService : IRateLimitingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking OTP verify rate limit for user {UserId}", userId);
-            return false; // Fail safe
+            return false;
         }
     }
 
@@ -130,7 +124,6 @@ public class RateLimitingService : IRateLimitingService
         {
             var oneHourAgo = DateTime.UtcNow.AddHours(-1);
 
-            // Check email-specific rate limit
             var emailAttempts = await _otpAttemptRepository.CountEmailAttemptsAsync(
                 email, oneHourAgo, OtpAttemptTypes.SendOtp);
 
@@ -141,7 +134,6 @@ public class RateLimitingService : IRateLimitingService
                 return false;
             }
 
-            // Check IP-specific rate limit
             var ipAttempts = await _otpAttemptRepository.CountIpAttemptsAsync(
                 ipAddress, oneHourAgo, OtpAttemptTypes.SendOtp);
 
@@ -157,7 +149,7 @@ public class RateLimitingService : IRateLimitingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking OTP send rate limit for email {Email}", email);
-            return false; // Fail safe
+            return false;
         }
     }
 
@@ -221,7 +213,7 @@ public class RateLimitingService : IRateLimitingService
             var ipAttempts = await _otpAttemptRepository.CountIpAttemptsAsync(
                 ipAddress, oneHourAgo, successOnly: false);
 
-            var isBlocked = ipAttempts >= _maxIpAttemptsPerHour * 2; // Double the normal limit for blocking
+            var isBlocked = ipAttempts >= _maxIpAttemptsPerHour * 2;
 
             if (isBlocked)
             {

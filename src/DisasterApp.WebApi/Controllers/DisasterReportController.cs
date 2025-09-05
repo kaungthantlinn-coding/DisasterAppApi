@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using DisasterApp.Application.Services;
 using DisasterApp.Application.Services.Interfaces;
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace DisasterApp.WebApi.Controllers
 {
@@ -120,14 +119,12 @@ namespace DisasterApp.WebApi.Controllers
             if (!User.Identity?.IsAuthenticated ?? true)
                 return Unauthorized();
 
-            // ✅ Extract userId from token
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized();
 
             var userId = Guid.Parse(userIdClaim);
 
-            // ✅ Create report
             var report = await _service.CreateAsync(dto, userId);
             return CreatedAtAction(nameof(GetById), new { id = report.Id }, report);
         }
@@ -150,7 +147,6 @@ namespace DisasterApp.WebApi.Controllers
             return Ok(updatedReport);
         }
 
-        // DELETE api/<DisasterReportController>/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {

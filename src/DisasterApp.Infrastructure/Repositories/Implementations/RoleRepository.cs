@@ -13,16 +13,14 @@ public class RoleRepository : IRoleRepository
     {
         _context = context;
     }
-//
+
     public async Task<Role?> GetByIdAsync(Guid roleId)
     {
-        // Legacy method - convert Guid to string and try to match by name for backward compatibility
         return await _context.Roles
             .Include(r => r.Users)
             .FirstOrDefaultAsync(r => r.Name == roleId.ToString());
     }
 
-    // New simplified role management methods
     public async Task<Role?> GetRoleByIdAsync(Guid id)
     {
         return await _context.Roles
@@ -54,7 +52,6 @@ public class RoleRepository : IRoleRepository
     {
         var query = _context.Roles.Include(r => r.Users).AsQueryable();
 
-        // Apply filters
         if (!string.IsNullOrEmpty(searchTerm))
         {
             query = query.Where(r => r.Name.Contains(searchTerm));
@@ -63,15 +60,12 @@ public class RoleRepository : IRoleRepository
  
         var totalCount = await query.CountAsync();
 
-        // Apply sorting
         query = sortBy.ToLower() switch
         {
             "name" => sortDirection.ToLower() == "desc" ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
-            // createdat and lastmodified sorting removed as these properties don't exist on Role entity
             _ => query.OrderBy(r => r.Name)
         };
 
-        // Apply pagination
         var roles = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -89,7 +83,6 @@ public class RoleRepository : IRoleRepository
 
     public async Task<Role> UpdateAsync(Role role)
     {
-        //LastModified property removed as it doesn't exist on Role entity
         _context.Roles.Update(role);
         await _context.SaveChangesAsync();
         return role;
@@ -97,7 +90,6 @@ public class RoleRepository : IRoleRepository
 
     public async Task<bool> DeleteAsync(Guid roleId)
     {
-        // Legacy method - find by name for backward compatibility
         var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == roleId.ToString());
         if (role == null)
             return false;
@@ -131,10 +123,6 @@ public class RoleRepository : IRoleRepository
     {
         return await _context.Roles.CountAsync();
     }
-
-    // Note: GetActiveRolesCountAsync and GetSystemRolesCountAsync methods removed
-    // as IsActive and IsSystem properties don't exist on Role entity
-
 
 
     public async Task<List<Role>> GetRolesByIdsAsync(List<Guid> roleIds)

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;//
+using System.Security.Cryptography;
 using System.Text;
 using BCrypt.Net;
 using Google.Apis.Auth;
@@ -66,25 +66,21 @@ public class AuthService : IAuthService
         if (user is null)
             throw new UnauthorizedAccessException("Invalid email or password");
 
-        // Debug logging to check user data from database
         _logger.LogInformation("Retrieved user from DB: UserId={UserId}, Name={Name}, Email={Email}, PhotoUrl={PhotoUrl}, AuthProvider={AuthProvider}", 
             user.UserId, user.Name, user.Email, user.PhotoUrl, user.AuthProvider);
 
-        // For OAuth users, they don't have a password stored
         if (user.AuthProvider != "Email")
             throw new UnauthorizedAccessException("Please use social login for this account");
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.AuthId))
             throw new UnauthorizedAccessException("Invalid email or password");
 
-        // Check if user is blacklisted
         if (user.IsBlacklisted == true)
             throw new UnauthorizedAccessException("Account has been suspended");
 
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         _logger.LogInformation("Retrieved roles for user {UserId}: {Roles}", user.UserId, string.Join(",", roles));
         
-        // Ensure user has at least the default role (fix for users created before role assignment was implemented)
         if (roles.Count == 0)
         {
             _logger.LogInformation("User {UserId} has no roles assigned, assigning default role", user.UserId);
@@ -142,7 +138,6 @@ public class AuthService : IAuthService
 
         var createdUser = await _userRepository.CreateAsync(user);
 
-        // Assign default admin role to new user
         await _roleService.AssignDefaultRoleToUserAsync(createdUser.UserId);
 
         var userRoles = await _roleService.GetUserRolesAsync(createdUser.UserId);
@@ -177,7 +172,6 @@ public class AuthService : IAuthService
             _logger.LogInformation("🔍 GoogleLogin - Starting authentication with ClientId: {ClientId}", clientId?.Length > 10 ? string.Concat(clientId.AsSpan(0, 10), "...") : clientId + "...");
             _logger.LogInformation("🔍 GoogleLogin - Received IdToken length: {TokenLength}", request.IdToken?.Length ?? 0);
 
-            // Verify the Google ID token
             var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
             {
                 Audience = [clientId]
@@ -192,7 +186,6 @@ public class AuthService : IAuthService
             _logger.LogInformation("✅ GoogleLogin - Token validated successfully. Email: {Email}, Name: {Name}, Subject: {Subject}", 
                 payload.Email, payload.Name, payload.Subject);
 
-            // Check if user exists
             var existingUser = await _userRepository.GetByEmailAsync(payload.Email);
 
             if (existingUser != null)
@@ -200,18 +193,15 @@ public class AuthService : IAuthService
                 _logger.LogInformation("👤 GoogleLogin - Existing user found: {UserId}, Name: {Name}, Email: {Email}", 
                     existingUser.UserId, existingUser.Name, existingUser.Email);
                 
-                // Check if user is blacklisted
                 if (existingUser.IsBlacklisted == true)
                 {
                     _logger.LogWarning("❌ GoogleLogin - User {UserId} is blacklisted", existingUser.UserId);
                     throw new UnauthorizedAccessException("Account has been suspended");
                 }
                 
-                // User exists, log them in
                 if (existingUser.AuthProvider != "Google")
                 {
                     _logger.LogInformation("🔄 GoogleLogin - Updating user auth provider from {OldProvider} to Google", existingUser.AuthProvider);
-                    // Update existing local user to Google auth
                     existingUser.AuthProvider = "Google";
                     existingUser.AuthId = payload.Subject;
                     existingUser.PhotoUrl = payload.Picture;
@@ -221,7 +211,6 @@ public class AuthService : IAuthService
                 var roles = await _userRepository.GetUserRolesAsync(existingUser.UserId);
                 _logger.LogInformation("🔐 GoogleLogin - User roles: {Roles}", string.Join(", ", roles));
                 
-                // Ensure user has at least the default role (fix for users created before role assignment was implemented)
                 if (roles.Count == 0)
                 {
                     _logger.LogInformation("🔐 GoogleLogin - User {UserId} has no roles assigned, assigning default role", existingUser.UserId);
@@ -263,7 +252,6 @@ public class AuthService : IAuthService
             {
                 _logger.LogInformation("👤 GoogleLogin - Creating new user from Google payload: {Email}, {Name}", payload.Email, payload.Name);
                 
-                // Create new user
                 var newUser = new User
                 {
                     UserId = Guid.NewGuid(),
@@ -281,7 +269,6 @@ public class AuthService : IAuthService
                 
                 var createdUser = await _userRepository.CreateAsync(newUser);
 
-                // Assign default admin role to new user
                 await _roleService.AssignDefaultRoleToUserAsync(createdUser.UserId);
                 
                 _logger.LogInformation("🔐 GoogleLogin - Assigned default role to new user: {UserId}", createdUser.UserId);
@@ -323,7 +310,6 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "❌ GoogleLogin - Error during Google login: {ErrorMessage}. StackTrace: {StackTrace}", 
                 ex.Message, ex.StackTrace);
             
-            // Log additional details if it's a Google validation exception
             if (ex is InvalidJwtException || ex.Message.Contains("Google"))
             {
                 _logger.LogError("🔍 GoogleLogin - Google token validation failed. This might be due to:");
@@ -362,7 +348,6 @@ public class AuthService : IAuthService
         var user = refreshToken.User;
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         
-        // Ensure user has at least the default role (fix for users created before role assignment was implemented)
         if (roles.Count == 0)
         {
             _logger.LogInformation("RefreshToken - User {UserId} has no roles assigned, assigning default role", user.UserId);
@@ -374,7 +359,6 @@ public class AuthService : IAuthService
         var newAccessToken = GenerateAccessToken(user, roles);
         var newRefreshToken = await GenerateRefreshTokenAsync(user.UserId);
 
-        // Delete old refresh token (atomic operation handles concurrency)
         var deleted = await _refreshTokenRepository.DeleteAsync(request.RefreshToken);
         if (!deleted)
         {
@@ -433,7 +417,6 @@ public class AuthService : IAuthService
 
     public string GenerateJwtToken(User user)
     {
-        // Get user roles
         var roles = _userRepository.GetUserRolesAsync(user.UserId).GetAwaiter().GetResult();
         return GenerateAccessToken(user, roles);
     }
@@ -496,7 +479,6 @@ public class AuthService : IAuthService
 
             var user = await _userRepository.GetByEmailAsync(request.Email);
 
-            // Always return success to prevent email enumeration attacks
             if (user == null)
             {
                 _logger.LogInformation("Forgot password request for non-existent user: {Email}", request.Email);
@@ -507,12 +489,10 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Handle different auth providers
             if (user.AuthProvider != "Email")
             {
                 _logger.LogInformation("Forgot password request for user with {AuthProvider} authentication: {Email}", user.AuthProvider, request.Email);
 
-                // Send informational email about their auth provider
                 var authProviderEmailSent = await _emailService.SendAuthProviderNotificationEmailAsync(user.Email, user.AuthProvider);
 
                 if (!authProviderEmailSent)
@@ -524,7 +504,6 @@ public class AuthService : IAuthService
                     _logger.LogInformation("Auth provider notification email sent successfully to: {Email}", user.Email);
                 }
 
-                // Still return success to prevent enumeration attacks
                 return new ForgotPasswordResponseDto
                 {
                     Success = true,
@@ -532,15 +511,12 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Delete any existing password reset tokens for this user
             _logger.LogInformation("Deleting existing password reset tokens for user: {UserId}", user.UserId);
             await _passwordResetTokenRepository.DeleteAllUserTokensAsync(user.UserId);
 
-            // Generate new reset token
             _logger.LogInformation("Generating new password reset token for user: {UserId}", user.UserId);
             var resetToken = await GeneratePasswordResetTokenAsync(user.UserId);
 
-            // Send reset email
             var resetUrl = _configuration["Frontend:BaseUrl"] + "/reset-password";
             _logger.LogInformation("Attempting to send password reset email to: {Email}", user.Email);
             var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, resetToken.Token, resetUrl);
@@ -579,7 +555,6 @@ public class AuthService : IAuthService
         {
             _logger.LogInformation("Processing password reset request for token: {Token}", request.Token);
 
-            // Validate password strength
             var passwordValidation = _passwordValidationService.ValidatePassword(request.NewPassword);
             if (!passwordValidation.IsValid)
             {
@@ -637,14 +612,12 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Update user password
             _logger.LogInformation("Updating password for user: {UserId}", user.UserId);
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.AuthId = hashedPassword;
 
             await _userRepository.UpdateAsync(user);
 
-            // Mark token as used
             _logger.LogInformation("Marking reset token as used: {Token}", request.Token);
             await _passwordResetTokenRepository.MarkAsUsedAsync(request.Token);
 
@@ -672,7 +645,6 @@ public class AuthService : IAuthService
         {
             _logger.LogInformation("Verifying reset token: {Token}", request.Token);
 
-            // Get the token from database for detailed validation
             var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(request.Token);
 
             if (resetToken == null)
@@ -752,7 +724,6 @@ public class AuthService : IAuthService
 
     }
 
-    // Two-Factor Authentication methods
 
     public async Task<EnhancedAuthResponseDto> LoginWithTwoFactorAsync(LoginRequestDto request)
     {
@@ -768,8 +739,7 @@ public class AuthService : IAuthService
                 };
             }
 
-            // For OAuth users, they don't have a password stored
-            if (user.AuthProvider != "Email")
+                if (user.AuthProvider != "Email")
             {
                 return new EnhancedAuthResponseDto
                 {
@@ -778,7 +748,6 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Verify password
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.AuthId))
             {
                 return new EnhancedAuthResponseDto
@@ -788,8 +757,7 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Check if user is blacklisted
-            if (user.IsBlacklisted == true)
+                if (user.IsBlacklisted == true)
             {
                 return new EnhancedAuthResponseDto
                 {
@@ -798,10 +766,8 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Check if 2FA is enabled
             if (user.TwoFactorEnabled)
             {
-                // Generate login token for 2FA verification
                 var loginToken = _tokenService.GenerateLoginToken(user.UserId);
 
                 return new EnhancedAuthResponseDto
@@ -812,12 +778,10 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Complete login without 2FA
             var userRoles = await _roleService.GetUserRolesAsync(user.UserId);
             var roles = userRoles.Select(r => r.Name).ToList();
             
-            // Ensure user has at least the default role (fix for users created before role assignment was implemented)
-            if (roles.Count == 0)
+                if (roles.Count == 0)
             {
                 _logger.LogInformation("VerifyOtp - User {UserId} has no roles assigned, assigning default role", user.UserId);
                 await _roleService.AssignDefaultRoleToUserAsync(user.UserId);
@@ -868,7 +832,6 @@ public class AuthService : IAuthService
             Guid userId;
             string email;
 
-            // Determine user ID and email
             if (!string.IsNullOrEmpty(request.LoginToken))
             {
                 var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
@@ -916,7 +879,6 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Check rate limiting
             if (!await _rateLimitingService.CanSendOtpAsync(userId, ipAddress))
             {
                 var cooldown = await _rateLimitingService.GetOtpSendCooldownAsync(userId);
@@ -931,10 +893,8 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Send OTP
             var response = await _otpService.SendOtpAsync(userId, request.Type);
 
-            // Record attempt
             await _rateLimitingService.RecordAttemptAsync(userId, email, ipAddress, OtpAttemptTypes.SendOtp, response.Success);
 
             if (response.Success && !string.IsNullOrEmpty(request.LoginToken))
@@ -961,7 +921,6 @@ public class AuthService : IAuthService
         {
             Guid userId;
 
-            // Determine user ID
             if (!string.IsNullOrEmpty(request.LoginToken))
             {
                 var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
@@ -985,17 +944,14 @@ public class AuthService : IAuthService
                 throw new UnauthorizedAccessException("Either login token or email is required");
             }
 
-            // Check rate limiting
             if (!await _rateLimitingService.CanVerifyOtpAsync(userId, ipAddress))
             {
                 await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, false);
                 throw new UnauthorizedAccessException("Too many verification attempts. Please try again later.");
             }
 
-            // Verify OTP
             var isValidOtp = await _otpService.VerifyOtpAsync(userId, request.Code, request.Type);
 
-            // Record attempt
             await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, isValidOtp);
 
             if (!isValidOtp)
@@ -1003,13 +959,10 @@ public class AuthService : IAuthService
                 throw new UnauthorizedAccessException("Invalid or expired verification code");
             }
 
-            // Update 2FA last used
             await _twoFactorService.UpdateLastUsedAsync(userId);
 
-            // Mark OTP as used now that authentication is successful
             await _otpService.MarkOtpAsUsedAsync(userId, request.Code, request.Type);
 
-            // Complete login
             var user = await _userRepository.GetByIdAsync(userId);
             if (user is null)
             {
@@ -1051,7 +1004,6 @@ public class AuthService : IAuthService
         {
             Guid userId;
 
-            // Determine user ID
             if (!string.IsNullOrEmpty(request.LoginToken))
             {
                 var userIdFromToken = await _tokenService.ValidateLoginTokenAsync(request.LoginToken);
@@ -1075,17 +1027,14 @@ public class AuthService : IAuthService
                 throw new UnauthorizedAccessException("Either login token or email is required");
             }
 
-            // Check rate limiting
             if (!await _rateLimitingService.CanVerifyOtpAsync(userId, ipAddress))
             {
                 await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, false);
                 throw new UnauthorizedAccessException("Too many verification attempts. Please try again later.");
             }
 
-            // Verify backup code
             var isValidBackupCode = await _backupCodeService.VerifyAndUseBackupCodeAsync(userId, request.BackupCode);
 
-            // Record attempt
             await _rateLimitingService.RecordAttemptAsync(userId, null, ipAddress, OtpAttemptTypes.VerifyOtp, isValidBackupCode);
 
             if (!isValidBackupCode)
@@ -1093,18 +1042,14 @@ public class AuthService : IAuthService
                 throw new UnauthorizedAccessException("Invalid backup code");
             }
 
-            // Update 2FA last used
             await _twoFactorService.UpdateLastUsedAsync(userId);
 
-            // Get remaining backup codes count
             var user = await _userRepository.GetByIdAsync(userId);
             if (user != null && user.BackupCodesRemaining > 0)
             {
-                // Send notification about backup code usage
                 await _emailService.SendBackupCodeUsedEmailAsync(user.Email, user.BackupCodesRemaining);
             }
 
-            // Complete login
             if (user is null)
             {
                 throw new UnauthorizedAccessException("User not found");

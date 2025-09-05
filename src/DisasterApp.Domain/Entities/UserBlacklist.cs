@@ -36,7 +36,6 @@ public class UserBlacklist
 
     public DateTime UpdatedAt { get; set; }
 
-    // Navigation properties
     public virtual User User { get; set; } = null!;
     public virtual User BlacklistedByUser { get; set; } = null!;
     public virtual User? UnblacklistedByUser { get; set; }

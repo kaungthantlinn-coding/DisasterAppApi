@@ -1,4 +1,4 @@
-using DisasterApp.Application.DTOs; //
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using Microsoft.AspNetCore.Authorization;
@@ -49,7 +49,6 @@ public class AdminController : ControllerBase
         return Ok(new { message = "System settings updated by admin", timestamp = DateTime.UtcNow });
     }
 
-    // Audit Log Endpoints
     [HttpGet("audit-logs")]
     [AdminOnly]
     public async Task<IActionResult> GetAuditLogs([FromQuery] AuditLogFiltersDto filters)

@@ -19,7 +19,6 @@ public class ChatController : ControllerBase
         _context = context;
     }
 
-    // User sends message to CJ
     [HttpPost("send")]
     public async Task<IActionResult> SendMessage([FromForm] SendChatWithFileDto dto)
     {
@@ -27,14 +26,12 @@ public class ChatController : ControllerBase
         {
             if (dto.SenderId == Guid.Empty || dto.ReceiverId == Guid.Empty)
                 return BadRequest("Invalid data");
-            // Message (text) မရှိ၊ attachment (image) မရှိ - error
             if (string.IsNullOrWhiteSpace(dto.Message) && (dto.File == null || dto.File.Length == 0))
                 return BadRequest("Message or image is required");
 
             string? attachmentUrl = null;
             if (dto.File != null && dto.File.Length > 0)
             {
-                // Save file to wwwroot/uploads/chat
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "chat");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
@@ -44,7 +41,6 @@ public class ChatController : ControllerBase
                 {
                     await dto.File.CopyToAsync(stream);
                 }
-                // Save relative path for client access
                 attachmentUrl = $"/uploads/chat/{fileName}";
             }
 
@@ -74,7 +70,6 @@ public class ChatController : ControllerBase
         }
     }
 
-    // CJ gets received messages
     [HttpGet("received/{cjId}")]
     [Authorize(Roles = "cj")]
     public async Task<IActionResult> GetReceivedMessages(Guid cjId)
@@ -99,7 +94,6 @@ public class ChatController : ControllerBase
         return Ok(messages);
     }
 
-    // Mark message as read
     [HttpPost("mark-read/{chatId}")]
     [Authorize(Roles = "cj")]
     public async Task<IActionResult> MarkAsRead(int chatId)
@@ -111,7 +105,6 @@ public class ChatController : ControllerBase
         return Ok();
     }
 
-    // Get conversation between user and CJ
     [HttpGet("conversation")]
     [Authorize]
     public async Task<IActionResult> GetConversation([FromQuery] Guid userId, [FromQuery] Guid cjId)
@@ -123,7 +116,7 @@ public class ChatController : ControllerBase
             .OrderBy(c => c.SentAt)
             .Select(c => new ChatMessageDto
             {
-                Id = Guid.NewGuid(), // Generate new Guid since ChatId is int
+                Id = Guid.NewGuid(),
                 SenderId = c.SenderId,
                 ReceiverId = c.ReceiverId,
                 Message = c.Message ?? string.Empty,

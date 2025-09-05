@@ -17,7 +17,7 @@ public class RoleManagementController : ControllerBase
 
     public RoleManagementController(
         IRoleManagementService roleManagementService,
-        ILogger<RoleManagementController> logger)//
+        ILogger<RoleManagementController> logger)
     {
         _roleManagementService = roleManagementService;
         _logger = logger;
@@ -41,7 +41,6 @@ public class RoleManagementController : ControllerBase
         }
     }
 
-
     [HttpGet("{id}")]
     [SuperAdminOrAdmin]
     public async Task<ActionResult<RoleDto>> GetRole(Guid id)
@@ -62,7 +61,6 @@ public class RoleManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error", type = "SystemError" });
         }
     }
-
 
     [HttpPost]
     [SuperAdminOrAdmin]
@@ -92,7 +90,6 @@ public class RoleManagementController : ControllerBase
             return StatusCode(500, new { message = "Internal server error", type = "SystemError" });
         }
     }
-
 
     [HttpPut("{id}")]
     [SuperAdminOrAdmin]
@@ -134,7 +131,6 @@ public class RoleManagementController : ControllerBase
     {
         try
         {
-            // Get current user information for audit log
             var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
             Guid? adminUserId = currentUserId != null ? Guid.Parse(currentUserId) : null;
@@ -164,7 +160,6 @@ public class RoleManagementController : ControllerBase
         }
     }
 
-  
     [HttpGet("{id}/users")]
     [SuperAdminOrAdmin]
     public async Task<ActionResult<List<RoleUserDto>>> GetRoleUsers(Guid id)

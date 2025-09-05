@@ -2,7 +2,7 @@ using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;//
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
 namespace DisasterApp.WebApi.Controllers;
@@ -128,7 +128,6 @@ public class RoleController : ControllerBase
                 return BadRequest(new { message = "Validation failed", errors });
             }
 
-            // Check if role can be removed before attempting
             var canRemove = await _roleService.CanRemoveRoleAsync(request.UserId, request.RoleName);
             if (!canRemove)
             {

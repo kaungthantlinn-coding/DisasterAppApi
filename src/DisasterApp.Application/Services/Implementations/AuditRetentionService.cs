@@ -3,7 +3,7 @@ using DisasterApp.Domain.Entities;
 using DisasterApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;//
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace DisasterApp.Application.Services.Implementations;
@@ -13,7 +13,6 @@ public class AuditRetentionService : IAuditRetentionService
     private readonly ILogger<AuditRetentionService> _logger;
     private readonly IConfiguration _configuration;
 
-    // Default retention periods in days
     private readonly Dictionary<string, int> _defaultRetentionPeriods = new()
     {
         ["critical"] = 2555, // 7 years
@@ -23,7 +22,6 @@ public class AuditRetentionService : IAuditRetentionService
         ["info"] = 180       // 6 months
     };
 
-    // Categories that require longer retention
     private readonly HashSet<string> _longRetentionCategories = new()
     {
         "financial", "security", "compliance", "legal"
@@ -69,7 +67,6 @@ public class AuditRetentionService : IAuditRetentionService
                     
                     if (!ShouldRetainLog(logAge, log.Severity, category))
                     {
-                        // Mark for deletion or archive
                         await MarkLogForCleanupAsync(log);
                     }
                 }
@@ -100,7 +97,6 @@ public class AuditRetentionService : IAuditRetentionService
 
             var cutoffDate = DateTime.UtcNow.AddDays(-GetMaxRetentionPeriod());
             
-            // Get logs eligible for cleanup in batches
             var deletedCount = 0;
             var batchSize = 500;
 
@@ -114,7 +110,6 @@ public class AuditRetentionService : IAuditRetentionService
                 if (!logsToDelete.Any())
                     break;
 
-                // Export before deletion for compliance
                 await ExportLogsForComplianceAsync(logsToDelete);
 
                 _context.AuditLogs.RemoveRange(logsToDelete);
@@ -173,7 +168,6 @@ public class AuditRetentionService : IAuditRetentionService
     {
         try
         {
-            // Log the incoming policy
             _logger.LogInformation("Retention policy update requested: {Policy}", JsonSerializer.Serialize(policy));
             return true;
         }
@@ -197,7 +191,6 @@ public class AuditRetentionService : IAuditRetentionService
             if (!logsToArchive.Any())
                 return 0;
 
-            // Export to archive format
             var archiveData = JsonSerializer.Serialize(logsToArchive.Select(l => new
             {
                 l.AuditLogId,
@@ -217,11 +210,9 @@ public class AuditRetentionService : IAuditRetentionService
                 l.Metadata
             }));
 
-            // Save to archive location
             var archiveFileName = $"audit_archive_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json";
             _logger.LogInformation("Archived {Count} logs to {FileName}", logsToArchive.Count, archiveFileName);
 
-            // Remove archived logs
             _context.AuditLogs.RemoveRange(logsToArchive);
             await _context.SaveChangesAsync();
 
@@ -283,7 +274,6 @@ public class AuditRetentionService : IAuditRetentionService
     {
         var retentionPeriod = _defaultRetentionPeriods.GetValueOrDefault(severity.ToLowerInvariant(), 365);
 
-        // Extend retention for certain categories
         if (_longRetentionCategories.Any(c => category.Contains(c, StringComparison.OrdinalIgnoreCase)))
         {
             retentionPeriod = Math.Max(retentionPeriod, 2555); // 7 years minimum
@@ -387,7 +377,6 @@ public class AuditRetentionService : IAuditRetentionService
 
     private async Task MarkLogForCleanupAsync(AuditLog log)
     {
-       // Mark log for cleanup
         _logger.LogDebug("Log {LogId} marked for cleanup", log.AuditLogId);
     }
 
@@ -409,7 +398,6 @@ public class AuditRetentionService : IAuditRetentionService
 
     private bool IsProtectedLog(AuditLog log)
     {
-        // Protect critical security logs and financial transactions
         return log.Severity == "critical" || 
                log.Action.Contains("SECURITY", StringComparison.OrdinalIgnoreCase) ||
                log.Action.Contains("FINANCIAL", StringComparison.OrdinalIgnoreCase) ||
@@ -423,7 +411,6 @@ public class AuditRetentionService : IAuditRetentionService
 
     private async Task<DateTime?> GetLastCleanupDateAsync()
     {
-        // This would typically come from a configuration table or log
         return DateTime.UtcNow.AddDays(-1); // Placeholder
     }
 
@@ -437,7 +424,6 @@ public class AuditRetentionService : IAuditRetentionService
             var exportData = await ExportLogsBeforeDeletionAsync(
                 logs.Select(l => l.AuditLogId.ToString()).ToList());
             
-            // In a real implementation, this would save to compliance storage
             _logger.LogInformation("Exported {Count} logs for compliance before deletion", logs.Count);
         }
         catch (Exception ex)
@@ -448,7 +434,6 @@ public class AuditRetentionService : IAuditRetentionService
 
     private string EstimateStorageUsage(int logCount)
     {
-        // Rough estimate: ~2KB per log entry
         var bytes = logCount * 2048;
         
         if (bytes < 1024)

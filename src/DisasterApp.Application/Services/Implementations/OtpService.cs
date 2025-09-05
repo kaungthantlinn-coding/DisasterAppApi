@@ -1,7 +1,7 @@
 using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.Domain.Entities;
-using DisasterApp.Infrastructure.Repositories.Interfaces;//
+using DisasterApp.Infrastructure.Repositories.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
@@ -34,7 +34,6 @@ public class OtpService : IOtpService
     {
         try
         {
-            // Validate user exists
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
@@ -45,15 +44,12 @@ public class OtpService : IOtpService
                 };
             }
 
-            // Invalidate any existing OTP codes of the same type
             await _otpCodeRepository.DeleteByUserAsync(userId, type);
 
-            // Generate new OTP code
             var otpCode = GenerateOtpCode();
             var expiryMinutes = int.Parse(_configuration["TwoFactor:OtpExpiryMinutes"] ?? "5");
             var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 
-            // Create OTP record
             var otpEntity = new OtpCode
             {
                 UserId = userId,
@@ -64,7 +60,6 @@ public class OtpService : IOtpService
 
             await _otpCodeRepository.CreateAsync(otpEntity);
 
-            // Send OTP via email
             var emailSent = await _emailService.SendOtpEmailAsync(email, otpCode);
 
             if (!emailSent)
@@ -101,7 +96,6 @@ public class OtpService : IOtpService
     {
         try
         {
-            // Get user details
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
             {
@@ -129,7 +123,6 @@ public class OtpService : IOtpService
     {
         try
         {
-            // Find the OTP code
             var otpCode = await _otpCodeRepository.GetByUserAndCodeAsync(userId, code, type);
             if (otpCode == null)
             {
@@ -137,24 +130,19 @@ public class OtpService : IOtpService
                 return false;
             }
 
-            // Check if code is still valid
             if (!otpCode.IsValid)
             {
                 _logger.LogWarning("Expired or used OTP code attempt for user {UserId}", userId);
                 return false;
             }
 
-            // Check attempt count
             if (otpCode.HasReachedMaxAttempts)
             {
                 _logger.LogWarning("OTP code has reached maximum attempts for user {UserId}", userId);
                 return false;
             }
 
-            // Increment attempt count
             otpCode.AttemptCount++;
-            
-           //
             await _otpCodeRepository.UpdateAsync(otpCode);
 
             _logger.LogInformation("OTP verified successfully for user {UserId}", userId);
@@ -171,7 +159,6 @@ public class OtpService : IOtpService
     {
         try
         {
-            // Find the OTP code that was previously verified
             var otpCode = await _otpCodeRepository.GetByUserAndCodeAsync(userId, code, type);
             if (otpCode == null)
             {
@@ -179,7 +166,6 @@ public class OtpService : IOtpService
                 return false;
             }
 
-            // Mark as used
             otpCode.UsedAt = DateTime.UtcNow;
             await _otpCodeRepository.UpdateAsync(otpCode);
 

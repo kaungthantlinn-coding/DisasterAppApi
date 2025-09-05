@@ -1,4 +1,4 @@
-﻿using DisasterApp.Application.DTOs;
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services;
 using DisasterApp.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +25,6 @@ namespace DisasterApp.Controllers
             return Ok(photos);
         }
 
-        // POST: api/photo/upload
         [HttpPost("upload")]
         public async Task<IActionResult> UploadPhoto([FromForm] CreatePhotoDto dto)
         {

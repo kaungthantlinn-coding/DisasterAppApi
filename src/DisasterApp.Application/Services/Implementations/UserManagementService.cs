@@ -11,8 +11,7 @@ using iText.Layout;
 using iText.Layout.Element;
 using iText.Layout.Properties;
 using iText.Kernel.Colors;
-using iText.Kernel.Geom;//
-
+using iText.Kernel.Geom;
 
 namespace DisasterApp.Application.Services.Implementations;
 
@@ -40,17 +39,13 @@ public class UserManagementService : IUserManagementService
         _logger = logger;
     }
 
-
-
     public async Task<PagedUserListDto> GetUsersAsync(UserFilterDto filter)
     {
         try
         {
-            // Validate pagination parameters
             filter.PageNumber = Math.Max(1, filter.PageNumber);
             filter.PageSize = Math.Clamp(filter.PageSize, 1, 100);
 
-            // Convert Status filter to IsBlacklisted
             bool? isBlacklistedFilter = filter.IsBlacklisted;
             if (!string.IsNullOrEmpty(filter.Status))
             {
@@ -145,16 +140,13 @@ public class UserManagementService : IUserManagementService
     {
         try
         {
-            // Validate email uniqueness
             if (await _userRepository.ExistsAsync(createUserDto.Email))
             {
                 throw new InvalidOperationException("User with this email already exists");
             }
 
-            // Hash password
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(createUserDto.Password);
 
-            // Create user entity
             var user = new User
             {
                 UserId = Guid.NewGuid(),
@@ -168,10 +160,8 @@ public class UserManagementService : IUserManagementService
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Create user
             var createdUser = await _userRepository.CreateAsync(user);
 
-            // Assign roles
             var assignedRoles = new List<string>();
             if (createUserDto.Roles.Any())
             {
@@ -191,12 +181,10 @@ public class UserManagementService : IUserManagementService
             }
             else
             {
-                // Assign default role if no roles specified
                 await _roleService.AssignDefaultRoleToUserAsync(createdUser.UserId);
-                assignedRoles.Add("user"); // Assuming default role is "user"
+                assignedRoles.Add("user");
             }
 
-            // Add audit logging for user creation
             try
             {
                 await _auditService.LogUserActionAsync(
@@ -223,7 +211,6 @@ public class UserManagementService : IUserManagementService
             _logger.LogInformation("Created user {UserId} with email {Email} and roles {Roles}", 
                 createdUser.UserId, createdUser.Email, string.Join(", ", assignedRoles));
 
-            // Return created user details
             return await GetUserByIdAsync(createdUser.UserId)
                 ?? throw new InvalidOperationException("Failed to retrieve created user");
         }
@@ -244,29 +231,23 @@ public class UserManagementService : IUserManagementService
                 throw new ArgumentException($"User with ID {userId} not found");
             }
 
-            // Validate email uniqueness (excluding current user)
             if (await _userRepository.ExistsAsync(updateUserDto.Email, userId))
             {
                 throw new InvalidOperationException("Another user with this email already exists");
             }
 
-            // Update user properties
             user.Name = updateUserDto.Name;
             user.Email = updateUserDto.Email;
             user.PhotoUrl = updateUserDto.PhotoUrl;
             user.PhoneNumber = updateUserDto.PhoneNumber;
             user.IsBlacklisted = updateUserDto.IsBlacklisted;
 
-            // Update user first
             await _userRepository.UpdateAsync(user);
 
-            // Replace user roles atomically using ReplaceUserRolesAsync
-            // This method handles all role validation and ensures atomic updates
             await _roleService.ReplaceUserRolesAsync(userId, updateUserDto.Roles);
 
             _logger.LogInformation("Updated user {UserId}", userId);
 
-            // Return updated user details
             return await GetUserByIdAsync(userId)
                 ?? throw new InvalidOperationException("Failed to retrieve updated user");
         }
@@ -281,17 +262,14 @@ public class UserManagementService : IUserManagementService
     {
         try
         {
-            // Validate user can be deleted
             var validation = await ValidateUserDeletionAsync(userId);
             if (!validation.CanDelete)
             {
                 throw new InvalidOperationException($"Cannot delete user: {string.Join(", ", validation.Reasons)}");
             }
 
-        
             _logger.LogInformation("Cleaning up tokens for user {UserId} before deletion", userId);
 
-            // Delete all refresh tokens for the user
             try
             {
                 await _refreshTokenRepository.DeleteAllUserTokensAsync(userId);
@@ -302,7 +280,6 @@ public class UserManagementService : IUserManagementService
                 _logger.LogWarning(ex, "Failed to delete refresh tokens for user {UserId}, continuing with deletion", userId);
             }
 
-            // Delete all password reset tokens for the user
             try
             {
                 await _passwordResetTokenRepository.DeleteAllUserTokensAsync(userId);
@@ -313,7 +290,6 @@ public class UserManagementService : IUserManagementService
                 _logger.LogWarning(ex, "Failed to delete password reset tokens for user {UserId}, continuing with deletion", userId);
             }
 
-            // Now delete the user
             var result = await _userRepository.DeleteUserAsync(userId);
             if (result)
             {
@@ -343,7 +319,6 @@ public class UserManagementService : IUserManagementService
             user.IsBlacklisted = true;
             await _userRepository.UpdateAsync(user);
 
-            // Add audit logging for user suspension
             try
             {
                 await _auditService.LogUserActionAsync(
@@ -386,7 +361,6 @@ public class UserManagementService : IUserManagementService
             user.IsBlacklisted = false;
             await _userRepository.UpdateAsync(user);
 
-            // Add audit logging for user reactivation
             try
             {
                 await _auditService.LogUserActionAsync(
@@ -426,13 +400,11 @@ public class UserManagementService : IUserManagementService
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
 
-            // Only allow password change for local auth users
             if (user.AuthProvider != "Email")
             {
                 throw new InvalidOperationException("Cannot change password for non-local authentication users");
             }
 
-            // Hash new password
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(changePasswordDto.NewPassword);
             user.AuthId = hashedPassword;
 
@@ -460,7 +432,6 @@ public class UserManagementService : IUserManagementService
                 case "blacklist":
                     foreach (var user in users)
                     {
-                        // Prevent self-blacklisting
                         if (adminUserId.HasValue && user.UserId == adminUserId.Value)
                         {
                             _logger.LogWarning("Admin {AdminUserId} attempted to blacklist themselves, skipping", adminUserId.Value);
@@ -469,7 +440,6 @@ public class UserManagementService : IUserManagementService
                         user.IsBlacklisted = true;
                         affectedCount++;
 
-                        // Add audit logging for bulk user suspension
                         try
                         {
                             await _auditService.LogUserActionAsync(
@@ -501,7 +471,6 @@ public class UserManagementService : IUserManagementService
                         user.IsBlacklisted = false;
                         affectedCount++;
 
-                        // Add audit logging for bulk user reactivation
                         try
                         {
                             await _auditService.LogUserActionAsync(
@@ -595,7 +564,6 @@ public class UserManagementService : IUserManagementService
             var suspendedUsers = await _userRepository.GetSuspendedUsersCountAsync();
             var adminUsers = await _userRepository.GetAdminUsersCountAsync();
 
-            // Get new users this month and today
             var thisMonth = DateTime.UtcNow.Date.AddDays(1 - DateTime.UtcNow.Day);
             var today = DateTime.UtcNow.Date;
 
@@ -635,21 +603,18 @@ public class UserManagementService : IUserManagementService
                 return validation;
             }
 
-            // Check if user has active disaster reports
             if (user.DisasterReportUsers.Any())
             {
                 validation.HasActiveReports = true;
                 validation.Reasons.Add("User has active disaster reports");
             }
 
-            // Check if user has active support requests
             if (user.SupportRequests.Any())
             {
                 validation.HasActiveRequests = true;
                 validation.Reasons.Add("User has active support requests");
             }
 
-            // Check if user is the last admin
             var isAdmin = user.Roles.Any(r => r.Name.ToLower() == "admin");
             if (isAdmin)
             {
@@ -662,7 +627,6 @@ public class UserManagementService : IUserManagementService
                 }
             }
 
-            // if the user is the last admin, they cannot be deleted
             validation.CanDelete = !validation.IsLastAdmin;
 
             return validation;
@@ -684,34 +648,28 @@ public class UserManagementService : IUserManagementService
                 throw new ArgumentException($"User with ID {userId} not found");
             }
 
-            // Validate role update
             var validation = await ValidateRoleUpdateAsync(userId, updateRolesDto.Roles);
             if (!validation.CanUpdate)
             {
                 throw new InvalidOperationException($"Cannot update roles: {string.Join(", ", validation.Errors)}");
             }
 
-            // Update roles using the existing logic
             var currentRoles = await _roleService.GetUserRolesAsync(userId);
             var currentRoleNames = currentRoles.Select(r => r.Name).ToList();
 
             var rolesToRemove = currentRoleNames.Where(r => !updateRolesDto.Roles.Contains(r)).ToList();
             var rolesToAdd = updateRolesDto.Roles.Where(r => !currentRoleNames.Contains(r)).ToList();
 
-            // Add new roles FIRST to ensure user always has at least one role
             foreach (var roleToAdd in rolesToAdd)
             {
                 await _roleService.AssignRoleToUserAsync(userId, roleToAdd);
             }
 
-            // Remove roles that are no longer assigned (after adding new ones)
             foreach (var roleToRemove in rolesToRemove)
             {
-                // Use direct role removal without individual validation since we've already validated the final state
                 await _roleService.RemoveRoleFromUserDirectAsync(userId, roleToRemove);
             }
 
-            // Log the overall role update
             if (rolesToAdd.Any() || rolesToRemove.Any())
             {
                 await _auditService.LogRoleUpdateAsync(userId, currentRoleNames, updateRolesDto.Roles, null, "System", null, null, updateRolesDto.Reason);
@@ -720,7 +678,6 @@ public class UserManagementService : IUserManagementService
             _logger.LogInformation("Updated roles for user {UserId}. Added: {AddedRoles}, Removed: {RemovedRoles}",
                 userId, string.Join(", ", rolesToAdd), string.Join(", ", rolesToRemove));
 
-            // Return updated user details
             return await GetUserByIdAsync(userId)
                 ?? throw new InvalidOperationException("Failed to retrieve updated user");
         }
@@ -748,7 +705,6 @@ public class UserManagementService : IUserManagementService
             var currentRoleNames = user.Roles.Select(r => r.Name).ToList();
             var rolesToRemove = currentRoleNames.Where(r => !newRoles.Contains(r)).ToList();
 
-            // Check if removing admin role from last admin
             if (rolesToRemove.Contains("admin", StringComparer.OrdinalIgnoreCase))
             {
                 var adminCount = await _roleService.GetAdminCountAsync();
@@ -762,14 +718,12 @@ public class UserManagementService : IUserManagementService
                 }
             }
 
-            // Check if removing all roles
             if (!newRoles.Any())
             {
                 validation.CanUpdate = false;
                 validation.Errors.Add("User must have at least one role assigned");
             }
 
-            // Validate that all new roles exist
             var allRoles = await _roleService.GetAllRolesAsync();
             var validRoleNames = allRoles.Select(r => r.Name).ToList();
             var invalidRoles = newRoles.Where(r => !validRoleNames.Contains(r, StringComparer.OrdinalIgnoreCase)).ToList();
@@ -780,7 +734,6 @@ public class UserManagementService : IUserManagementService
                 validation.Errors.Add($"Invalid roles: {string.Join(", ", invalidRoles)}");
             }
 
-            // Add warnings for significant role changes
             if (rolesToRemove.Contains("admin", StringComparer.OrdinalIgnoreCase) && !validation.IsLastAdmin)
             {
                 validation.Warnings.Add("Removing admin privileges from user");
@@ -804,19 +757,15 @@ public class UserManagementService : IUserManagementService
     {
         try
         {
-            // Get filtered users data
             var users = await GetFilteredUsersForExportAsync(exportRequest.Filters);
 
-            // Convert to export format with field filtering
             var exportItems = new List<Dictionary<string, object?>>();
             foreach (var user in users)
             {
-                // Get detailed user info for statistics
                 var userDetails = await GetUserByIdAsync(user.UserId);
                 
                 var exportItem = new Dictionary<string, object?>();
                 
-                // Add fields based on request
                 if (exportRequest.Fields.Contains("name") || !exportRequest.Fields.Any())
                     exportItem["name"] = user.Name;
                     
@@ -853,14 +802,13 @@ public class UserManagementService : IUserManagementService
                 exportItems.Add(exportItem);
             }
 
-            // Generate export based on format
             return exportRequest.Format.ToLower() switch
             {
                 "json" => GenerateJsonExport(exportItems),
                 "csv" => GenerateCsvExport(exportItems),
                 "excel" => GenerateExcelExport(exportItems),
                 "pdf" => GeneratePdfExport(exportItems),
-                _ => GenerateCsvExport(exportItems) // Default to CSV
+                _ => GenerateCsvExport(exportItems)
             };
         }
         catch (Exception ex)
@@ -874,7 +822,6 @@ public class UserManagementService : IUserManagementService
     {
         try
         {
-            // Create a filter DTO for the existing GetUsersAsync method
             var filterDto = new UserFilterDto
             {
                 PageSize = int.MaxValue,
@@ -883,7 +830,6 @@ public class UserManagementService : IUserManagementService
                 Status = filters.Status?.Trim().ToLowerInvariant()
             };
 
-            // Map status values: frontend "suspended" -> backend "Suspended"
             if (!string.IsNullOrEmpty(filterDto.Status))
             {
                 filterDto.Status = filterDto.Status switch
@@ -923,11 +869,9 @@ public class UserManagementService : IUserManagementService
         
         if (!users.Any()) return Encoding.UTF8.GetBytes("");
         
-        // Add header based on available fields
         var headers = users.First().Keys.ToList();
         csv.AppendLine(string.Join(",", headers));
         
-        // Add data rows
         foreach (var user in users)
         {
             var values = headers.Select(header => 
@@ -943,8 +887,6 @@ public class UserManagementService : IUserManagementService
 
     private byte[] GenerateExcelExport(List<Dictionary<string, object?>> users)
     {
-        // For now, return CSV format as Excel implementation would require additional packages
-        // In a real implementation, you would use libraries like EPPlus or ClosedXML
         return GenerateCsvExport(users);
     }
 
@@ -956,7 +898,6 @@ public class UserManagementService : IUserManagementService
         var document = new Document(pdf, PageSize.A4.Rotate());
         document.SetMargins(10, 10, 10, 10);
         
-        // Add title
         var title = new Paragraph($"Disaster Watch - Users Export - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}")
             .SetFontSize(16)
             .SetBold()
@@ -971,20 +912,17 @@ public class UserManagementService : IUserManagementService
             return memoryStream.ToArray();
         }
         
-        // Get headers from first user
         var headers = users.First().Keys.ToList();
         var columnCount = headers.Count;
         
-        // Create dynamic column widths
         var widths = new float[columnCount];
         for (int i = 0; i < columnCount; i++)
         {
-            widths[i] = 100f / columnCount; // Equal width distribution
+            widths[i] = 100f / columnCount;
         }
         
         var table = new Table(widths).UseAllAvailableWidth();
         
-        // Add headers
         foreach (var header in headers)
         {
             var cell = new Cell()
@@ -997,14 +935,12 @@ public class UserManagementService : IUserManagementService
             table.AddCell(cell);
         }
         
-        // Add data rows
         foreach (var user in users)
         {
             foreach (var header in headers)
             {
                 var value = user.ContainsKey(header) ? user[header]?.ToString() ?? "" : "";
                 
-                // Format specific fields
                 if (header == "createdAt" && DateTime.TryParse(value, out var date))
                 {
                     value = date.ToString("yyyy-MM-dd");
@@ -1015,7 +951,6 @@ public class UserManagementService : IUserManagementService
                     .SetFontSize(7)
                     .SetPadding(3);
                     
-                // Right-align numeric fields
                 if (header.Contains("Reports") || header.Contains("Requests") || 
                     header.Contains("Donations") || header.Contains("Organizations"))
                 {
@@ -1028,7 +963,6 @@ public class UserManagementService : IUserManagementService
         
         document.Add(table);
         
-        // Add footer
         var footer = new Paragraph($"Total Users: {users.Count} | Generated on: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC")
             .SetFontSize(8)
             .SetTextAlignment(TextAlignment.CENTER)
@@ -1046,11 +980,9 @@ public class UserManagementService : IUserManagementService
         if (string.IsNullOrEmpty(field))
             return string.Empty;
             
-        // Escape quotes by doubling them
         return field.Replace("\"", "\"\"");
     }
 
-    // Analytics methods implementation
     public async Task<UserStatisticsResponseDto> GetUserStatisticsAsync()
     {
         try
@@ -1060,7 +992,6 @@ public class UserManagementService : IUserManagementService
             var suspendedUsers = await _userRepository.GetSuspendedUsersCountAsync();
             var adminUsers = await _userRepository.GetAdminUsersCountAsync();
 
-            // Get new users this month and last month
             var thisMonth = DateTime.UtcNow.Date.AddDays(1 - DateTime.UtcNow.Day);
             var lastMonth = thisMonth.AddMonths(-1);
             var twoMonthsAgo = lastMonth.AddMonths(-1);
@@ -1099,23 +1030,19 @@ public class UserManagementService : IUserManagementService
                 var monthStart = currentDate.AddMonths(-i).AddDays(1 - currentDate.AddMonths(-i).Day);
                 var monthEnd = monthStart.AddMonths(1).AddDays(-1);
                 
-                // Get new users for this month
                 var (newUsers, newUsersCount) = await _userRepository.GetUsersAsync(
                     1, int.MaxValue, createdAfter: monthStart, createdBefore: monthEnd.AddDays(1));
                 
-                // Get active users (users who have logged in during this month)
-                // For now, we'll use total users as active users since we don't have last_login tracking
                 var (allUsers, totalCount) = await _userRepository.GetUsersAsync(
                     1, int.MaxValue, createdBefore: monthEnd.AddDays(1));
                 
-                // Get suspended users count for this month
                 var suspendedCount = await _userRepository.GetSuspendedUsersCountAsync();
                 
                 trends.Add(new UserTrendDataDto
                 {
                     Month = monthStart.ToString("yyyy-MM"),
                     NewUsers = newUsersCount,
-                    ActiveUsers = totalCount, // This would ideally be users active in this month
+                    ActiveUsers = totalCount,
                     SuspendedUsers = suspendedCount
                 });
             }
@@ -1140,12 +1067,10 @@ public class UserManagementService : IUserManagementService
             var totalUsers = await _userRepository.GetTotalUsersCountAsync();
             var roleDistribution = new List<RoleDistributionItemDto>();
 
-            // Get all roles and calculate their user counts
             var allRoles = await _roleService.GetAllRolesAsync();
             
             foreach (var role in allRoles)
             {
-                // Get users with this specific role
                 var (users, userCount) = await _userRepository.GetUsersAsync(
                     1, int.MaxValue, role: role.Name);
                 

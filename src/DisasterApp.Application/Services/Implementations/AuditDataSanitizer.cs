@@ -27,7 +27,6 @@ public class AuditDataSanitizer : IAuditDataSanitizer
         if (HasSensitiveDataAccess(userRole))
             return data;      // No sanitization for SuperAdmin and Admin roles
 
-        // Apply sanitization for other roles
         var sanitized = data;
         sanitized = RedactEmailAddresses(sanitized);
         sanitized = RedactPhoneNumbers(sanitized);
@@ -72,7 +71,6 @@ public class AuditDataSanitizer : IAuditDataSanitizer
 
         var masked = details;
 
-        // Mask common sensitive patterns
         masked = Regex.Replace(masked, @"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b", "****-****-****-****", RegexOptions.IgnoreCase);
         masked = Regex.Replace(masked, @"\b\d{3}-\d{2}-\d{4}\b", "***-**-****", RegexOptions.IgnoreCase);
         masked = Regex.Replace(masked, @"password[:\s]*[^\s,]+", "password: [REDACTED]", RegexOptions.IgnoreCase);
@@ -97,7 +95,6 @@ public class AuditDataSanitizer : IAuditDataSanitizer
             var key = kvp.Key.ToLowerInvariant();
             var value = kvp.Value?.ToString() ?? "";
 
-            // Redact sensitive metadata keys
             if (IsSensitiveMetadataKey(key))
             {
                 sanitized[kvp.Key] = "[REDACTED]";
@@ -155,7 +152,6 @@ public class AuditDataSanitizer : IAuditDataSanitizer
         if (string.IsNullOrWhiteSpace(text))
             return text;
 
-        // Only redact IP addresses for non-admin users
         if (HasSensitiveDataAccess(userRole))
             return text;
 

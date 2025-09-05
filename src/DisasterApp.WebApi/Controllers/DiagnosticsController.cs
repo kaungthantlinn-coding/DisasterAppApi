@@ -10,7 +10,7 @@ namespace DisasterApp.WebApi.Controllers;
 public class DiagnosticsController : ControllerBase
 {
     private readonly DisasterDbContext _context;
-    private readonly ILogger<DiagnosticsController> _logger;//
+    private readonly ILogger<DiagnosticsController> _logger;
 
     public DiagnosticsController(DisasterDbContext context, ILogger<DiagnosticsController> logger)
     {
@@ -24,38 +24,32 @@ public class DiagnosticsController : ControllerBase
     {
         try
         {
-            // Get total count
             var totalLogs = await _context.AuditLogs.CountAsync();
 
-            // Get distinct actions
             var distinctActions = await _context.AuditLogs
                 .Select(a => a.Action)
                 .Distinct()
                 .OrderBy(a => a)
                 .ToListAsync();
 
-            // Get distinct entity types
             var distinctEntityTypes = await _context.AuditLogs
                 .Select(a => a.EntityType)
                 .Distinct()
                 .OrderBy(e => e)
                 .ToListAsync();
 
-            // Get action counts
             var actionCounts = await _context.AuditLogs
                 .GroupBy(a => a.Action)
                 .Select(g => new { Action = g.Key, Count = g.Count() })
                 .OrderByDescending(x => x.Count)
                 .ToListAsync();
 
-            // Get entity type counts
             var entityTypeCounts = await _context.AuditLogs
                 .GroupBy(a => a.EntityType)
                 .Select(g => new { EntityType = g.Key, Count = g.Count() })
                 .OrderByDescending(x => x.Count)
                 .ToListAsync();
 
-            // Get recent sample logs
             var sampleLogs = await _context.AuditLogs
                 .OrderByDescending(a => a.Timestamp)
                 .Take(10)
@@ -71,7 +65,6 @@ public class DiagnosticsController : ControllerBase
                 })
                 .ToListAsync();
 
-            // Check for USER_SUSPENDED logs specifically
             var userSuspendedLogs = await _context.AuditLogs
                 .Where(a => a.Action.Contains("USER_SUSPENDED") || a.Action.Contains("USER_DEACTIVATED"))
                 .Select(a => new
@@ -172,14 +165,13 @@ public class DiagnosticsController : ControllerBase
     {
         try
         {
-            // Test the exact same filters from the log message
             var filters = new
             {
                 Page = 1,
                 PageSize = 10000,
                 Search = (string?)null,
                 Severity = (string?)null,
-                Action = "", // Empty to see all actions first
+                Action = "",
                 TargetType = "Security,System",
                 DateFrom = (DateTime?)null,
                 DateTo = (DateTime?)null,
@@ -192,7 +184,6 @@ public class DiagnosticsController : ControllerBase
             
             _logger.LogInformation("Debug: Total logs in database: {Count}", totalCount);
 
-            // Test Action filter
             var actionQuery = _context.AuditLogs.AsQueryable();
             if (!string.IsNullOrEmpty(filters.Action))
             {
@@ -203,7 +194,6 @@ public class DiagnosticsController : ControllerBase
             var actionCount = await actionQuery.CountAsync();
             _logger.LogInformation("Debug: Logs matching action filter: {Count}", actionCount);
 
-            // Test TargetType filter
             var targetTypeQuery = _context.AuditLogs.AsQueryable();
             if (!string.IsNullOrEmpty(filters.TargetType))
             {
@@ -214,7 +204,6 @@ public class DiagnosticsController : ControllerBase
             var targetTypeCount = await targetTypeQuery.CountAsync();
             _logger.LogInformation("Debug: Logs matching target type filter: {Count}", targetTypeCount);
 
-            // Test combined filters
             var combinedQuery = _context.AuditLogs.AsQueryable();
             if (!string.IsNullOrEmpty(filters.Action))
             {
@@ -231,7 +220,6 @@ public class DiagnosticsController : ControllerBase
             var combinedCount = await combinedQuery.CountAsync();
             _logger.LogInformation("Debug: Logs matching combined filters: {Count}", combinedCount);
 
-            // Get all distinct actions that contain authentication-related terms
             var authActions = await _context.AuditLogs
                 .Where(a => a.Action.ToUpper().Contains("LOGIN") || 
                            a.Action.ToUpper().Contains("AUTH") || 
@@ -242,7 +230,6 @@ public class DiagnosticsController : ControllerBase
                 .Distinct()
                 .ToListAsync();
 
-            // Get top 20 most common actions to see what's actually in the database
             var topActions = await _context.AuditLogs
                 .GroupBy(a => a.Action)
                 .Select(g => new { Action = g.Key, Count = g.Count() })
@@ -250,7 +237,6 @@ public class DiagnosticsController : ControllerBase
                 .Take(20)
                 .ToListAsync();
 
-            // Get all distinct entity types
             var allEntityTypes = await _context.AuditLogs
                 .Select(a => a.EntityType)
                 .Distinct()

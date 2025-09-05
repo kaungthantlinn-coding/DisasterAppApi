@@ -1,4 +1,4 @@
-using DisasterApp.Application.DTOs;//
+using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
 using DisasterApp.WebApi.Authorization;
 using Microsoft.AspNetCore.Authorization;
@@ -33,7 +33,6 @@ public class AuditLogsController : ControllerBase
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null)
     {
-        // Validate parameters
         if (page <= 0)
             return BadRequest(new { message = "Page must be greater than 0" });
         
@@ -45,7 +44,7 @@ public class AuditLogsController : ControllerBase
             var filters = new AuditLogFiltersDto
             {
                 Page = page,
-                PageSize = Math.Min(limit, 100), // Cap at 100 records per page
+                PageSize = Math.Min(limit, 100),
                 Search = search,
                 Severity = severity,
                 Action = action,
@@ -56,7 +55,6 @@ public class AuditLogsController : ControllerBase
 
             var result = await _auditService.GetLogsAsync(filters);
             
-            // Transform to match the required response format
             var response = new
             {
                 logs = result.Logs.Select(log => new
@@ -78,7 +76,6 @@ public class AuditLogsController : ControllerBase
                 totalPages = (int)Math.Ceiling((double)result.TotalCount / result.PageSize)
             };
             
-            // Log admin access to audit logs
             var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(currentUserId, out var adminUserId))
             {
@@ -110,11 +107,10 @@ public class AuditLogsController : ControllerBase
         {
             var stats = await _auditService.GetStatisticsAsync();
             
-            // Transform to match the required response format
             var response = new
             {
                 totalLogs = stats.TotalLogs,
-                todayLogs = stats.RecentActivity, // Using RecentActivity as proxy for today's logs
+                todayLogs = stats.RecentActivity,
                 criticalAlerts = stats.CriticalAlerts,
                 activeUsers = await GetActiveUsersCountAsync()
             };
@@ -151,7 +147,7 @@ public class AuditLogsController : ControllerBase
             var filters = new AuditLogFiltersDto
             {
                 Page = page,
-                PageSize = Math.Min(limit, 10000), // Cap at 10000 for exports
+                PageSize = Math.Min(limit, 10000),
                 Search = search,
                 Severity = severity,
                 Action = action,
@@ -165,7 +161,6 @@ public class AuditLogsController : ControllerBase
             var contentType = format.ToLower() == "csv" ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             var fileName = $"audit-logs-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.{format.ToLower()}";
             
-            // Log export action
             var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(currentUserId, out var adminUserId))
             {
@@ -194,12 +189,12 @@ public class AuditLogsController : ControllerBase
     {
         try
         {
-            // Get count of unique users who have logged actions in the last 24 hours
+            
             var yesterday = DateTime.UtcNow.AddDays(-1);
             var filters = new AuditLogFiltersDto
             {
                 DateFrom = yesterday,
-                PageSize = 1000 // Get enough to count unique users
+                PageSize = 1000 
             };
             
             var result = await _auditService.GetLogsAsync(filters);

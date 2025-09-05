@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using DisasterApp.Application.DTOs;
 using DisasterApp.Application.Services.Interfaces;
-using System.Linq;//
+using System.Linq;
 
 namespace DisasterApp.WebApi.Hubs;
 
@@ -39,7 +39,6 @@ public class UserStatsHub : Hub
     {
         try
         {
-            // Trigger data refresh and send updated data
             var chartData = await GetLatestChartData();
             await Clients.Caller.SendAsync("ChartDataUpdated", chartData);
             
@@ -79,12 +78,10 @@ public class UserStatsHub : Hub
     {
         try
         {
-            // Get the latest statistics and role distribution
             var userStats = await _userManagementService.GetUserStatisticsAsync();
             var roleDistribution = await _userManagementService.GetRoleDistributionAsync();
             var trends = await _userManagementService.GetUserActivityTrendsAsync();
 
-            // Convert to the format expected by the frontend
             var monthlyData = trends.Data.Select(t => new MonthlyData
             {
                 Month = t.Month,
