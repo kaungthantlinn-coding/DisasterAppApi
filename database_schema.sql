@@ -56,7 +56,7 @@ CREATE UNIQUE INDEX [UQ_SupportType_Name] ON [SupportType] ([name]);
 -- User Table
 CREATE TABLE [User] (
     [user_id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    [auth_provider] NVARCHAR(50) NOT NULL,
+    [auth_provider] NVARCHAR(20) NOT NULL,
     [auth_id] NVARCHAR(255) NOT NULL,
     [name] NVARCHAR(100) NOT NULL,
     [email] NVARCHAR(255) NOT NULL,
@@ -64,6 +64,9 @@ CREATE TABLE [User] (
     [phone_number] NVARCHAR(20) NULL,
     [is_blacklisted] BIT NULL DEFAULT 0,
     [created_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
+    [two_factor_enabled] BIT NOT NULL DEFAULT 0,
+    [backup_codes_remaining] INT NOT NULL DEFAULT 0,
+    [two_factor_last_used] DATETIME2 NULL,
     CONSTRAINT [PK_User_UserId] PRIMARY KEY ([user_id])
 );
 
@@ -187,10 +190,17 @@ CREATE TABLE [ImpactDetail] (
     [severity] NVARCHAR(50) NULL, -- Enum: Low, Medium, High, Critical
     [is_resolved] BIT NULL DEFAULT 0,
     [resolved_at] DATETIME2 NULL,
-    [impact_type_id] INT NOT NULL,
     CONSTRAINT [PK_ImpactDetail_Id] PRIMARY KEY ([id]),
-    CONSTRAINT [FK_ImpactDetail_ImpactType] FOREIGN KEY ([impact_type_id]) REFERENCES [ImpactType] ([id]),
     CONSTRAINT [FK_ImpactDetail_Report] FOREIGN KEY ([report_id]) REFERENCES [DisasterReport] ([id])
+);
+
+-- ImpactDetailImpactType Junction Table (Many-to-Many)
+CREATE TABLE [ImpactDetailImpactType] (
+    [ImpactDetailId] INT NOT NULL,
+    [ImpactTypeId] INT NOT NULL,
+    CONSTRAINT [PK_ImpactDetailImpactType] PRIMARY KEY ([ImpactDetailId], [ImpactTypeId]),
+    CONSTRAINT [FK_ImpactDetailImpactType_ImpactDetail] FOREIGN KEY ([ImpactDetailId]) REFERENCES [ImpactDetail] ([id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_ImpactDetailImpactType_ImpactType] FOREIGN KEY ([ImpactTypeId]) REFERENCES [ImpactType] ([id]) ON DELETE CASCADE
 );
 
 -- SupportRequest Table
@@ -203,11 +213,18 @@ CREATE TABLE [SupportRequest] (
     [user_id] UNIQUEIDENTIFIER NOT NULL,
     [created_at] DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
     [updated_at] DATETIME2 NULL,
-    [support_type_id] INT NOT NULL,
     CONSTRAINT [PK_SupportRequest_Id] PRIMARY KEY ([id]),
     CONSTRAINT [FK_SupportRequest_Report] FOREIGN KEY ([report_id]) REFERENCES [DisasterReport] ([id]),
-    CONSTRAINT [FK_SupportRequest_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]),
-    CONSTRAINT [FK_SupportRequest_SupportType] FOREIGN KEY ([support_type_id]) REFERENCES [SupportType] ([id])
+    CONSTRAINT [FK_SupportRequest_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id])
+);
+
+-- SupportRequestSupportType Junction Table (Many-to-Many)
+CREATE TABLE [SupportRequestSupportType] (
+    [SupportRequestId] INT NOT NULL,
+    [SupportTypeId] INT NOT NULL,
+    CONSTRAINT [PK_SupportRequestSupportType] PRIMARY KEY ([SupportRequestId], [SupportTypeId]),
+    CONSTRAINT [FK_SupportRequestSupportType_SupportRequest] FOREIGN KEY ([SupportRequestId]) REFERENCES [SupportRequest] ([id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_SupportRequestSupportType_SupportType] FOREIGN KEY ([SupportTypeId]) REFERENCES [SupportType] ([id]) ON DELETE CASCADE
 );
 
 -- =====================================================
@@ -267,15 +284,16 @@ CREATE TABLE [Donation] (
     [id] INT IDENTITY(1,1) NOT NULL,
     [user_id] UNIQUEIDENTIFIER NOT NULL,
     [organization_id] INT NOT NULL,
-    [donor_name] NVARCHAR(255) NOT NULL,
+    [donor_name] NVARCHAR(100) NOT NULL,
     [donor_contact] NVARCHAR(255) NULL,
     [donation_type] NVARCHAR(100) NOT NULL,
-    [amount] DECIMAL(18,2) NULL,
+    [amount] DECIMAL(12,2) NULL,
     [description] NVARCHAR(MAX) NOT NULL,
-    [received_at] DATETIME2 NOT NULL,
+    [received_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     [status] NVARCHAR(50) NULL,
     [verified_by] UNIQUEIDENTIFIER NULL,
     [verified_at] DATETIME2 NULL,
+    [transaction_photo_url] NVARCHAR(512) NULL,
     CONSTRAINT [PK_Donation_Id] PRIMARY KEY ([id]),
     CONSTRAINT [FK_Donation_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]),
     CONSTRAINT [FK_Donation_Organization] FOREIGN KEY ([organization_id]) REFERENCES [Organization] ([id]),
@@ -309,12 +327,15 @@ CREATE TABLE [AuditLog] (
     CONSTRAINT [FK_AuditLog_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id])
 );
 
--- Create indexes for performance optimization on AuditLog table
-CREATE INDEX [IX_AuditLog_Timestamp] ON [AuditLog] ([timestamp] DESC);
-CREATE INDEX [IX_AuditLog_UserId] ON [AuditLog] ([user_id]);
-CREATE INDEX [IX_AuditLog_Action] ON [AuditLog] ([action]);
-CREATE INDEX [IX_AuditLog_Severity] ON [AuditLog] ([severity]);
-CREATE INDEX [IX_AuditLog_Resource] ON [AuditLog] ([resource]);
+-- Create performance indexes for AuditLog table (optimized for queries)
+CREATE INDEX [IX_AuditLog_Timestamp_DESC] ON [AuditLog] ([timestamp] DESC) 
+    INCLUDE ([audit_log_id], [action], [severity], [details], [user_id], [user_name], [ip_address], [user_agent], [resource], [metadata]);
+CREATE INDEX [IX_AuditLog_UserId_Timestamp] ON [AuditLog] ([user_id], [timestamp] DESC) WHERE [user_id] IS NOT NULL;
+CREATE INDEX [IX_AuditLog_Severity_Timestamp] ON [AuditLog] ([severity], [timestamp] DESC);
+CREATE INDEX [IX_AuditLog_Action_Timestamp] ON [AuditLog] ([action], [timestamp] DESC);
+CREATE INDEX [IX_AuditLog_Resource_Timestamp] ON [AuditLog] ([resource], [timestamp] DESC);
+CREATE INDEX [IX_AuditLog_EntityType_Timestamp] ON [AuditLog] ([entity_type], [timestamp] DESC);
+CREATE INDEX [IX_AuditLog_Search] ON [AuditLog] ([user_name], [action], [timestamp] DESC) INCLUDE ([details]);
 
 -- =====================================================
 -- 10. INITIAL DATA SEEDING
@@ -487,16 +508,42 @@ CREATE TABLE [dbo].[Notifications] (
     CONSTRAINT [FK_Notifications_Users] FOREIGN KEY ([UserId]) 
         REFERENCES [dbo].[User] ([user_id]) ON DELETE CASCADE,
     CONSTRAINT [FK_Notifications_DisasterReports] FOREIGN KEY ([DisasterReportId]) 
-        REFERENCES [dbo].[DisasterReports] ([Id]) ON DELETE CASCADE
+        REFERENCES [dbo].[DisasterReport] ([id]) ON DELETE CASCADE
 );
 
 
 -- Create indexes for performance
 CREATE INDEX [IX_Notifications_UserId] ON [dbo].[Notifications] ([UserId]);
 CREATE INDEX [IX_Notifications_DisasterReportId] ON [dbo].[Notifications] ([DisasterReportId]);
+CREATE INDEX [IX_Notifications_CreatedAt] ON [dbo].[Notifications] ([CreatedAt]);
+CREATE INDEX [IX_Notifications_Type] ON [dbo].[Notifications] ([Type]);
 
-ALTER TABLE [DisasterReport] 
-ADD [notification_sent] BIT NOT NULL DEFAULT 0;
+-- =====================================================
+-- 14. USER BLACKLIST TABLE
+-- =====================================================
+
+-- UserBlacklist Table (User blacklist management)
+CREATE TABLE [UserBlacklist] (
+    [id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [user_id] UNIQUEIDENTIFIER NOT NULL,
+    [reason] NVARCHAR(1000) NOT NULL,
+    [blacklisted_by] UNIQUEIDENTIFIER NOT NULL,
+    [blacklisted_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    [unblacklisted_by] UNIQUEIDENTIFIER NULL,
+    [unblacklisted_at] DATETIME2 NULL,
+    [is_active] BIT NOT NULL DEFAULT 1,
+    [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    [updated_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT [PK_UserBlacklist_Id] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_UserBlacklist_User] FOREIGN KEY ([user_id]) REFERENCES [User] ([user_id]),
+    CONSTRAINT [FK_UserBlacklist_BlacklistedBy] FOREIGN KEY ([blacklisted_by]) REFERENCES [User] ([user_id]),
+    CONSTRAINT [FK_UserBlacklist_UnblacklistedBy] FOREIGN KEY ([unblacklisted_by]) REFERENCES [User] ([user_id])
+);
+
+-- Create indexes on UserBlacklist table
+CREATE INDEX [IX_UserBlacklist_UserId] ON [UserBlacklist] ([user_id]);
+CREATE INDEX [IX_UserBlacklist_IsActive] ON [UserBlacklist] ([is_active]);
+CREATE INDEX [IX_UserBlacklist_BlacklistedAt] ON [UserBlacklist] ([blacklisted_at]);
 
 -- =====================================================
 -- END OF SCHEMA CREATION
